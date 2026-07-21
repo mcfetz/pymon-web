@@ -323,7 +323,18 @@
 
         <div class="detail-header">
           <h3>{selectedAgent}</h3>
-          <button class="btn-danger" onclick={() => handleDeleteAgent(selectedAgent)}>Löschen</button>
+          <div style="display:flex;gap:0.3rem;">
+            <button class="btn-dup" onclick={async () => {
+              const a = agents[selectedAgent];
+              const newId = selectedAgent + '_copy';
+              await createAgent(newId, a.groups);
+              for (const [plugin, cfg] of Object.entries(a.plugins || {})) {
+                await setAgentPluginConfig(newId, plugin, cfg);
+              }
+              await load();
+            }}>Duplizieren</button>
+            <button class="btn-danger" onclick={() => handleDeleteAgent(selectedAgent)}>Löschen</button>
+          </div>
         </div>
 
         <!-- Install Command -->
@@ -417,6 +428,11 @@
         <div class="rule-actions">
           <span class="rule-status" class:active={rule.enabled}>{rule.enabled ? 'Aktiv' : 'Inaktiv'}</span>
           <button class="btn-edit" onclick={() => editRule(rule.id)}>Bearbeiten</button>
+          <button class="btn-dup" onclick={async () => {
+            const copy = { ...rule, id: rule.id + '_copy' };
+            await saveRule(copy.id, copy);
+            rules = await fetchRules();
+          }}>Duplizieren</button>
           <button class="btn-del" onclick={() => handleDeleteRule(rule.id)}>Löschen</button>
         </div>
       </div>
@@ -437,6 +453,11 @@
         <div class="rule-desc" style="font-family:monospace;font-size:0.8rem;">{exec.command || '—'}</div>
         <div class="rule-actions">
           <button class="btn-edit" onclick={() => editExec(exec.id)}>Bearbeiten</button>
+          <button class="btn-dup" onclick={async () => {
+            const copy = { ...exec, id: exec.id + '_copy' };
+            await saveExecutor(copy.id, copy);
+            executors = await fetchExecutors();
+          }}>Duplizieren</button>
           <button class="btn-del" onclick={() => handleDeleteExec(exec.id)}>Löschen</button>
         </div>
       </div>
@@ -458,6 +479,11 @@
         </div>
         <div class="rule-actions">
           <button class="btn-edit" onclick={() => editNotify(n.id)}>Bearbeiten</button>
+          <button class="btn-dup" onclick={async () => {
+            const copy = { ...n, id: n.id + '_copy' };
+            await saveNotification(copy.id, copy);
+            notifications = await fetchNotifications();
+          }}>Duplizieren</button>
           <button class="btn-del" onclick={() => handleDeleteNotify(n.id)}>Löschen</button>
         </div>
       </div>
@@ -498,6 +524,7 @@
           <div class="plugin-desc">{p.description || '—'}</div>
           <div class="rule-actions">
             <a href="/api/admin/plugins/{p.name}/source" download="{p.name}.py" style="font-size:0.78rem;color:#4361ee;text-decoration:none;" onclick={(e) => e.stopPropagation()}>Download</a>
+            <button class="btn-dup" onclick={(e) => { e.stopPropagation(); const newName = p.name + '_copy'; fetchPluginSource(p.name).then(src => fetch('/api/admin/plugins/' + newName + '/source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: src })).then(() => fetchAdminPlugins().then(r => pluginList = r)); }}>Duplizieren</button>
             <button class="btn-del" onclick={(e) => { e.stopPropagation(); if (confirm(`Plugin ${p.name} löschen?`)) deletePlugin(p.name).then(() => fetchAdminPlugins().then(r => pluginList = r)); }}>Löschen</button>
           </div>
         </div>
@@ -524,7 +551,9 @@
           <button class="btn-cancel" onclick={() => { selPluginName = null; pluginSource = ''; checkResult = null; }}>Schließen</button>
         </div>
       </div>
-      <CodeEditor bind:value={pluginSource} onchange={(v) => { pluginSource = v; pluginSourceDirty = true; }} />
+      {#key selPluginName}
+      <CodeEditor value={pluginSource} onchange={(v) => { pluginSource = v; pluginSourceDirty = true; }} />
+    {/key}
       {#if checkResult}
         <div class="check-result" class:ok={checkResult.ok}>
           {#if checkResult.ok}
@@ -795,6 +824,7 @@
   .rule-status { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 3px; background: #fed7d7; color: #c53030; }
   .rule-status.active { background: #c6f6d5; color: #276749; }
   .btn-edit { background: none; border: none; color: #4361ee; cursor: pointer; font-size: 0.78rem; }
+  .btn-dup { background: none; border: none; color: #805ad5; cursor: pointer; font-size: 0.78rem; }
   .btn-del { background: none; border: none; color: #e53e3e; cursor: pointer; font-size: 0.78rem; }
 
   /* ── Rule Dialog ── */
