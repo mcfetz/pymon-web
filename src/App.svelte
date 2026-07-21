@@ -130,7 +130,7 @@
     return d.toLocaleString();
   }
 
-  onMount(() => { load(); checkPushSubscription(); });
+  onMount(() => { load(); checkPushSubscription(); const t = setInterval(load, 5000); return () => clearInterval(t); });
 </script>
 
 <main>
