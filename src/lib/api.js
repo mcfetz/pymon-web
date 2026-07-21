@@ -18,37 +18,39 @@ async function api(path, options = {}) {
   return res.json();
 }
 
+// ── Alarms ──
 export function fetchAlarms(acknowledged = null) {
   const params = acknowledged !== null ? `?acknowledged=${acknowledged}` : '';
   return api(`/alarms${params}`);
 }
+export function acknowledgeAlarm(id) { return api(`/alarms/${id}/ack`); }
+export function fetchOpenAlarms() { return api('/alarms/open'); }
 
-export function acknowledgeAlarm(id) {
-  return api(`/alarms/${id}/ack`);
+// ── Agents / Groups ──
+export function fetchAgents() { return api('/agents'); }
+export function fetchGroups() { return api('/groups'); }
+export function fetchAgentPlugins(agent) { return api(`/agents/${agent}/plugins`); }
+export function fetchAgentPluginMetrics(agent, plugin) {
+  return api(`/agents/${agent}/plugins/${plugin}/metrics`);
 }
 
-export function fetchOpenAlarms() {
-  return api('/alarms/open');
+// ── Metrics Query ──
+export function queryMetrics(params = {}) {
+  const qs = Object.entries(params)
+    .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  return api(`/metrics/query${qs ? '?' + qs : ''}`);
 }
 
-export function fetchAgents() {
-  return api('/agents');
-}
-
-export function fetchVapidPublicKey() {
-  return api('/vapid-public-key');
-}
-
+// ── Push ──
+export function fetchVapidPublicKey() { return api('/vapid-public-key'); }
 export function subscribePush(sub) {
   return api('/subscribe', {
     method: 'POST',
     body: { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
   });
 }
-
 export function unsubscribePush(endpoint) {
-  return api('/unsubscribe', {
-    method: 'POST',
-    body: { endpoint },
-  });
+  return api('/unsubscribe', { method: 'POST', body: { endpoint } });
 }
