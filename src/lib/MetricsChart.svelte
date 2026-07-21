@@ -16,13 +16,18 @@
     '#3182ce', '#d69e2e', '#00b5d8', '#6b46c1',
   ];
 
+  function parseTimestamp(ts) {
+    const s = /Z|[+-]\d{2}:\d{2}$/.test(ts) ? ts : ts + 'Z';
+    return new Date(s);
+  }
+
   function buildSeries(raw) {
     const map = {};
     for (const row of raw) {
       if (typeof row.value !== 'number') continue;
       const key = `${row.agentid} › ${row.pluginid} › ${row.metric}`;
       if (!map[key]) map[key] = [];
-      map[key].push({ x: new Date(row.timestamp), y: row.value, meta: row });
+      map[key].push({ x: parseTimestamp(row.timestamp), y: row.value, meta: row });
     }
     for (const k of Object.keys(map)) {
       map[k].sort((a, b) => a.x - b.x);
@@ -59,6 +64,7 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          locale: navigator.language,
           interaction: { mode: 'nearest', axis: 'x', intersect: false },
           plugins: {
             annotation: {
@@ -99,10 +105,10 @@
                   const raw = ctx.raw.meta;
                   if (!raw) return ctx.parsed.y.toString();
                   return [
-                    `Wert: ${raw.value}`,
+                    `Value: ${raw.value}`,
                     `Agent: ${raw.agentid}`,
                     `Plugin: ${raw.pluginid}`,
-                    `Metrik: ${raw.metric}`,
+                    `Metric: ${raw.metric}`,
                   ];
                 },
               },
@@ -114,9 +120,9 @@
               time: {
                 displayFormats: { minute: 'HH:mm', hour: 'HH:mm', day: 'dd.MM' },
               },
-              title: { display: true, text: 'Zeit' },
+              title: { display: true, text: 'Time' },
             },
-            y: { beginAtZero: false, title: { display: true, text: 'Wert' } },
+            y: { beginAtZero: false, title: { display: true, text: 'Value' } },
           },
         },
       });
@@ -143,7 +149,7 @@
 
 <div class="chart-wrap" style="height: 350px;">
   {#if data.length === 0}
-    <div class="chart-empty">Keine numerischen Metriken für das Diagramm</div>
+    <div class="chart-empty">No numeric metrics for chart</div>
   {:else}
     <canvas bind:this={canvas}></canvas>
   {/if}

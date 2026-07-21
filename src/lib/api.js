@@ -25,6 +25,8 @@ export function fetchAlarms(acknowledged = null) {
 }
 export function acknowledgeAlarm(id) { return api(`/alarms/${id}/ack`); }
 export function fetchOpenAlarms() { return api('/alarms/open'); }
+export function fetchSnoozed() { return api('/alarms/snoozed'); }
+export function toggleSnooze(data) { return api('/alarms/snooze/toggle', { method: 'POST', body: data }); }
 
 // ── Agents / Groups ──
 export function fetchAgents() { return api('/agents'); }
@@ -126,4 +128,7 @@ export function savePluginSource(name, source) {
 }
 export function deletePlugin(name) {
   return api(`/admin/plugins/${name}`, { method: 'DELETE' });
+}
+export function togglePluginEnabled(name, enabled) {
+  return api(`/admin/plugins/${name}/enabled`, { method: 'PUT', body: { enabled } });
 }

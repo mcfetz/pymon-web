@@ -62,7 +62,7 @@
               <button class="btn-remove" onclick={() => removeArrayItem(field.key, i)}>✕</button>
             </div>
           {/each}
-          <button class="btn-add" onclick={() => addArrayItem(field.key)}>+ Hinzufügen</button>
+          <button class="btn-add" onclick={() => addArrayItem(field.key)}>+ Add</button>
         </div>
 
       {:else if field.type === 'array:object'}
@@ -70,7 +70,7 @@
           {#each val(field.key) || [] as item, idx}
             <div class="object-card">
               <div class="obj-header">
-                <strong>{item[field.fields?.[0]?.key] || 'Eintrag ' + (idx + 1)}</strong>
+                <strong>{item[field.fields?.[0]?.key] || 'Entry ' + (idx + 1)}</strong>
                 <button class="btn-remove" onclick={() => { const a = [...val(field.key)]; a.splice(idx, 1); setVal(field.key, a); }}>✕</button>
               </div>
               {#each field.fields || [] as sub}
@@ -97,7 +97,7 @@
             }
             a.push(obj);
             setVal(field.key, a);
-          }}>+ Eintrag hinzufügen</button>
+          }}>+ Add Entry</button>
         </div>
       {/if}
     </div>
