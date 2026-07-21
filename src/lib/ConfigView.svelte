@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import PluginForm from './PluginForm.svelte';
+  import CodeEditor from './CodeEditor.svelte';
   import {
     fetchPluginSchemas, fetchAdminAgents, fetchAdminGroups,
     createAgent, deleteAgent, setAgentGroups, setAgentPluginConfig,
@@ -54,6 +55,8 @@
   let selPluginName = $state(null);
   let pluginSource = $state('');
   let pluginSourceDirty = $state(false);
+  let checkResult = $state(null);
+  let checking = $state(false);
 
   async function load() {
     loading = true; error = null;
@@ -503,12 +506,37 @@
   </div>
   {#if selPluginName}
     <div style="margin-top:1rem;">
-      <h4 style="margin:0 0 0.5rem;font-size:0.9rem;">{selPluginName}.py {pluginSourceDirty ? '(ungespeichert)' : ''}</h4>
-      <textarea style="width:100%;height:400px;font-family:monospace;font-size:0.78rem;padding:0.5rem;border:1px solid #cbd5e0;border-radius:6px;box-sizing:border-box;" bind:value={pluginSource} oninput={() => pluginSourceDirty = true}></textarea>
-      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
-        <button class="btn-save-rule" disabled={!pluginSourceDirty} onclick={async () => { await savePluginSource(selPluginName, pluginSource); pluginSourceDirty = false; }}>Speichern</button>
-        <button class="btn-cancel" onclick={() => { selPluginName = null; pluginSource = ''; }}>Schließen</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+        <h4 style="margin:0;font-size:0.9rem;">{selPluginName}.py {pluginSourceDirty ? '(ungespeichert)' : ''}</h4>
+        <div style="display:flex;gap:0.4rem;">
+          <button class="btn-cancel" disabled={checking} onclick={async () => {
+            checking = true; checkResult = null;
+            try {
+              const res = await fetch('/api/admin/plugins/check', {
+                method: 'POST', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' },
+                body: pluginSource,
+              });
+              checkResult = await res.json();
+            } catch(e) { checkResult = { ok: false, errors: [{ type: 'error', msg: e.message }]}; }
+            finally { checking = false; }
+          }}>Prüfen</button>
+          <button class="btn-save-rule" disabled={!pluginSourceDirty} onclick={async () => { await savePluginSource(selPluginName, pluginSource); pluginSourceDirty = false; }}>Speichern</button>
+          <button class="btn-cancel" onclick={() => { selPluginName = null; pluginSource = ''; checkResult = null; }}>Schließen</button>
+        </div>
       </div>
+      <CodeEditor bind:value={pluginSource} onchange={(v) => { pluginSource = v; pluginSourceDirty = true; }} />
+      {#if checkResult}
+        <div class="check-result" class:ok={checkResult.ok}>
+          {#if checkResult.ok}
+            ✅ Keine Fehler
+          {:else}
+            <strong>⚠ {checkResult.errors.length} Fehler:</strong>
+            {#each checkResult.errors as err}
+              <div class="check-error">Zeile {err.line || '?'}: {err.msg}</div>
+            {/each}
+          {/if}
+        </div>
+      {/if}
     </div>
   {/if}
 {/if}
@@ -802,4 +830,10 @@
   .dialog-array { display: flex; flex-direction: column; gap: 0.25rem; }
   .array-row { display: flex; gap: 0.3rem; align-items: center; }
   .array-row input { flex: 1; }
+  .check-result {
+    margin-top: 0.5rem; padding: 0.5rem 0.75rem; border-radius: 6px;
+    font-size: 0.82rem; background: #fed7d7; color: #c53030;
+  }
+  .check-result.ok { background: #c6f6d5; color: #276749; }
+  .check-error { font-family: monospace; font-size: 0.78rem; margin-top: 0.2rem; padding-left: 0.5rem; }
 </style>
