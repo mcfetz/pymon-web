@@ -5,8 +5,17 @@
     fetchPluginSchemas, fetchAdminAgents, fetchAdminGroups,
     createAgent, deleteAgent, setAgentGroups, setAgentPluginConfig,
     removeAgentPlugin, setGroupPlugins, deleteGroup,
+    fetchRuleSchema, fetchRules, saveRule, deleteRule,
+    fetchExecutors, saveExecutor, deleteExecutor,
   } from './api.js';
 
+  function fmtTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleString();
+  }
+
+  let view = $state('agents'); // 'agents' | 'rules'
   let schemas = $state({});
   let agents = $state({});
   let groups = $state({});
@@ -17,15 +26,28 @@
   let editedPluginConfig = $state(null);
   let saving = $state(false);
   let newAgentId = $state('');
-  let newGroupName = $state('');
+
+  // Rules state
+  let rules = $state({});
+  let ruleSchema = $state({ fields: [] });
+  let editingRule = $state(null);
+  let editedRule = $state(null);
+  let showRuleDialog = $state(false);
+
+  // Executors state
+  let executors = $state({});
+  let editingExec = $state(null);
+  let editedExec = $state(null);
+  let showExecDialog = $state(false);
 
   async function load() {
     loading = true; error = null;
     try {
-      const [s, a, g] = await Promise.all([
+      const [s, a, g, rs, rsc, ex] = await Promise.all([
         fetchPluginSchemas(), fetchAdminAgents(), fetchAdminGroups(),
+        fetchRules(), fetchRuleSchema(), fetchExecutors(),
       ]);
-      schemas = s; agents = a; groups = g;
+      schemas = s; agents = a; groups = g; rules = rs; ruleSchema = rsc; executors = ex;
     } catch (e) { error = e.message; }
     finally { loading = false; }
   }
@@ -95,6 +117,78 @@
     editedPluginConfig = { ...cfg };
   }
 
+  // ── Rules ──
+  function openNewRule() {
+    const def = {};
+    for (const f of ruleSchema.fields) {
+      if ('default' in f) def[f.key] = f.default;
+      else def[f.key] = '';
+    }
+    def.id = 'new_rule_' + Date.now();
+    editingRule = def;
+    editedRule = { ...def };
+    showRuleDialog = true;
+  }
+
+  function editRule(id) {
+    editingRule = { ...rules[id], id };
+    editedRule = { ...rules[id], id };
+    showRuleDialog = true;
+  }
+
+  async function handleSaveRule() {
+    if (!editedRule) return;
+    saving = true;
+    try {
+      await saveRule(editedRule.id, editedRule);
+      showRuleDialog = false;
+      editingRule = null;
+      editedRule = null;
+      const rs = await fetchRules();
+      rules = rs;
+    } catch (e) { error = e.message; }
+    finally { saving = false; }
+  }
+
+  async function handleDeleteRule(id) {
+    if (!confirm(`Rule ${id} wirklich löschen?`)) return;
+    try {
+      await deleteRule(id);
+      rules = await fetchRules();
+    } catch (e) { error = e.message; }
+  }
+
+  // ── Executors ──
+  function openNewExec() {
+    editedExec = { id: '', command: '' };
+    showExecDialog = true;
+  }
+
+  function editExec(id) {
+    editedExec = { ...executors[id] };
+    showExecDialog = true;
+  }
+
+  async function handleSaveExec() {
+    if (!editedExec || !editedExec.id) return;
+    saving = true;
+    try {
+      await saveExecutor(editedExec.id, editedExec);
+      showExecDialog = false;
+      editedExec = null;
+      executors = await fetchExecutors();
+    } catch (e) { error = e.message; }
+    finally { saving = false; }
+  }
+
+  async function handleDeleteExec(id) {
+    if (!confirm(`Executor ${id} wirklich löschen?`)) return;
+    try {
+      await deleteExecutor(id);
+      executors = await fetchExecutors();
+    } catch (e) { error = e.message; }
+  }
+
   // All available plugins across all groups
   let allPlugins = $derived.by(() => {
     const set = new Set();
@@ -119,14 +213,20 @@
   onMount(load);
 </script>
 
-<div class="config-layout">
-  {#if error}
+{#if error}
     <div class="error-banner">{error}</div>
   {/if}
 
   {#if loading}
     <div class="loading">Lade Konfiguration...</div>
   {:else}
+    <div class="view-tabs">
+      <button class="view-tab" class:active={view === 'agents'} onclick={() => view = 'agents'}>Agenten</button>
+      <button class="view-tab" class:active={view === 'rules'} onclick={() => view = 'rules'}>Regeln</button>
+      <button class="view-tab" class:active={view === 'executors'} onclick={() => view = 'executors'}>Executors</button>
+    </div>
+
+    {#if view === 'agents'}<div class="config-layout">
     <!-- Left: Agent List -->
     <aside class="agent-panel">
       <h3>Agenten</h3>
@@ -137,8 +237,16 @@
             class:active={selectedAgent === id}
             onclick={() => { selectedAgent = id; selectedPlugin = null; }}
           >
-            <span class="agent-name">{id}</span>
-            <span class="agent-groups">{agents[id].groups.join(', ')}</span>
+            <span class="agent-line">
+              <span class="status-dot" class:online={agents[id].online}></span>
+              <span class="agent-name">{id}</span>
+            </span>
+            <span class="agent-meta">
+              <span class="agent-groups">{agents[id].groups.join(', ')}</span>
+              {#if agents[id].last_seen}
+                <span class="agent-last">{fmtTime(agents[id].last_seen)}</span>
+              {/if}
+            </span>
           </button>
         {/each}
       </div>
@@ -161,12 +269,9 @@
         <!-- Install Command -->
         <section class="config-section">
           <h4>Installation</h4>
-          <div class="install-box">
-            <code class="install-cmd" id="install-cmd">curl -s '{window.location.origin}/api/agent/install.sh?agentid={selectedAgent}&amp;apikey={agent.apikey}' | sh</code>
-            <button class="btn-copy" onclick={() => navigator.clipboard.writeText(`curl -s '${window.location.origin}/api/agent/install.sh?agentid=${selectedAgent}&apikey=${agent.apikey}' | sh`)}>
-              Kopieren
-            </button>
-          </div>
+          <button class="btn-install" onclick={() => navigator.clipboard.writeText(`curl -s '${window.location.origin}/api/agent/install.sh?agentid=${selectedAgent}&apikey=${agent.apikey}' | sh`)}>
+            📋 Install-Befehl kopieren
+          </button>
         </section>
 
         <!-- Groups -->
@@ -231,8 +336,125 @@
         </button>
       </aside>
     {/if}
-  {/if}
-</div>
+  </div>
+{/if}
+
+{#if view === 'rules'}
+  <div class="rules-view">
+    <div class="rules-header">
+      <h3>Alarm-Regeln</h3>
+      <button class="btn-add-rule" onclick={openNewRule}>+ Neue Regel</button>
+    </div>
+
+    {#each Object.values(rules) as rule (rule.id)}
+      <div class="rule-card">
+        <div class="rule-head">
+          <span class="rule-id">{rule.id}</span>
+          <span class="rule-sev {rule.severity}">{rule.severity}</span>
+          <span class="rule-badge">{rule.pluginid}/{rule.metric} {rule.condition} {rule.threshold}</span>
+        </div>
+        <div class="rule-desc">{rule.description || '—'}</div>
+        <div class="rule-actions">
+          <span class="rule-status" class:active={rule.enabled}>{rule.enabled ? 'Aktiv' : 'Inaktiv'}</span>
+          <button class="btn-edit" onclick={() => editRule(rule.id)}>Bearbeiten</button>
+          <button class="btn-del" onclick={() => handleDeleteRule(rule.id)}>Löschen</button>
+        </div>
+      </div>
+    {/each}
+  </div>
+{/if}
+{#if view === 'executors'}
+  <div class="rules-view">
+    <div class="rules-header">
+      <h3>Executors</h3>
+      <button class="btn-add-rule" onclick={openNewExec}>+ Neuer Executor</button>
+    </div>
+    {#each Object.values(executors) as exec (exec.id)}
+      <div class="rule-card">
+        <div class="rule-head">
+          <span class="rule-id">{exec.id}</span>
+        </div>
+        <div class="rule-desc" style="font-family:monospace;font-size:0.8rem;">{exec.command || '—'}</div>
+        <div class="rule-actions">
+          <button class="btn-edit" onclick={() => editExec(exec.id)}>Bearbeiten</button>
+          <button class="btn-del" onclick={() => handleDeleteExec(exec.id)}>Löschen</button>
+        </div>
+      </div>
+    {/each}
+  </div>
+{/if}
+{/if}
+
+<!-- Rule Dialog -->
+{#if showRuleDialog && editedRule}
+  <div class="dialog-overlay" onclick={() => showRuleDialog = false}></div>
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>Regel {editingRule?.id?.includes('new_') ? 'erstellen' : 'bearbeiten'}</h3>
+      <button class="btn-close" onclick={() => showRuleDialog = false}>✕</button>
+    </div>
+    <div class="dialog-body">
+      {#each ruleSchema.fields as field}
+        <div class="dialog-field">
+          <label>{field.label}</label>
+          {#if field.type === 'select'}
+            <select bind:value={editedRule[field.key]}>
+              {#each field.options || [] as opt}
+                <option value={opt}>{opt}</option>
+              {/each}
+            </select>
+          {:else if field.type === 'boolean'}
+            <input type="checkbox" checked={editedRule[field.key] || false} onchange={(e) => editedRule[field.key] = e.target.checked} />
+          {:else if field.type === 'number'}
+            <input type="number" value={editedRule[field.key] ?? ''} oninput={(e) => editedRule[field.key] = parseFloat(e.target.value) || 0} />
+          {:else if field.type === 'array:string'}
+            <div class="dialog-array">
+              {#each (editedRule[field.key] || []) as item, i}
+                <div class="array-row">
+                  <input type="text" value={item} oninput={(e) => { const a = [...(editedRule[field.key] || [])]; a[i] = e.target.value; editedRule[field.key] = a; }} />
+                  <button class="btn-sm" onclick={() => { const a = [...(editedRule[field.key] || [])]; a.splice(i,1); editedRule[field.key] = a; }}>✕</button>
+                </div>
+              {/each}
+              <button class="btn-sm" onclick={() => { editedRule[field.key] = [...(editedRule[field.key] || []), '']; }}>+</button>
+            </div>
+          {:else}
+            <input type="text" bind:value={editedRule[field.key]} />
+          {/if}
+        </div>
+      {/each}
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-cancel" onclick={() => showRuleDialog = false}>Abbrechen</button>
+      <button class="btn-save-rule" onclick={handleSaveRule} disabled={saving}>{saving ? 'Speichere...' : 'Speichern'}</button>
+    </div>
+  </div>
+{/if}
+
+<!-- Executor Dialog -->
+{#if showExecDialog && editedExec}
+  <div class="dialog-overlay" onclick={() => showExecDialog = false}></div>
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>Executor {editedExec.id ? 'bearbeiten' : 'erstellen'}</h3>
+      <button class="btn-close" onclick={() => showExecDialog = false}>✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-field">
+        <label>ID</label>
+        <input type="text" bind:value={editedExec.id} disabled={!!editedExec.id} />
+      </div>
+      <div class="dialog-field">
+        <label>Shell-Kommando</label>
+        <textarea rows="3" bind:value={editedExec.command} style="padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;font-family:monospace;"></textarea>
+        <div style="font-size:0.72rem;color:#888;margin-top:0.2rem;">Verfügbare Variablen: {'{rule_id}'}, {'{agentid}'}, {'{pluginid}'}, {'{metric}'}, {'{value}'}, {'{message}'}, {'{severity}'}</div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-cancel" onclick={() => showExecDialog = false}>Abbrechen</button>
+      <button class="btn-save-rule" onclick={handleSaveExec} disabled={saving}>{saving ? 'Speichere...' : 'Speichern'}</button>
+    </div>
+  </div>
+{/if}
 
 <style>
   .config-layout {
@@ -262,9 +484,18 @@
     font-size: 0.85rem;
   }
   .agent-item.active { background: #4361ee; color: #fff; border-color: #4361ee; }
+  .agent-line { display: flex; align-items: center; gap: 0.35rem; width: 100%; }
   .agent-name { font-weight: 600; }
+  .agent-meta { display: flex; flex-direction: column; gap: 0.1rem; width: 100%; }
   .agent-groups { font-size: 0.7rem; color: #888; }
   .agent-item.active .agent-groups { color: #ddd; }
+  .agent-last { font-size: 0.65rem; color: #aaa; }
+  .agent-item.active .agent-last { color: #ccc; }
+  .status-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: #e53e3e; flex-shrink: 0;
+  }
+  .status-dot.online { background: #38a169; }
 
   .add-agent { display: flex; gap: 0.3rem; }
   .add-agent input {
@@ -287,18 +518,12 @@
   .config-section { margin-bottom: 1.25rem; }
   .config-section h4 { margin: 0 0 0.5rem; font-size: 0.9rem; color: #555; }
 
-  .install-box {
-    background: #1a1a2e; border-radius: 6px; padding: 0.6rem;
-    display: flex; gap: 0.4rem; align-items: center;
+  .btn-install {
+    background: #1a1a2e; color: #a0f0a0; border: none; border-radius: 6px;
+    padding: 0.5rem 1rem; cursor: pointer; font-size: 0.82rem; font-family: monospace;
+    width: 100%; text-align: center;
   }
-  .install-cmd {
-    flex: 1; font-size: 0.72rem; color: #a0f0a0; font-family: monospace;
-    white-space: nowrap; overflow-x: auto; user-select: all;
-  }
-  .btn-copy {
-    background: #4361ee; color: #fff; border: none; border-radius: 4px;
-    padding: 0.3rem 0.6rem; cursor: pointer; font-size: 0.72rem; white-space: nowrap;
-  }
+  .btn-install:hover { background: #2d2d4e; }
 
   .chip-list { display: flex; flex-wrap: wrap; gap: 0.3rem; }
   .chip {
@@ -340,4 +565,77 @@
     padding: 0.5rem; cursor: pointer; font-size: 0.85rem; width: 100%;
   }
   .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── View Tabs ── */
+  .view-tabs { display: flex; gap: 0; margin-bottom: 1rem; grid-column: 1 / -1; }
+  .view-tab {
+    background: transparent; border: 1px solid #cbd5e0; padding: 0.4rem 1rem;
+    cursor: pointer; font-size: 0.85rem; color: #555;
+  }
+  .view-tab:first-child { border-radius: 6px 0 0 6px; }
+  .view-tab:last-child  { border-radius: 0 6px 6px 0; }
+  .view-tab.active { background: #4361ee; color: #fff; border-color: #4361ee; }
+
+  /* ── Rules View ── */
+  .rules-view { grid-column: 1 / -1; }
+  .rules-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+  .rules-header h3 { margin: 0; font-size: 1.1rem; }
+  .btn-add-rule {
+    background: #38a169; color: #fff; border: none; border-radius: 5px;
+    padding: 0.35rem 0.8rem; cursor: pointer; font-size: 0.82rem;
+  }
+
+  .rule-card {
+    border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.6rem 0.8rem;
+    background: #fff; margin-bottom: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem;
+  }
+  .rule-head { display: flex; align-items: center; gap: 0.5rem; }
+  .rule-id { font-weight: 600; font-size: 0.85rem; }
+  .rule-sev {
+    font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+    padding: 0.1rem 0.35rem; border-radius: 3px;
+  }
+  .rule-sev.warning { background: #feebc8; color: #c05621; }
+  .rule-sev.critical { background: #fed7d7; color: #c53030; }
+  .rule-badge { font-size: 0.75rem; color: #666; }
+  .rule-desc { font-size: 0.78rem; color: #888; }
+  .rule-actions { display: flex; align-items: center; gap: 0.5rem; }
+  .rule-status { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 3px; background: #fed7d7; color: #c53030; }
+  .rule-status.active { background: #c6f6d5; color: #276749; }
+  .btn-edit { background: none; border: none; color: #4361ee; cursor: pointer; font-size: 0.78rem; }
+  .btn-del { background: none; border: none; color: #e53e3e; cursor: pointer; font-size: 0.78rem; }
+
+  /* ── Rule Dialog ── */
+  .dialog-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100;
+  }
+  .dialog {
+    position: fixed; top: 10%; left: 50%; transform: translateX(-50%);
+    background: #fff; border-radius: 10px; z-index: 101;
+    width: 520px; max-width: 95vw; max-height: 80vh; overflow-y: auto;
+    display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  }
+  .dialog-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.75rem 1rem; border-bottom: 1px solid #e2e8f0;
+  }
+  .dialog-header h3 { margin: 0; font-size: 1rem; }
+  .dialog-body { padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.6rem; flex: 1; overflow-y: auto; }
+  .dialog-footer {
+    display: flex; justify-content: flex-end; gap: 0.5rem;
+    padding: 0.75rem 1rem; border-top: 1px solid #e2e8f0;
+  }
+  .dialog-field { display: flex; flex-direction: column; gap: 0.2rem; }
+  .dialog-field label { font-size: 0.78rem; font-weight: 600; color: #555; }
+  .dialog-field select, .dialog-field input[type="text"], .dialog-field input[type="number"] {
+    padding: 0.35rem 0.5rem; border: 1px solid #cbd5e0; border-radius: 5px; font-size: 0.82rem;
+  }
+  .dialog-field input[type="checkbox"] { width: 1.1rem; height: 1.1rem; }
+  .btn-cancel { background: #edf2f7; border: 1px solid #cbd5e0; border-radius: 5px; padding: 0.35rem 0.8rem; cursor: pointer; font-size: 0.8rem; }
+  .btn-save-rule { background: #4361ee; color: #fff; border: none; border-radius: 5px; padding: 0.35rem 0.8rem; cursor: pointer; font-size: 0.8rem; }
+  .btn-save-rule:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-sm { background: none; border: 1px solid #cbd5e0; border-radius: 3px; cursor: pointer; font-size: 0.7rem; padding: 0.1rem 0.35rem; }
+  .dialog-array { display: flex; flex-direction: column; gap: 0.25rem; }
+  .array-row { display: flex; gap: 0.3rem; align-items: center; }
+  .array-row input { flex: 1; }
 </style>

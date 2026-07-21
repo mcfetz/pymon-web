@@ -80,3 +80,22 @@ export function setGroupPlugins(groupid, plugins) {
 export function deleteGroup(groupid) {
   return api(`/admin/groups/${groupid}`, { method: 'DELETE' });
 }
+
+// ── Rules ──
+export function fetchRuleSchema() { return api('/admin/rules/schema'); }
+export function fetchRules() { return api('/admin/rules'); }
+export function saveRule(id, rule) {
+  return api(`/admin/rules/${id}`, { method: 'PUT', body: rule });
+}
+export function deleteRule(id) {
+  return api(`/admin/rules/${id}`, { method: 'DELETE' });
+}
+
+// ── Executors ──
+export function fetchExecutors() { return api('/admin/executors'); }
+export function saveExecutor(id, data) {
+  return api(`/admin/executors/${id}`, { method: 'PUT', body: data });
+}
+export function deleteExecutor(id) {
+  return api(`/admin/executors/${id}`, { method: 'DELETE' });
+}
