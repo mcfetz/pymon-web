@@ -1,14 +1,8 @@
-const API_PORT = 5000;
 const AGENTID = 'admin';
 const API_KEY = '333';
 
-function baseUrl() {
-  const host = window.location.hostname;
-  return `http://${host}:${API_PORT}`;
-}
-
 async function api(path) {
-  const res = await fetch(`${baseUrl()}${path}`, {
+  const res = await fetch(`/api${path}`, {
     headers: {
       agentid: AGENTID,
       'X-API-Key': API_KEY,
