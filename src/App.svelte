@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import MetricsChart from './lib/MetricsChart.svelte';
   import {
     fetchAlarms, acknowledgeAlarm, fetchVapidPublicKey,
     subscribePush, unsubscribePush,
@@ -328,6 +329,7 @@
         {#if metricsData.length === 0}
           <div class="empty">Keine Metriken gefunden</div>
         {:else}
+          <MetricsChart data={metricsData} />
           <div class="metrics-table-wrap">
             <table class="metrics-table">
               <thead>
@@ -342,7 +344,7 @@
                 </tr>
               </thead>
               <tbody>
-                {#each metricsData as row (row.timestamp + row.agentid + row.pluginid + row.metric)}
+                {#each metricsData as row (row.id)}
                   <tr>
                     <td class="cell-time">{fmtTime(row.timestamp)}</td>
                     <td>{row.agentid}</td>
