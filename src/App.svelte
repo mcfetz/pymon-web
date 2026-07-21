@@ -1,12 +1,18 @@
 <script>
   import { onMount } from 'svelte';
-  import { fetchAlarms, acknowledgeAlarm } from './lib/api.js';
+  import { fetchAlarms, acknowledgeAlarm, fetchVapidPublicKey, subscribePush, unsubscribePush } from './lib/api.js';
 
   let openAlarms = $state([]);
   let historyAlarms = $state([]);
   let loading = $state(true);
   let error = $state(null);
   let acking = $state(new Set());
+
+  // Push notification state
+  let pushSupported = $state(false);
+  let pushSubscribed = $state(false);
+  let pushLoading = $state(false);
+  let pushError = $state('');
 
   async function load() {
     loading = true;
@@ -37,6 +43,82 @@
     }
   }
 
+  // Push notification helpers
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const arr = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; i++) arr[i] = rawData.charCodeAt(i);
+    return arr.buffer;
+  }
+
+  function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    return window.btoa(binary);
+  }
+
+  async function checkPushSubscription() {
+    pushSupported = 'serviceWorker' in navigator && 'PushManager' in window;
+    if (!pushSupported) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      pushSubscribed = !!sub;
+    } catch { pushSupported = false; }
+  }
+
+  async function togglePush() {
+    if (pushSubscribed) {
+      await doUnsubscribe();
+    } else {
+      await doSubscribe();
+    }
+  }
+
+  async function doSubscribe() {
+    pushLoading = true;
+    pushError = '';
+    try {
+      const keyRes = await fetchVapidPublicKey();
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(keyRes.public_key),
+      });
+      await subscribePush({
+        endpoint: sub.endpoint,
+        p256dh: arrayBufferToBase64(sub.getKey('p256dh')),
+        auth: arrayBufferToBase64(sub.getKey('auth')),
+      });
+      pushSubscribed = true;
+    } catch (e) {
+      pushError = e.message || 'Fehler beim Aktivieren';
+    } finally {
+      pushLoading = false;
+    }
+  }
+
+  async function doUnsubscribe() {
+    pushLoading = true;
+    pushError = '';
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await sub.unsubscribe();
+        await unsubscribePush(sub.endpoint);
+      }
+      pushSubscribed = false;
+    } catch (e) {
+      pushError = e.message || 'Fehler beim Deaktivieren';
+    } finally {
+      pushLoading = false;
+    }
+  }
+
   function severityClass(s) {
     if (s === 'critical') return 'sev-critical';
     if (s === 'warning') return 'sev-warning';
@@ -48,7 +130,7 @@
     return d.toLocaleString();
   }
 
-  onMount(load);
+  onMount(() => { load(); checkPushSubscription(); });
 </script>
 
 <main>
@@ -58,10 +140,19 @@
     <button class="refresh" onclick={load} disabled={loading}>
       {loading ? 'Laden...' : '⟳ Aktualisieren'}
     </button>
+    {#if pushSupported}
+      <button class="push-btn" onclick={togglePush} disabled={pushLoading}>
+        {pushLoading ? '...' : pushSubscribed ? '🔔 An' : '🔕 Aus'}
+      </button>
+    {/if}
   </header>
 
   {#if error}
     <div class="error-banner">Fehler: {error}</div>
+  {/if}
+
+  {#if pushError}
+    <div class="error-banner push-error">{pushError}</div>
   {/if}
 
   {#if loading && openAlarms.length === 0}
@@ -174,6 +265,20 @@
 
   .refresh:disabled {
     opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .push-btn {
+    background: transparent;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    padding: 0.4rem 0.7rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
+  .push-btn:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
   }
 
