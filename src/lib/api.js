@@ -54,3 +54,29 @@ export function subscribePush(sub) {
 export function unsubscribePush(endpoint) {
   return api('/unsubscribe', { method: 'POST', body: { endpoint } });
 }
+
+// ── Admin Config ──
+export function fetchPluginSchemas() { return api('/admin/plugins/schemas'); }
+export function fetchAdminAgents() { return api('/admin/agents'); }
+export function fetchAdminGroups() { return api('/admin/groups'); }
+export function createAgent(id, groups = []) {
+  return api('/admin/agents', { method: 'POST', body: { id, groups } });
+}
+export function deleteAgent(id) {
+  return api(`/admin/agents/${id}`, { method: 'DELETE' });
+}
+export function setAgentGroups(id, groups) {
+  return api(`/admin/agents/${id}/groups`, { method: 'PUT', body: { groups } });
+}
+export function setAgentPluginConfig(agentid, pluginid, config) {
+  return api(`/admin/agents/${agentid}/plugins/${pluginid}`, { method: 'PUT', body: config });
+}
+export function removeAgentPlugin(agentid, pluginid) {
+  return api(`/admin/agents/${agentid}/plugins/${pluginid}`, { method: 'DELETE' });
+}
+export function setGroupPlugins(groupid, plugins) {
+  return api(`/admin/groups/${groupid}`, { method: 'PUT', body: { plugins } });
+}
+export function deleteGroup(groupid) {
+  return api(`/admin/groups/${groupid}`, { method: 'DELETE' });
+}

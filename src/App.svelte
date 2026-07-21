@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import MetricsChart from './lib/MetricsChart.svelte';
+  import ConfigView from './lib/ConfigView.svelte';
   import {
     fetchAlarms, acknowledgeAlarm, fetchVapidPublicKey,
     subscribePush, unsubscribePush,
@@ -103,6 +104,10 @@
   let metricsError = $state(null);
   let filters = $state({ group: '', agentid: '', pluginid: '', metric: '', timePreset: '1h' });
   let hasSearched = $state(false);
+  let sortCol = $state('timestamp');
+  let sortDir = $state('desc');
+  let page = $state(0);
+  let pageSize = $state(50);
 
   const TIME_PRESETS = [
     { label: '1h',  value: '1h' },
@@ -154,7 +159,7 @@
   }
 
   async function doQuery() {
-    metricsLoading = true; metricsError = null; hasSearched = true;
+    metricsLoading = true; metricsError = null; hasSearched = true; page = 0;
     try {
       const params = {};
       if (filters.group) params.group = filters.group;
@@ -167,6 +172,35 @@
     } catch (e) { metricsError = e.message; }
     finally { metricsLoading = false; }
   }
+
+  // ── Sort & Pagination ──
+  function toggleSort(col) {
+    if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+    else { sortCol = col; sortDir = 'asc'; }
+    page = 0;
+  }
+
+  function sortIcon(col) {
+    if (sortCol !== col) return '↕';
+    return sortDir === 'asc' ? '↑' : '↓';
+  }
+
+  let sortedData = $derived.by(() => {
+    const d = [...metricsData];
+    if (!d.length) return d;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    d.sort((a, b) => {
+      let va = a[sortCol], vb = b[sortCol];
+      if (va === null || va === undefined) va = '';
+      if (vb === null || vb === undefined) vb = '';
+      if (typeof va === 'string') return va.localeCompare(vb) * dir;
+      return ((va < vb) ? -1 : (va > vb) ? 1 : 0) * dir;
+    });
+    return d;
+  });
+
+  let totalPages = $derived(Math.max(1, Math.ceil(sortedData.length / pageSize)));
+  let pagedData = $derived(sortedData.slice(page * pageSize, (page + 1) * pageSize));
 
   // ── Shared ──
   function severityClass(s) {
@@ -202,6 +236,7 @@
     <nav class="tabs">
       <button class="tab" class:active={tab === 'alarms'} onclick={() => tab = 'alarms'}>Alarme</button>
       <button class="tab" class:active={tab === 'metrics'} onclick={() => tab = 'metrics'}>Metriken</button>
+      <button class="tab" class:active={tab === 'config'} onclick={() => tab = 'config'}>Konfiguration</button>
     </nav>
     {#if pushSupported}
       <button class="push-btn" onclick={togglePush} disabled={pushLoading}>
@@ -311,7 +346,7 @@
             <button
               class="preset-btn"
               class:active={filters.timePreset === p.value}
-              onclick={() => filters.timePreset = p.value}
+              onclick={() => { filters.timePreset = p.value; doQuery(); }}
             >{p.label}</button>
           {/each}
         </div>
@@ -329,22 +364,34 @@
         {#if metricsData.length === 0}
           <div class="empty">Keine Metriken gefunden</div>
         {:else}
-          <MetricsChart data={metricsData} />
+          {#key metricsData}
+            <MetricsChart data={metricsData} />
+          {/key}
           <div class="metrics-table-wrap">
             <table class="metrics-table">
               <thead>
                 <tr>
-                  <th>Zeit</th>
-                  <th>Agent</th>
-                  <th>Plugin</th>
-                  <th>Metrik</th>
-                  <th>Wert</th>
+                  <th class="sortable" onclick={() => toggleSort('timestamp')}>
+                    Zeit <span class="sort-icon">{sortIcon('timestamp')}</span>
+                  </th>
+                  <th class="sortable" onclick={() => toggleSort('agentid')}>
+                    Agent <span class="sort-icon">{sortIcon('agentid')}</span>
+                  </th>
+                  <th class="sortable" onclick={() => toggleSort('pluginid')}>
+                    Plugin <span class="sort-icon">{sortIcon('pluginid')}</span>
+                  </th>
+                  <th class="sortable" onclick={() => toggleSort('metric')}>
+                    Metrik <span class="sort-icon">{sortIcon('metric')}</span>
+                  </th>
+                  <th class="sortable" onclick={() => toggleSort('value')}>
+                    Wert <span class="sort-icon">{sortIcon('value')}</span>
+                  </th>
                   <th>Alarm</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {#each metricsData as row (row.id)}
+                {#each pagedData as row (row.id)}
                   <tr>
                     <td class="cell-time">{fmtTime(row.timestamp)}</td>
                     <td>{row.agentid}</td>
@@ -372,10 +419,24 @@
               </tbody>
             </table>
           </div>
-          <div class="metric-count">{metricsData.length} Einträge</div>
+          <div class="table-footer">
+            <span class="metric-count">{metricsData.length} Einträge, Seite {page + 1}/{totalPages}</span>
+            <div class="pagination">
+              <button class="page-btn" disabled={page === 0} onclick={() => page = page - 1}>‹</button>
+              {#each { length: Math.min(totalPages, 10) } as _, i}
+                {@const p = i < 5 ? i : totalPages - (10 - i)}
+                {#if p >= 0 && p < totalPages}
+                  <button class="page-btn" class:active={p === page} onclick={() => page = p}>{p + 1}</button>
+                {/if}
+              {/each}
+              <button class="page-btn" disabled={page >= totalPages - 1} onclick={() => page = page + 1}>›</button>
+            </div>
+          </div>
         {/if}
       {/if}
     </section>
+  {:else if tab === 'config'}
+    <ConfigView />
   {/if}
 </main>
 
@@ -493,6 +554,9 @@
     border-bottom: 2px solid #e2e8f0; font-weight: 600; color: #555;
     white-space: nowrap;
   }
+  .metrics-table th.sortable { cursor: pointer; user-select: none; }
+  .metrics-table th.sortable:hover { background: #f7fafc; }
+  .sort-icon { font-size: 0.7rem; color: #aaa; margin-left: 0.2rem; }
   .metrics-table td {
     padding: 0.4rem 0.6rem; border-bottom: 1px solid #edf2f7;
     font-family: 'SFMono-Regular', Consolas, monospace;
@@ -515,4 +579,18 @@
   .metric-count {
     text-align: right; font-size: 0.78rem; color: #888; margin-top: 0.4rem;
   }
+  .table-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 0.5rem; flex-wrap: wrap; gap: 0.5rem;
+  }
+  .pagination { display: flex; gap: 0; }
+  .page-btn {
+    background: #fff; border: 1px solid #cbd5e0; padding: 0.3rem 0.6rem;
+    cursor: pointer; font-size: 0.78rem; color: #555; min-width: 2rem;
+  }
+  .page-btn:first-child { border-radius: 5px 0 0 5px; }
+  .page-btn:last-child  { border-radius: 0 5px 5px 0; }
+  .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .page-btn.active { background: #4361ee; color: #fff; border-color: #4361ee; }
+  .page-btn:not(:disabled):hover { background: #edf2f7; }
 </style>
