@@ -107,32 +107,26 @@
       {#if historyAlarms.length === 0}
         <div class="empty">Keine historischen Alarme</div>
       {:else}
-        <table class="history-table">
-          <thead>
-            <tr>
-              <th>Zeit</th>
-              <th>Rule</th>
-              <th>Agent</th>
-              <th>Plugin</th>
-              <th>Metrik</th>
-              <th>Wert</th>
-              <th>Severity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each historyAlarms as alarm (alarm.id)}
-              <tr class="{severityClass(alarm.severity)}">
-                <td>{fmtTime(alarm.created_at)}</td>
-                <td>{alarm.rule_id}</td>
-                <td>{alarm.agentid}</td>
-                <td>{alarm.pluginid}</td>
-                <td>{alarm.metric}</td>
-                <td>{alarm.value ?? '—'}</td>
-                <td><span class="severity-badge small">{alarm.severity}</span></td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+        <div class="alarm-list">
+          {#each historyAlarms as alarm (alarm.id)}
+            <div class="alarm-card {severityClass(alarm.severity)}">
+              <div class="alarm-header">
+                <span class="severity-badge">{alarm.severity}</span>
+                <span class="rule-id">{alarm.rule_id}</span>
+                <span class="timestamp">{fmtTime(alarm.created_at)}</span>
+              </div>
+              <div class="alarm-body">
+                <span class="agent">Agent: {alarm.agentid}</span>
+                <span class="plugin">Plugin: {alarm.pluginid}</span>
+                <span class="metric">Metrik: {alarm.metric}</span>
+                {#if alarm.value !== null}
+                  <span class="value">Wert: {alarm.value}</span>
+                {/if}
+              </div>
+              <div class="alarm-message">{alarm.message}</div>
+            </div>
+          {/each}
+        </div>
       {/if}
     </section>
   {/if}
@@ -252,8 +246,6 @@
     background: #edf2f7;
   }
 
-  .severity-badge.small { font-size: 0.65rem; }
-
   .sev-critical .severity-badge { background: #fed7d7; color: #c53030; }
   .sev-warning .severity-badge  { background: #feebc8; color: #c05621; }
   .sev-info .severity-badge     { background: #bee3f8; color: #2b6cb0; }
@@ -300,31 +292,4 @@
     cursor: not-allowed;
   }
 
-  .history-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.82rem;
-  }
-
-  .history-table th {
-    text-align: left;
-    padding: 0.5rem 0.6rem;
-    border-bottom: 2px solid #e2e8f0;
-    font-weight: 600;
-    color: #555;
-    white-space: nowrap;
-  }
-
-  .history-table td {
-    padding: 0.5rem 0.6rem;
-    border-bottom: 1px solid #edf2f7;
-  }
-
-  .history-table tbody tr:hover {
-    background: #f7fafc;
-  }
-
-  .history-table .sev-critical td { border-left: 3px solid #e53e3e; }
-  .history-table .sev-warning td  { border-left: 3px solid #dd6b20; }
-  .history-table .sev-info td     { border-left: 3px solid #3182ce; }
 </style>
