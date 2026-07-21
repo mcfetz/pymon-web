@@ -99,3 +99,27 @@ export function saveExecutor(id, data) {
 export function deleteExecutor(id) {
   return api(`/admin/executors/${id}`, { method: 'DELETE' });
 }
+
+// ── Notifications ──
+export function fetchNotifySchema() { return api('/admin/notifications/schema'); }
+export function fetchNotifications() { return api('/admin/notifications'); }
+export function saveNotification(id, data) {
+  return api(`/admin/notifications/${id}`, { method: 'PUT', body: data });
+}
+export function deleteNotification(id) {
+  return api(`/admin/notifications/${id}`, { method: 'DELETE' });
+}
+
+// ── Plugins ──
+export function fetchAdminPlugins() { return api('/admin/plugins'); }
+export function fetchPluginSource(name) { return api(`/admin/plugins/${name}/source`); }
+export function savePluginSource(name, source) {
+  return fetch(`/api/admin/plugins/${name}/source`, {
+    method: 'PUT',
+    headers: { 'agentid': AGENTID, 'X-API-Key': API_KEY, 'Content-Type': 'text/plain' },
+    body: source,
+  });
+}
+export function deletePlugin(name) {
+  return api(`/admin/plugins/${name}`, { method: 'DELETE' });
+}

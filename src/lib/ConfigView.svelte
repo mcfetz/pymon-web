@@ -7,6 +7,8 @@
     removeAgentPlugin, setGroupPlugins, deleteGroup,
     fetchRuleSchema, fetchRules, saveRule, deleteRule,
     fetchExecutors, saveExecutor, deleteExecutor,
+    fetchNotifications, saveNotification, deleteNotification, fetchNotifySchema,
+    fetchAdminPlugins, fetchPluginSource, savePluginSource, deletePlugin,
   } from './api.js';
 
   function fmtTime(iso) {
@@ -40,14 +42,30 @@
   let editedExec = $state(null);
   let showExecDialog = $state(false);
 
+  // Notifications state
+  let notifications = $state({});
+  let notifySchema = $state({ fields: [] });
+  let editingNotify = $state(null);
+  let editedNotify = $state(null);
+  let showNotifyDialog = $state(false);
+
+  // Plugin management state
+  let pluginList = $state([]);
+  let selPluginName = $state(null);
+  let pluginSource = $state('');
+  let pluginSourceDirty = $state(false);
+
   async function load() {
     loading = true; error = null;
     try {
-      const [s, a, g, rs, rsc, ex] = await Promise.all([
+      const [s, a, g, rs, rsc, ex, nt, ns, pl] = await Promise.all([
         fetchPluginSchemas(), fetchAdminAgents(), fetchAdminGroups(),
         fetchRules(), fetchRuleSchema(), fetchExecutors(),
+        fetchNotifications(), fetchNotifySchema(),
+        fetchAdminPlugins(),
       ]);
-      schemas = s; agents = a; groups = g; rules = rs; ruleSchema = rsc; executors = ex;
+      schemas = s; agents = a; groups = g; rules = rs; ruleSchema = rsc;
+      executors = ex; notifications = nt; notifySchema = ns; pluginList = pl;
     } catch (e) { error = e.message; }
     finally { loading = false; }
   }
@@ -189,6 +207,43 @@
     } catch (e) { error = e.message; }
   }
 
+  // ── Notifications ──
+  function openNewNotify() {
+    const def = {};
+    for (const f of notifySchema.fields) {
+      if ('default' in f) def[f.key] = f.default;
+      else def[f.key] = '';
+    }
+    def.id = 'new_' + Date.now();
+    editedNotify = def;
+    showNotifyDialog = true;
+  }
+
+  function editNotify(id) {
+    editedNotify = { ...notifications[id] };
+    showNotifyDialog = true;
+  }
+
+  async function handleSaveNotify() {
+    if (!editedNotify || !editedNotify.id) return;
+    saving = true;
+    try {
+      await saveNotification(editedNotify.id, editedNotify);
+      showNotifyDialog = false;
+      editedNotify = null;
+      notifications = await fetchNotifications();
+    } catch (e) { error = e.message; }
+    finally { saving = false; }
+  }
+
+  async function handleDeleteNotify(id) {
+    if (!confirm(`Benachrichtigung ${id} wirklich löschen?`)) return;
+    try {
+      await deleteNotification(id);
+      notifications = await fetchNotifications();
+    } catch (e) { error = e.message; }
+  }
+
   // All available plugins across all groups
   let allPlugins = $derived.by(() => {
     const set = new Set();
@@ -224,6 +279,8 @@
       <button class="view-tab" class:active={view === 'agents'} onclick={() => view = 'agents'}>Agenten</button>
       <button class="view-tab" class:active={view === 'rules'} onclick={() => view = 'rules'}>Regeln</button>
       <button class="view-tab" class:active={view === 'executors'} onclick={() => view = 'executors'}>Executors</button>
+      <button class="view-tab" class:active={view === 'notify'} onclick={() => view = 'notify'}>Benachrichtigungen</button>
+      <button class="view-tab" class:active={view === 'plugins'} onclick={() => view = 'plugins'}>Plugins</button>
     </div>
 
     {#if view === 'agents'}<div class="config-layout">
@@ -383,6 +440,59 @@
     {/each}
   </div>
 {/if}
+{#if view === 'notify'}
+  <div class="rules-view">
+    <div class="rules-header">
+      <h3>Benachrichtigungen</h3>
+      <button class="btn-add-rule" onclick={openNewNotify}>+ Neue Benachrichtigung</button>
+    </div>
+    {#each Object.values(notifications) as n (n.id)}
+      <div class="rule-card">
+        <div class="rule-head">
+          <span class="rule-id">{n.id}</span>
+          <span class="rule-badge">{n.type}</span>
+          <span class="rule-badge">{n.to}</span>
+        </div>
+        <div class="rule-actions">
+          <button class="btn-edit" onclick={() => editNotify(n.id)}>Bearbeiten</button>
+          <button class="btn-del" onclick={() => handleDeleteNotify(n.id)}>Löschen</button>
+        </div>
+      </div>
+    {/each}
+  </div>
+{/if}
+{#if view === 'plugins'}
+  <div class="rules-view">
+    <div class="rules-header">
+      <h3>Plugins</h3>
+    </div>
+    <div class="plugin-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));">
+      {#each pluginList as p}
+        <div class="rule-card" style="cursor:pointer;" class:active={selPluginName === p.name}
+             onclick={() => { selPluginName = p.name; fetchPluginSource(p.name).then(s => { pluginSource = s; pluginSourceDirty = false; }); }}>
+          <div class="plugin-header">
+            <span class="plugin-name">{p.label}</span>
+            <span class="rule-badge">{p.size} B</span>
+          </div>
+          <div class="plugin-desc">{p.description || '—'}</div>
+          <div class="rule-actions">
+            <button class="btn-del" onclick={(e) => { e.stopPropagation(); if (confirm(`Plugin ${p.name} löschen?`)) deletePlugin(p.name).then(() => fetchAdminPlugins().then(r => pluginList = r)); }}>Löschen</button>
+          </div>
+        </div>
+      {/each}
+    </div>
+  </div>
+  {#if selPluginName}
+    <div style="margin-top:1rem;">
+      <h4 style="margin:0 0 0.5rem;font-size:0.9rem;">{selPluginName}.py {pluginSourceDirty ? '(ungespeichert)' : ''}</h4>
+      <textarea style="width:100%;height:400px;font-family:monospace;font-size:0.78rem;padding:0.5rem;border:1px solid #cbd5e0;border-radius:6px;box-sizing:border-box;" bind:value={pluginSource} oninput={() => pluginSourceDirty = true}></textarea>
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+        <button class="btn-save-rule" disabled={!pluginSourceDirty} onclick={async () => { await savePluginSource(selPluginName, pluginSource); pluginSourceDirty = false; }}>Speichern</button>
+        <button class="btn-cancel" onclick={() => { selPluginName = null; pluginSource = ''; }}>Schließen</button>
+      </div>
+    </div>
+  {/if}
+{/if}
 {/if}
 
 <!-- Rule Dialog -->
@@ -452,6 +562,41 @@
     <div class="dialog-footer">
       <button class="btn-cancel" onclick={() => showExecDialog = false}>Abbrechen</button>
       <button class="btn-save-rule" onclick={handleSaveExec} disabled={saving}>{saving ? 'Speichere...' : 'Speichern'}</button>
+    </div>
+  </div>
+{/if}
+
+<!-- Notifications Dialog -->
+{#if showNotifyDialog && editedNotify}
+  <div class="dialog-overlay" onclick={() => showNotifyDialog = false}></div>
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>Benachrichtigung {editedNotify.id?.includes('new_') ? 'erstellen' : 'bearbeiten'}</h3>
+      <button class="btn-close" onclick={() => showNotifyDialog = false}>✕</button>
+    </div>
+    <div class="dialog-body">
+      {#each notifySchema.fields as field}
+        <div class="dialog-field">
+          <label>{field.label}</label>
+          {#if field.type === 'select'}
+            <select bind:value={editedNotify[field.key]}>
+              {#each field.options || [] as opt}
+                <option value={opt}>{opt}</option>
+              {/each}
+            </select>
+          {:else if field.type === 'boolean'}
+            <input type="checkbox" checked={editedNotify[field.key] ?? false} onchange={(e) => editedNotify[field.key] = e.target.checked} />
+          {:else if field.type === 'number'}
+            <input type="number" value={editedNotify[field.key] ?? ''} oninput={(e) => editedNotify[field.key] = parseInt(e.target.value) || 0} />
+          {:else}
+            <input type="text" bind:value={editedNotify[field.key]} />
+          {/if}
+        </div>
+      {/each}
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-cancel" onclick={() => showNotifyDialog = false}>Abbrechen</button>
+      <button class="btn-save-rule" onclick={handleSaveNotify} disabled={saving}>{saving ? 'Speichere...' : 'Speichern'}</button>
     </div>
   </div>
 {/if}
