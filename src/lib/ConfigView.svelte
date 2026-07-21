@@ -158,6 +158,17 @@
           <button class="btn-danger" onclick={() => handleDeleteAgent(selectedAgent)}>Löschen</button>
         </div>
 
+        <!-- Install Command -->
+        <section class="config-section">
+          <h4>Installation</h4>
+          <div class="install-box">
+            <code class="install-cmd" id="install-cmd">curl -s '{window.location.origin}/api/agent/install.sh?agentid={selectedAgent}&amp;apikey={agent.apikey}' | sh</code>
+            <button class="btn-copy" onclick={() => navigator.clipboard.writeText(`curl -s '${window.location.origin}/api/agent/install.sh?agentid=${selectedAgent}&apikey=${agent.apikey}' | sh`)}>
+              Kopieren
+            </button>
+          </div>
+        </section>
+
         <!-- Groups -->
         <section class="config-section">
           <h4>Gruppen</h4>
@@ -275,6 +286,19 @@
 
   .config-section { margin-bottom: 1.25rem; }
   .config-section h4 { margin: 0 0 0.5rem; font-size: 0.9rem; color: #555; }
+
+  .install-box {
+    background: #1a1a2e; border-radius: 6px; padding: 0.6rem;
+    display: flex; gap: 0.4rem; align-items: center;
+  }
+  .install-cmd {
+    flex: 1; font-size: 0.72rem; color: #a0f0a0; font-family: monospace;
+    white-space: nowrap; overflow-x: auto; user-select: all;
+  }
+  .btn-copy {
+    background: #4361ee; color: #fff; border: none; border-radius: 4px;
+    padding: 0.3rem 0.6rem; cursor: pointer; font-size: 0.72rem; white-space: nowrap;
+  }
 
   .chip-list { display: flex; flex-wrap: wrap; gap: 0.3rem; }
   .chip {
