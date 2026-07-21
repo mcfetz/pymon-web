@@ -18,6 +18,13 @@
     return d.toLocaleString();
   }
 
+  function genId(prefix) {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let s = '';
+    for (let i = 0; i < 7; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return prefix + s;
+  }
+
   let view = $state('agents'); // 'agents' | 'rules'
   let schemas = $state({});
   let agents = $state({});
@@ -145,28 +152,31 @@
       if ('default' in f) def[f.key] = f.default;
       else def[f.key] = '';
     }
-    def.id = 'new_rule_' + Date.now();
+    def.id = '';
     editingRule = def;
     editedRule = { ...def };
     showRuleDialog = true;
   }
 
   function editRule(id) {
-    editingRule = { ...rules[id], id };
+    editingRule = id;
     editedRule = { ...rules[id], id };
     showRuleDialog = true;
   }
 
   async function handleSaveRule() {
     if (!editedRule) return;
+    if (!editedRule.id?.trim()) editedRule.id = genId('r');
     saving = true;
     try {
+      if (editingRule && editingRule.id !== editedRule.id) {
+        await deleteRule(editingRule.id);
+      }
       await saveRule(editedRule.id, editedRule);
       showRuleDialog = false;
       editingRule = null;
       editedRule = null;
-      const rs = await fetchRules();
-      rules = rs;
+      rules = await fetchRules();
     } catch (e) { error = e.message; }
     finally { saving = false; }
   }
@@ -186,17 +196,23 @@
   }
 
   function editExec(id) {
+    editingExec = id;
     editedExec = { ...executors[id] };
     showExecDialog = true;
   }
 
   async function handleSaveExec() {
-    if (!editedExec || !editedExec.id) return;
+    if (!editedExec) return;
+    if (!editedExec.id?.trim()) editedExec.id = genId('e');
     saving = true;
     try {
+      if (editingExec && editingExec !== editedExec.id) {
+        await deleteExecutor(editingExec);
+      }
       await saveExecutor(editedExec.id, editedExec);
       showExecDialog = false;
       editedExec = null;
+      editingExec = null;
       executors = await fetchExecutors();
     } catch (e) { error = e.message; }
     finally { saving = false; }
@@ -223,17 +239,23 @@
   }
 
   function editNotify(id) {
+    editingNotify = id;
     editedNotify = { ...notifications[id] };
     showNotifyDialog = true;
   }
 
   async function handleSaveNotify() {
-    if (!editedNotify || !editedNotify.id) return;
+    if (!editedNotify) return;
+    if (!editedNotify.id?.trim()) editedNotify.id = genId('n');
     saving = true;
     try {
+      if (editingNotify && editingNotify !== editedNotify.id) {
+        await deleteNotification(editingNotify);
+      }
       await saveNotification(editedNotify.id, editedNotify);
       showNotifyDialog = false;
       editedNotify = null;
+      editingNotify = null;
       notifications = await fetchNotifications();
     } catch (e) { error = e.message; }
     finally { saving = false; }
@@ -326,7 +348,7 @@
           <div style="display:flex;gap:0.3rem;">
             <button class="btn-dup" onclick={async () => {
               const a = agents[selectedAgent];
-              const newId = selectedAgent + '_copy';
+              const newId = genId('a');
               await createAgent(newId, a.groups);
               for (const [plugin, cfg] of Object.entries(a.plugins || {})) {
                 await setAgentPluginConfig(newId, plugin, cfg);
@@ -429,7 +451,7 @@
           <span class="rule-status" class:active={rule.enabled}>{rule.enabled ? 'Aktiv' : 'Inaktiv'}</span>
           <button class="btn-edit" onclick={() => editRule(rule.id)}>Bearbeiten</button>
           <button class="btn-dup" onclick={async () => {
-            const copy = { ...rule, id: rule.id + '_copy' };
+            const copy = { ...rule, id: genId('r') };
             await saveRule(copy.id, copy);
             rules = await fetchRules();
           }}>Duplizieren</button>
@@ -454,7 +476,7 @@
         <div class="rule-actions">
           <button class="btn-edit" onclick={() => editExec(exec.id)}>Bearbeiten</button>
           <button class="btn-dup" onclick={async () => {
-            const copy = { ...exec, id: exec.id + '_copy' };
+            const copy = { ...exec, id: genId('e') };
             await saveExecutor(copy.id, copy);
             executors = await fetchExecutors();
           }}>Duplizieren</button>
@@ -480,7 +502,7 @@
         <div class="rule-actions">
           <button class="btn-edit" onclick={() => editNotify(n.id)}>Bearbeiten</button>
           <button class="btn-dup" onclick={async () => {
-            const copy = { ...n, id: n.id + '_copy' };
+            const copy = { ...n, id: genId('n') };
             await saveNotification(copy.id, copy);
             notifications = await fetchNotifications();
           }}>Duplizieren</button>
@@ -524,7 +546,7 @@
           <div class="plugin-desc">{p.description || '—'}</div>
           <div class="rule-actions">
             <a href="/api/admin/plugins/{p.name}/source" download="{p.name}.py" style="font-size:0.78rem;color:#4361ee;text-decoration:none;" onclick={(e) => e.stopPropagation()}>Download</a>
-            <button class="btn-dup" onclick={(e) => { e.stopPropagation(); const newName = p.name + '_copy'; fetchPluginSource(p.name).then(src => fetch('/api/admin/plugins/' + newName + '/source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: src })).then(() => fetchAdminPlugins().then(r => pluginList = r)); }}>Duplizieren</button>
+            <button class="btn-dup" onclick={(e) => { e.stopPropagation(); const newName = genId('p'); fetchPluginSource(p.name).then(src => fetch('/api/admin/plugins/' + newName + '/source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: src })).then(() => fetchAdminPlugins().then(r => pluginList = r)); }}>Duplizieren</button>
             <button class="btn-del" onclick={(e) => { e.stopPropagation(); if (confirm(`Plugin ${p.name} löschen?`)) deletePlugin(p.name).then(() => fetchAdminPlugins().then(r => pluginList = r)); }}>Löschen</button>
           </div>
         </div>
@@ -627,7 +649,7 @@
     <div class="dialog-body">
       <div class="dialog-field">
         <label>ID</label>
-        <input type="text" bind:value={editedExec.id} disabled={!!editedExec.id} />
+        <input type="text" bind:value={editedExec.id} />
       </div>
       <div class="dialog-field">
         <label>Shell-Kommando</label>
