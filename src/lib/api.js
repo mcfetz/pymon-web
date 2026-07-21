@@ -112,7 +112,11 @@ export function deleteNotification(id) {
 
 // ── Plugins ──
 export function fetchAdminPlugins() { return api('/admin/plugins'); }
-export function fetchPluginSource(name) { return api(`/admin/plugins/${name}/source`); }
+export function fetchPluginSource(name) {
+  return fetch(`/api/admin/plugins/${name}/source`, {
+    headers: { agentid: AGENTID, 'X-API-Key': API_KEY },
+  }).then((r) => { if (!r.ok) throw new Error(r.statusText); return r.text(); });
+}
 export function savePluginSource(name, source) {
   return fetch(`/api/admin/plugins/${name}/source`, {
     method: 'PUT',

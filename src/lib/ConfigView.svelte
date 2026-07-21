@@ -465,6 +465,24 @@
   <div class="rules-view">
     <div class="rules-header">
       <h3>Plugins</h3>
+      <label class="btn-add-rule" style="cursor:pointer;">
+        + Upload .py
+        <input type="file" accept=".py" style="display:none" onchange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const name = file.name.replace(/\.py$/, '');
+          const text = await file.text();
+          try {
+            await fetch(`/api/admin/plugins/${name}/source`, {
+              method: 'PUT',
+              headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' },
+              body: text,
+            });
+            pluginList = await fetchAdminPlugins();
+          } catch (err) { error = err.message; }
+          e.target.value = '';
+        }} />
+      </label>
     </div>
     <div class="plugin-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));">
       {#each pluginList as p}
@@ -476,6 +494,7 @@
           </div>
           <div class="plugin-desc">{p.description || '—'}</div>
           <div class="rule-actions">
+            <a href="/api/admin/plugins/{p.name}/source" download="{p.name}.py" style="font-size:0.78rem;color:#4361ee;text-decoration:none;" onclick={(e) => e.stopPropagation()}>Download</a>
             <button class="btn-del" onclick={(e) => { e.stopPropagation(); if (confirm(`Plugin ${p.name} löschen?`)) deletePlugin(p.name).then(() => fetchAdminPlugins().then(r => pluginList = r)); }}>Löschen</button>
           </div>
         </div>
