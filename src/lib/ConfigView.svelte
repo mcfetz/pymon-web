@@ -5,14 +5,15 @@
   import {
     fetchPluginSchemas, fetchAdminAgents, fetchAdminGroups,
     createAgent, deleteAgent, setAgentGroups, setAgentPluginConfig,
-    removeAgentPlugin, setGroupPlugins, deleteGroup,
+    removeAgentPlugin, setGroupPlugins, deleteGroup, setAgentEnabled, updateAgent,
     fetchRuleSchema, fetchRules, saveRule, deleteRule,
     fetchExecutors, saveExecutor, deleteExecutor,
-    fetchNotifications, saveNotification, deleteNotification, fetchNotifySchema,
-    fetchAdminPlugins, fetchPluginSource, savePluginSource, deletePlugin, togglePluginEnabled,
+    fetchNotifications, saveNotification, deleteNotification, fetchNotifySchema, testNotification,
+    fetchAdminPlugins, fetchPluginSource, fetchPluginTemplate, savePluginSource, deletePlugin, togglePluginEnabled,
+    updateAccount, setToken,
   } from './api.js';
 
-  let { pendingRule = null } = $props();
+  let { pendingRule = null, onLogout = () => {} } = $props();
 
   $effect(() => {
     if (pendingRule?.id && pendingRule.id in rules) {
@@ -35,7 +36,34 @@
     return prefix + s;
   }
 
-  let view = $state('agents'); // 'agents' | 'rules'
+  let view = $state('agents'); // 'agents' | 'rules' | 'executors' | 'notify' | 'groups' | 'plugins' | 'account'
+  // ── Account state ──
+  let accUsername = $state('');
+  let accCurPw = $state('');
+  let accNewPw = $state('');
+  let accNewPw2 = $state('');
+  let accMsg = $state('');
+  let accError = $state('');
+  let accLoading = $state(false);
+
+  async function handleAccountSave() {
+    accMsg = '';
+    accError = '';
+    if (accNewPw && accNewPw !== accNewPw2) { accError = 'passwords do not match'; return; }
+    accLoading = true;
+    try {
+      const body = { current_password: accCurPw };
+      if (accUsername) body.new_username = accUsername;
+      if (accNewPw) body.new_password = accNewPw;
+      const res = await updateAccount(body);
+      setToken(res.token);
+      accMsg = 'account updated';
+      accCurPw = '';
+      accNewPw = '';
+      accNewPw2 = '';
+    } catch (e) { accError = e.message; }
+    finally { accLoading = false; }
+  }
   let schemas = $state({});
   let agents = $state({});
   let groups = $state({});
@@ -70,6 +98,12 @@
   let editedNotify = $state(null);
   let showNotifyDialog = $state(false);
 
+  // Groups state
+  let editingGroup = $state(null);
+  let editedGroup = $state(null);
+  let showGroupDialog = $state(false);
+  let allPluginNames = $state([]);
+
   // Plugin management state
   let pluginList = $state([]);
   let selPluginName = $state(null);
@@ -79,6 +113,58 @@
   let checking = $state(false);
   let showPluginDialog = $state(false);
   let editedPlugin = $state(null);
+  let fsEditor = $state(null); // fullscreen editor content
+
+  // ── Filters ──
+  let filterText = $state('');
+
+  let filteredAgents = $derived.by(() => {
+    const ids = Object.keys(agents);
+    if (!filterText) return ids.sort();
+    const q = filterText.toLowerCase();
+    return ids.filter(id => {
+      const a = agents[id];
+      return (a.title || id).toLowerCase().includes(q) || id.toLowerCase().includes(q);
+    }).sort();
+  });
+
+  let filteredRules = $derived.by(() => {
+    const vals = Object.values(rules);
+    if (!filterText) return vals.sort((a, b) => a.id.localeCompare(b.id));
+    const q = filterText.toLowerCase();
+    return vals.filter(r => r.id.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  });
+
+  let filteredExecutors = $derived.by(() => {
+    const vals = Object.values(executors);
+    if (!filterText) return vals.sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+    const q = filterText.toLowerCase();
+    return vals.filter(ex => (ex.title || ex.id).toLowerCase().includes(q) || ex.id.toLowerCase().includes(q) || (ex.command || '').toLowerCase().includes(q))
+      .sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+  });
+
+  let filteredNotifications = $derived.by(() => {
+    const vals = Object.values(notifications);
+    if (!filterText) return vals.sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+    const q = filterText.toLowerCase();
+    return vals.filter(n => (n.title || n.id).toLowerCase().includes(q) || n.id.toLowerCase().includes(q) || (n.to || '').toLowerCase().includes(q))
+      .sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+  });
+
+  let filteredGroups = $derived.by(() => {
+    const ids = Object.keys(groups);
+    if (!filterText) return ids.sort();
+    const q = filterText.toLowerCase();
+    return ids.filter(gid => gid.toLowerCase().includes(q)).sort();
+  });
+
+  let filteredPlugins = $derived.by(() => {
+    if (!filterText) return [...pluginList].sort((a, b) => (a.label || a.name).localeCompare(b.label || b.name));
+    const q = filterText.toLowerCase();
+    return pluginList.filter(p => (p.label || '').toLowerCase().includes(q) || p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q))
+      .sort((a, b) => (a.label || a.name).localeCompare(b.label || b.name));
+  });
 
   async function load() {
     loading = true; error = null;
@@ -91,6 +177,7 @@
       ]);
       schemas = s; agents = a; groups = g; rules = rs; ruleSchema = rsc;
       executors = ex; notifications = nt; notifySchema = ns; pluginList = pl;
+      allPluginNames = Object.keys(s);
     } catch (e) { error = e.message; }
     finally { loading = false; }
   }
@@ -266,7 +353,7 @@
       if ('default' in f) def[f.key] = f.default;
       else def[f.key] = '';
     }
-    def.id = 'new_' + Date.now();
+    def.id = '';
     editedNotify = def;
     showNotifyDialog = true;
   }
@@ -323,6 +410,17 @@
     return [...new Set([...fromGroups, ...direct])].sort();
   });
 
+  function closeFs() {
+    if (fsEditor !== null) {
+      pluginSource = fsEditor;
+      fsEditor = null;
+    }
+  }
+
+  function onFsKeydown(e) {
+    if (e.key === 'Escape' && fsEditor !== null) closeFs();
+  }
+
   onMount(load);
 </script>
 
@@ -338,36 +436,41 @@
       <button class="view-tab" class:active={view === 'rules'} onclick={() => view = 'rules'}>Rules</button>
       <button class="view-tab" class:active={view === 'executors'} onclick={() => view = 'executors'}>Executors</button>
       <button class="view-tab" class:active={view === 'notify'} onclick={() => view = 'notify'}>Notifications</button>
+      <button class="view-tab" class:active={view === 'groups'} onclick={() => view = 'groups'}>Groups</button>
       <button class="view-tab" class:active={view === 'plugins'} onclick={() => view = 'plugins'}>Plugins</button>
+      <button class="view-tab" class:active={view === 'account'} onclick={() => view = 'account'}>Account</button>
     </div>
 
     {#if view === 'agents'}
   <div class="rules-view">
     <div class="rules-header">
       <h3>Agents</h3>
+      <input type="text" class="filter-input" placeholder="Filter agents..." bind:value={filterText} />
       <button class="btn-add-rule" onclick={async () => {
-        const id = prompt('New agent ID:');
-        if (!id?.trim()) return;
-        try { await createAgent(id.trim()); await load(); }
+        const title = prompt('Agent title:');
+        if (!title?.trim()) return;
+        const id = genId('a');
+        try { await createAgent(id, [], title.trim()); await load(); }
         catch (e) { error = e.message; }
       }}>+ New Agent</button>
     </div>
-    {#if Object.keys(agents).length === 0}
+    {#if filteredAgents.length === 0}
       <div class="empty">No agents</div>
     {:else}
-      {#each Object.keys(agents).sort() as id}
+      {#each filteredAgents as id}
         {@const a = agents[id]}
         <div class="rule-card">
           <div class="rule-head">
-            <span class="status-dot" class:online={a.online} style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e53e3e;flex-shrink:0;margin-right:0.3rem;"></span>
-            <span class="rule-id">{id}</span>
+            <span class="status-dot" class:online={a.online} style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:0.3rem;"></span>
+            <span class="rule-id">{a.title || id}</span>
             <span class="rule-badge">{a.groups?.join(', ') || '—'}</span>
             <span style="margin-left:auto;font-size:0.75rem;color:#888;">
               {#if a.last_seen}{fmtTime(a.last_seen)}{:else}never{/if}
             </span>
           </div>
+          <div class="rule-desc" style="font-size:0.72rem;color:#999;">{id}</div>
           <div class="rule-actions">
-            <span class="rule-status" class:active={a.online}>{a.online ? 'Online' : 'Offline'}</span>
+            <span class="rule-status" class:active={a.enabled !== false}>{a.enabled !== false ? 'Enabled' : 'Disabled'}</span>
             <button class="btn-edit" onclick={() => openAgentDialog(id)}>Edit</button>
             <button class="btn-dup" onclick={async () => {
               const newId = genId('a');
@@ -389,10 +492,11 @@
   <div class="rules-view">
     <div class="rules-header">
       <h3>Alarm Rules</h3>
+      <input type="text" class="filter-input" placeholder="Filter rules..." bind:value={filterText} />
       <button class="btn-add-rule" onclick={openNewRule}>+ New Rule</button>
     </div>
 
-    {#each Object.values(rules) as rule (rule.id)}
+    {#each filteredRules as rule (rule.id)}
       <div class="rule-card">
         <div class="rule-head">
           <span class="rule-id">{rule.id}</span>
@@ -418,9 +522,10 @@
   <div class="rules-view">
     <div class="rules-header">
       <h3>Executors</h3>
+      <input type="text" class="filter-input" placeholder="Filter executors..." bind:value={filterText} />
       <button class="btn-add-rule" onclick={openNewExec}>+ New Executor</button>
     </div>
-    {#each Object.values(executors) as exec (exec.id)}
+    {#each filteredExecutors as exec (exec.id)}
       <div class="rule-card">
         <div class="rule-head">
           <span class="rule-id">{exec.title || exec.id}</span>
@@ -444,9 +549,10 @@
   <div class="rules-view">
     <div class="rules-header">
       <h3>Notifications</h3>
+      <input type="text" class="filter-input" placeholder="Filter notifications..." bind:value={filterText} />
       <button class="btn-add-rule" onclick={openNewNotify}>+ New Notification</button>
     </div>
-    {#each Object.values(notifications) as n (n.id)}
+    {#each filteredNotifications as n (n.id)}
       <div class="rule-card">
         <div class="rule-head">
           <span class="rule-id">{n.title || n.id}</span>
@@ -466,25 +572,158 @@
     {/each}
   </div>
 {/if}
+{#if view === 'groups'}
+  <div class="rules-view">
+    <div class="rules-header">
+      <h3>Groups</h3>
+      <input type="text" class="filter-input" placeholder="Filter groups..." bind:value={filterText} />
+      <button class="btn-add-rule" onclick={() => { editedGroup = { plugins: [] }; showGroupDialog = true; }}>+ New Group</button>
+    </div>
+    {#if filteredGroups.length === 0}
+      <div class="empty">No groups</div>
+    {:else}
+      {#each filteredGroups as gid}
+        <div class="rule-card">
+          <div class="rule-head">
+            <span class="rule-id">{gid}</span>
+            <span class="rule-badge">{(groups[gid] || []).length} plugins</span>
+          </div>
+          <div class="rule-desc">{(groups[gid] || []).join(', ') || '—'}</div>
+          <div class="rule-actions">
+            <button class="btn-edit" onclick={() => { editedGroup = { id: gid, plugins: [...(groups[gid] || [])] }; showGroupDialog = true; }}>Edit</button>
+            <button class="btn-del" onclick={async () => { if (!confirm(`Delete group ${gid}?`)) return; try { await deleteGroup(gid); groups = await fetchAdminGroups(); } catch (e) { error = e.message; } }}>Delete</button>
+          </div>
+        </div>
+      {/each}
+    {/if}
+  </div>
+{/if}
 {#if view === 'plugins'}
   <div class="rules-view">
     <div class="rules-header">
       <h3>Plugins</h3>
-      <label class="btn-add-rule" style="cursor:pointer;">
-        + Upload .py
-        <input type="file" accept=".py" style="display:none" onchange={async (e) => {
-          const file = e.target.files?.[0]; if (!file) return;
-          const name = file.name.replace(/\.py$/, '');
-          const text = await file.text();
+      <input type="text" class="filter-input" placeholder="Filter plugins..." bind:value={filterText} />
+      <div style="display:flex;gap:0.4rem;">
+        <button class="btn-add-rule" onclick={async () => {
+          const name = prompt('New plugin name (without .py):');
+          if (!name?.trim()) return;
+          const nn = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+          const template = `#!/usr/bin/env python3
+"""${nn}.py — Description of your plugin. No external deps."""
+import json
+import sys
+
+# ── Schema ──
+# Defines which fields are shown in the config UI.
+# Supported field types:
+#   "number"       — integer/float input
+#   "string"       — text input
+#   "boolean"      — checkbox
+#   "array:string" — list of strings with +/− buttons
+#   "array:object" — list of objects with sub-fields
+__schema__ = {
+    "label": "${nn}",
+    "description": "Description of your plugin",
+    "fields": [
+        {
+            "key": "sleep",
+            "label": "Interval (s)",
+            "type": "number",
+            "default": 60,
+            "min": 5,
+        },
+        {
+            "key": "api_url",
+            "label": "API URL",
+            "type": "string",
+            "default": "https://example.com/api",
+            "optional": True,
+        },
+        {
+            "key": "verbose",
+            "label": "Verbose logging",
+            "type": "boolean",
+            "default": False,
+            "optional": True,
+        },
+        {
+            "key": "hosts",
+            "label": "Host list",
+            "type": "array:string",
+            "default": ["host1", "host2"],
+        },
+        {
+            "key": "urls",
+            "label": "URL checks",
+            "type": "array:object",
+            "default": [],
+            "fields": [
+                {"key": "name", "label": "Name", "type": "string"},
+                {"key": "url", "label": "URL", "type": "string"},
+                {
+                    "key": "timeout",
+                    "label": "Timeout (s)",
+                    "type": "number",
+                    "default": 5,
+                    "optional": True,
+                },
+            ],
+        },
+    ],
+}
+
+# ── Plugin logic ──
+# Config is read from stdin as JSON.
+# Output must be a single JSON object with flat key-value pairs.
+# Keys become metric names, values must be numbers, strings,
+# or booleans.
+# Example: {"cpu_percent": 45.2, "status": "ok"}
+
+if __name__ == "__main__":
+    config = json.load(sys.stdin)
+
+    sleep = config.get("sleep", 60)  # noqa: F841
+    api_url = config.get("api_url", "")
+    verbose = config.get("verbose", False)  # noqa: F841
+    hosts = config.get("hosts", [])  # noqa: F841
+    url_checks = config.get("urls", [])  # noqa: F841
+
+    # Your monitoring logic here
+    # ...
+
+    # Return metrics as flat JSON
+    output = {
+        "example_metric_1": 42.0,
+        "example_status": "running",
+    }
+    print(json.dumps(output))
+`;
           try {
-            await fetch(`/api/admin/plugins/${name}/source`, { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: text });
+            await fetch(`/api/admin/plugins/${nn}/source`, { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: template });
             pluginList = await fetchAdminPlugins();
+            // Open the editor with the new plugin
+            selPluginName = nn;
+            pluginSource = template;
+            pluginSourceDirty = false;
+            checkResult = null;
           } catch (err) { error = err.message; }
-          e.target.value = '';
-        }} />
-      </label>
+        }}>+ New Plugin</button>
+        <label class="btn-add-rule" style="cursor:pointer;">
+          + Upload .py
+          <input type="file" accept=".py" style="display:none" onchange={async (e) => {
+            const file = e.target.files?.[0]; if (!file) return;
+            const name = file.name.replace(/\.py$/, '');
+            const text = await file.text();
+            try {
+              await fetch('/api/admin/plugins/'+name+'/source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: text });
+              pluginList = await fetchAdminPlugins();
+            } catch (err) { error = err.message; }
+            e.target.value = '';
+          }} />
+        </label>
+      </div>
     </div>
-    {#each pluginList as p}
+    {#each filteredPlugins as p}
       <div class="rule-card" style="cursor:pointer;" class:active={selPluginName === p.name}>
         <div class="rule-head">
           <span class="rule-id">{p.label} ({p.name})</span>
@@ -517,7 +756,9 @@
         </div>
       </div>
       {#key selPluginName}
-        <CodeEditor value={pluginSource} onchange={(v) => { pluginSource = v; pluginSourceDirty = true; }} />
+        <div style="height:400px;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;">
+          <CodeEditor value={pluginSource} onchange={(v) => { pluginSource = v; pluginSourceDirty = true; }} />
+        </div>
       {/key}
       {#if checkResult}
         <div class="check-result" class:ok={checkResult.ok}>
@@ -525,7 +766,24 @@
         </div>
       {/if}
     </div>
-  {/if}
+{/if}
+{/if}
+{#if view === 'account'}
+  <div class="account-section">
+    <h2>Account</h2>
+    <form onsubmit={(e) => { e.preventDefault(); handleAccountSave(); }}>
+      <label>Username <input type="text" bind:value={accUsername} placeholder="new username" disabled={accLoading} /></label>
+      <label>Current password <input type="password" bind:value={accCurPw} required disabled={accLoading} /></label>
+      <label>New password <input type="password" bind:value={accNewPw} placeholder="leave empty to keep" disabled={accLoading} /></label>
+      <label>Confirm new password <input type="password" bind:value={accNewPw2} placeholder="leave empty to keep" disabled={accLoading} /></label>
+      {#if accError}<div class="form-error">{accError}</div>{/if}
+      {#if accMsg}<div class="form-ok">{accMsg}</div>{/if}
+      <button type="submit" disabled={accLoading || !accCurPw}>
+        {accLoading ? 'saving...' : 'save'}
+      </button>
+    </form>
+    <button class="logout-btn" onclick={onLogout}>Logout</button>
+  </div>
 {/if}
 {/if}
 
@@ -544,13 +802,13 @@
           {#if field.key === 'pluginid'}
             <select bind:value={editedRule[field.key]}>
               <option value="">—</option>
-              {#each pluginList as p}
+{#each filteredPlugins as p}
                 <option value={p.name}>{p.label} ({p.name})</option>
               {/each}
             </select>
           {:else if field.key === 'notifications'}
             <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-              {#each Object.values(notifications) as n (n.id)}
+              {#each Object.values(notifications).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id)) as n (n.id)}
                 <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
                   <input type="checkbox" checked={(editedRule[field.key] || []).includes(n.id)} onchange={(e) => {
                     const arr = [...(editedRule[field.key] || [])];
@@ -563,7 +821,7 @@
             </div>
           {:else if field.key === 'executors'}
             <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-              {#each Object.values(executors) as ex (ex.id)}
+              {#each Object.values(executors).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id)) as ex (ex.id)}
                 <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
                   <input type="checkbox" checked={(editedRule[field.key] || []).includes(ex.id)} onchange={(e) => {
                     const arr = [...(editedRule[field.key] || [])];
@@ -644,30 +902,44 @@
 <!-- Notifications Dialog -->
 {#if showNotifyDialog && editedNotify}
   <div class="dialog-overlay" onclick={() => showNotifyDialog = false}></div>
-  <div class="dialog">
+  <div class="dialog" style="width:560px;">
     <div class="dialog-header">
       <h3>Notification {editedNotify.id?.includes('new_') ? 'create' : 'edit'}</h3>
       <button class="btn-close" onclick={() => showNotifyDialog = false}>✕</button>
     </div>
     <div class="dialog-body">
       {#each notifySchema.fields as field}
-        <div class="dialog-field">
-          <label>{field.label}</label>
-          {#if field.type === 'select'}
-            <select bind:value={editedNotify[field.key]}>
-              {#each field.options || [] as opt}
-                <option value={opt}>{opt}</option>
-              {/each}
-            </select>
-          {:else if field.type === 'boolean'}
-            <input type="checkbox" checked={editedNotify[field.key] ?? false} onchange={(e) => editedNotify[field.key] = e.target.checked} />
-          {:else if field.type === 'number'}
-            <input type="number" value={editedNotify[field.key] ?? ''} oninput={(e) => editedNotify[field.key] = parseInt(e.target.value) || 0} />
-          {:else}
-            <input type="text" bind:value={editedNotify[field.key]} />
-          {/if}
-        </div>
+        {@const ftype = field.key}
+        {@const isCommon = ['id','title','enabled','type'].includes(ftype)}
+        {@const isEmail = editedNotify.type === 'email' && ['to','from','server','port','user','password','use_tls'].includes(ftype)}
+        {@const isWebPush = editedNotify.type === 'web_push' && ['vapid_public_key','vapid_private_key','vapid_subject'].includes(ftype)}
+        {@const isNtfy = editedNotify.type === 'ntfy' && ['ntfy_url','ntfy_topic','ntfy_access_token'].includes(ftype)}
+        {@const isTwilio = editedNotify.type === 'twilio_call' && ['twilio_account_sid','twilio_auth_token','twilio_call_from','twilio_call_to'].includes(ftype)}
+        {#if isCommon || isEmail || isWebPush || isNtfy || isTwilio}
+          <div class="dialog-field">
+            <label>{field.label}</label>
+            {#if field.type === 'select'}
+              <select bind:value={editedNotify[field.key]}>
+                {#each field.options || [] as opt}
+                  <option value={opt}>{opt}</option>
+                {/each}
+              </select>
+            {:else if field.type === 'boolean'}
+              <input type="checkbox" checked={editedNotify[field.key] ?? false} onchange={(e) => editedNotify[field.key] = e.target.checked} />
+            {:else if field.type === 'number'}
+              <input type="number" value={editedNotify[field.key] ?? ''} oninput={(e) => editedNotify[field.key] = parseInt(e.target.value) || 0} />
+            {:else}
+              <input type="text" bind:value={editedNotify[field.key]} />
+            {/if}
+          </div>
+        {/if}
       {/each}
+      {#if editedNotify.type}
+        <button class="btn-cancel" style="margin-top:0.5rem;background:#805ad5;color:#fff;border:none;" onclick={async () => {
+          try { await testNotification(editedNotify); alert('Test sent successfully'); }
+          catch (e) { alert('Test failed: ' + e.message); }
+        }}>Send Test</button>
+      {/if}
     </div>
     <div class="dialog-footer">
       <button class="btn-cancel" onclick={() => showNotifyDialog = false}>Cancel</button>
@@ -684,8 +956,8 @@
       <h3>Plugin: {editedPlugin.name}</h3>
       <button class="btn-close" onclick={() => { showPluginDialog = false; selPluginName = null; }}>✕</button>
     </div>
-    <div class="dialog-body" style="overflow:visible;">
-      <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+    <div class="dialog-body" style="overflow:visible;display:flex;flex-direction:column;gap:0.6rem;">
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0;flex-shrink:0;">
         <div class="dialog-field" style="flex:1;">
           <label>ID (filename)</label>
           <input type="text" value={editedPlugin.name} disabled />
@@ -708,11 +980,12 @@
           catch(e) { checkResult = { ok: false, errors: [{ type: 'error', msg: e.message }]}; }
           finally { checking = false; }
         }}>Check</button>
+        <button class="btn-cancel" onclick={() => fsEditor = pluginSource}>⛶ Fullscreen</button>
         <span style="flex:1;"></span>
         <span style="font-size:0.78rem;color:#888;align-self:center;">{pluginSourceDirty ? '(unsaved)' : ''}</span>
       </div>
       {#key editedPlugin.name}
-        <div style="height:350px;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;">
+        <div style="height:350px;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;display:flex;flex-direction:column;">
           <CodeEditor value={pluginSource} onchange={(v) => { pluginSource = v; pluginSourceDirty = true; }} />
         </div>
       {/key}
@@ -734,6 +1007,49 @@
   </div>
 {/if}
 
+<!-- Group Dialog -->
+{#if showGroupDialog && editedGroup}
+  <div class="dialog-overlay" onclick={() => showGroupDialog = false}></div>
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>{editedGroup.id ? 'Edit Group' : 'New Group'}</h3>
+      <button class="btn-close" onclick={() => showGroupDialog = false}>✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-field">
+        <label>Name</label>
+        <input type="text" bind:value={editedGroup.id} disabled={!!editedGroup.id} placeholder="group-name" />
+      </div>
+      <div class="dialog-field">
+        <label>Plugins</label>
+        <div class="dialog-array" style="max-height:250px;overflow-y:auto;">
+          {#each [...allPluginNames].sort() as pn}
+            <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+              <input type="checkbox" checked={(editedGroup.plugins || []).includes(pn)} onchange={(e) => {
+                const arr = [...(editedGroup.plugins || [])];
+                if (e.target.checked) arr.push(pn); else arr.splice(arr.indexOf(pn), 1);
+                editedGroup.plugins = arr;
+              }} />
+              {pn}
+            </label>
+          {/each}
+        </div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-cancel" onclick={() => showGroupDialog = false}>Cancel</button>
+      <button class="btn-save-rule" onclick={async () => {
+        if (!editedGroup.id?.trim()) return;
+        try {
+          await setGroupPlugins(editedGroup.id.trim(), editedGroup.plugins || []);
+          showGroupDialog = false;
+          groups = await fetchAdminGroups();
+        } catch (e) { error = e.message; }
+      }} disabled={!editedGroup.id?.trim()}>Save</button>
+    </div>
+  </div>
+{/if}
+
 <!-- Source editor when opened inline from plugin dialog -->
 {#if selPluginName && !showPluginDialog}
   <div style="margin-top:1rem;border-top:1px solid #e2e8f0;padding-top:1rem;">
@@ -742,7 +1058,9 @@
       <button class="btn-cancel" onclick={() => { selPluginName = null; pluginSource = ''; checkResult = null; }}>Close</button>
     </div>
     {#key selPluginName}
-      <CodeEditor value={pluginSource} onchange={(v) => { pluginSource = v; pluginSourceDirty = true; }} />
+      <div style="height:400px;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;">
+        <CodeEditor value={pluginSource} onchange={(v) => { pluginSource = v; pluginSourceDirty = true; }} />
+      </div>
     {/key}
   </div>
 {/if}
@@ -760,7 +1078,7 @@
     <div class="dialog-body" style="overflow:visible;">
       <!-- Status & Install -->
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
-        <span class="status-dot" class:online={agent.online} style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e53e3e;flex-shrink:0;"></span>
+        <span class="status-dot" class:online={agent.online} style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;"></span>
         <span style="font-size:0.85rem;">{agent.online ? 'Online' : 'Offline'}</span>
         {#if agent.last_seen}
           <span style="font-size:0.75rem;color:#888;">last seen: {fmtTime(agent.last_seen)}</span>
@@ -769,6 +1087,32 @@
         <button class="btn-install" style="width:auto;padding:0.35rem 0.8rem;font-size:0.78rem;" onclick={() => navigator.clipboard.writeText(`curl -s '${window.location.origin}/api/agent/install.sh?agentid=${agentId}&apikey=${agent.apikey}' | sh`)}>
           📋 Copy install command
         </button>
+      </div>
+
+      <!-- Title -->
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+        <label style="font-size:0.82rem;font-weight:600;color:#555;min-width:60px;">Title</label>
+        <input type="text" value={agent.title || ''} onchange={async (e) => {
+          const val = e.target.value.trim();
+          try { await updateAgent(agentId, { title: val }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
+          catch (err) { error = err.message; }
+        }} style="flex:1;padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;" />
+        <span style="font-size:0.72rem;color:#aaa;">ID: {agentId}</span>
+      </div>
+
+      <!-- Enabled toggle -->
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;padding-bottom:0.5rem;border-bottom:1px solid #e2e8f0;">
+        <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;">
+          <input type="checkbox" checked={agent.enabled !== false} onchange={async (e) => {
+            const val = e.target.checked;
+            try {
+              await setAgentEnabled(agentId, val);
+              await load();
+              editedAgentData = { ...agents[agentId], id: agentId };
+            } catch (err) { error = err.message; }
+          }} />
+          Agent enabled
+        </label>
       </div>
 
       <!-- Groups -->
@@ -841,6 +1185,20 @@
     <div class="dialog-footer">
       <button class="btn-cancel" onclick={closeAgentDialog}>Cancel</button>
       <button class="btn-save-rule" onclick={closeAgentDialog}>Save</button>
+    </div>
+  </div>
+{/if}
+
+<!-- Fullscreen editor overlay -->
+{#if fsEditor !== null}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fs-overlay" onkeydown={onFsKeydown}>
+    <div class="fs-header">
+      <span style="color:#aaa;font-size:0.85rem;">Editing — press Esc to close</span>
+      <button class="btn-cancel" onclick={closeFs}>✕ Close</button>
+    </div>
+    <div class="fs-editor-body">
+      <CodeEditor value={fsEditor} onchange={(v) => { fsEditor = v; }} />
     </div>
   </div>
 {/if}
@@ -967,7 +1325,13 @@
 
   /* ── Rules View ── */
   .rules-view { grid-column: 1 / -1; }
-  .rules-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+  .rules-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 0.5rem; }
+  .rules-header h3 { margin: 0; font-size: 1.1rem; }
+  .filter-input {
+    flex: 1; max-width: 280px; padding: 0.35rem 0.6rem;
+    border: 1px solid #cbd5e0; border-radius: 5px; font-size: 0.82rem;
+  }
+  .filter-input:focus { outline: none; border-color: #4361ee; }
   .rules-header h3 { margin: 0; font-size: 1.1rem; }
   .btn-add-rule {
     background: #38a169; color: #fff; border: none; border-radius: 5px;
@@ -1034,4 +1398,37 @@
   }
   .check-result.ok { background: #c6f6d5; color: #276749; }
   .check-error { font-family: monospace; font-size: 0.78rem; margin-top: 0.2rem; padding-left: 0.5rem; }
+  .account-section { max-width: 400px; }
+  .account-section h2 { font-size: 1.2rem; margin: 0 0 1rem; }
+  .account-section form { display: flex; flex-direction: column; gap: 0.75rem; }
+  .account-section label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; color: #4a5568; }
+  .account-section input { padding: 0.4rem 0.6rem; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.9rem; }
+  .account-section button[type="submit"] {
+    padding: 0.4rem; background: #3182ce; color: #fff; border: none; border-radius: 5px;
+    font-size: 0.9rem; cursor: pointer;
+  }
+  .account-section button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+  .account-section .logout-btn {
+    margin-top: 1.5rem; padding: 0.4rem 0.8rem; border: 1px solid #e2e8f0; border-radius: 5px;
+    background: #f7fafc; cursor: pointer; font-size: 0.85rem; color: #718096;
+  }
+  .account-section .logout-btn:hover { background: #edf2f7; }
+  .form-error { color: #e53e3e; font-size: 0.85rem; }
+  .form-ok { color: #38a169; font-size: 0.85rem; }
+
+  /* ── Fullscreen overlay ── */
+  .fs-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #1a1a2e; display: flex; flex-direction: column;
+  }
+  .fs-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.5rem 1rem; border-bottom: 1px solid #333; flex-shrink: 0;
+  }
+  .fs-editor-body {
+    flex: 1; min-height: 0; padding: 0.5rem;
+  }
+  .fs-editor-body :global(.editor-wrap) {
+    height: 100% !important; min-height: 0 !important; border: none !important;
+  }
 </style>

@@ -8,10 +8,34 @@
     fetchGroups, fetchAgents, fetchAgentPlugins,
     fetchAgentPluginMetrics, queryMetrics,
     fetchSnoozed, toggleSnooze,
+    login, setToken, isLoggedIn,
   } from './lib/api.js';
 
   // ── Tab state ──
   let tab = $state('alarms');
+  let loggedIn = $state(isLoggedIn());
+  let loginUser = $state('');
+  let loginPass = $state('');
+  let loginError = $state('');
+  let loginLoading = $state(false);
+
+  async function handleLogin() {
+    loginError = '';
+    loginLoading = true;
+    try {
+      const res = await login(loginUser, loginPass);
+      setToken(res.token);
+      loggedIn = true;
+      loginUser = '';
+      loginPass = '';
+    } catch (e) { loginError = e.message; }
+    finally { loginLoading = false; }
+  }
+
+  function handleLogout() {
+    setToken(null);
+    loggedIn = false;
+  }
 
   // ── Alarm state ──
   let openAlarms = $state([]);
@@ -61,7 +85,14 @@
   let alarmGroups = $derived(groupAlarms(openAlarms));
   let historyGroups = $derived(groupAlarms(historyAlarms));
 
-  // ── Snooze state ──
+  let severityFilter = $state(new Set(['warning', 'critical', 'info']));
+  let severityCounts = $derived.by(() => {
+    const counts = { warning: 0, critical: 0, info: 0 };
+    for (const a of openAlarms) counts[a.severity] = (counts[a.severity] || 0) + 1;
+    return counts;
+  });
+  let filteredStacks = $derived(alarmGroups.stacks.filter(g => severityFilter.has(g.alarms[0].severity)));
+  let filteredSingles = $derived(alarmGroups.singles.filter(a => severityFilter.has(a.severity)));
   let snoozedSet = $state(new Set());
 
   async function handleToggleSnooze(alarm) {
@@ -109,8 +140,8 @@
     finally { acking.delete(id); }
   }
 
-  async function ackRule(ruleId) {
-    const ids = openAlarms.filter(a => a.rule_id === ruleId).map(a => a.id);
+  async function ackRule(ruleId, agentid, pluginid, metric) {
+    const ids = openAlarms.filter(a => a.rule_id === ruleId && a.agentid === agentid && a.pluginid === pluginid && a.metric === metric).map(a => a.id);
     for (const id of ids) acking.add(id);
     try { await Promise.all(ids.map(id => acknowledgeAlarm(id))); await loadAlarms(); await loadSnoozed(); }
     catch (e) { error = e.message; }
@@ -173,12 +204,29 @@
   let metricsData = $state([]);
   let metricsLoading = $state(false);
   let metricsError = $state(null);
-  let filters = $state({ group: '', agentid: '', pluginid: '', metric: '', timePreset: '1h' });
+  let filters = $state({ group: '', agentid: [], pluginid: '', metric: '', timePreset: '1h' });
   let hasSearched = $state(false);
   let sortCol = $state('timestamp');
   let sortDir = $state('desc');
   let page = $state(0);
   let pageSize = $state(50);
+
+  let filteredAgents = $derived.by(() => {
+    if (!filters.group) return agents;
+    const ids = groupAgents[filters.group];
+    if (!ids) return [];
+    return agents.filter(a => ids.includes(a.id));
+  });
+  let agentTitleMap = $derived.by(() => {
+    const m = {};
+    for (const a of agents) m[a.id] = a.title;
+    return m;
+  });
+  let pluginTitleMap = $derived.by(() => {
+    const m = {};
+    for (const p of plugins) m[p.id] = p.title;
+    return m;
+  });
 
   // ── Alarm → Rule/History navigation ──
   let pendingRule = $state(null);
@@ -190,7 +238,7 @@
 
   async function jumpToHistory(agentid, pluginid, metric) {
     filters.timePreset = '1h';
-    filters.agentid = agentid;
+    filters.agentid = [agentid];
     await onAgentChange();
     filters.pluginid = pluginid;
     await onPluginChange();
@@ -223,7 +271,7 @@
   }
 
   async function onGroupChange() {
-    filters.agentid = '';
+    filters.agentid = [];
     filters.pluginid = '';
     filters.metric = '';
     plugins = [];
@@ -234,16 +282,25 @@
     filters.pluginid = '';
     filters.metric = '';
     metricNames = [];
-    if (filters.agentid) {
-      try { plugins = await fetchAgentPlugins(filters.agentid); }
-      catch { plugins = []; }
+    if (filters.agentid.length > 0) {
+      try {
+        const results = await Promise.all(filters.agentid.map(a => fetchAgentPlugins(a)));
+        const merged = new Map();
+        for (const list of results) {
+          for (const p of list) {
+            const pid = p.id || p;
+            if (!merged.has(pid)) merged.set(pid, { id: pid, title: p.title || pid });
+          }
+        }
+        plugins = [...merged.values()].sort((a, b) => a.title.localeCompare(b.title));
+      } catch { plugins = []; }
     } else { plugins = []; }
   }
 
   async function onPluginChange() {
     filters.metric = '';
-    if (filters.agentid && filters.pluginid) {
-      try { metricNames = await fetchAgentPluginMetrics(filters.agentid, filters.pluginid); }
+    if (filters.agentid.length === 1 && filters.pluginid) {
+      try { metricNames = await fetchAgentPluginMetrics(filters.agentid[0], filters.pluginid); }
       catch { metricNames = []; }
     } else { metricNames = []; }
   }
@@ -253,12 +310,17 @@
     try {
       const params = {};
       if (filters.group) params.group = filters.group;
-      if (filters.agentid) params.agentid = filters.agentid;
+      if (filters.agentid.length > 0) params.agentid = filters.agentid.join(',');
       if (filters.pluginid) params.pluginid = filters.pluginid;
       if (filters.metric) params.metric = filters.metric;
       params.from = timeFromPreset(filters.timePreset);
       params.limit = 500;
-      metricsData = await queryMetrics(params);
+      const raw = await queryMetrics(params);
+      metricsData = raw.map(row => ({
+        ...row,
+        agent_title: agentTitleMap[row.agentid] || row.agentid,
+        plugin_title: pluginTitleMap[row.pluginid] || row.pluginid,
+      }));
     } catch (e) { metricsError = e.message; }
     finally { metricsLoading = false; }
   }
@@ -298,7 +360,7 @@
     const groups = {};
     for (const row of metricsData) {
       if (typeof row.value !== 'number') continue;
-      const key = `${row.agentid} › ${row.pluginid} › ${row.metric}`;
+      const key = `${row.agent_title} › ${row.plugin_title} › ${row.metric}`;
       if (!groups[key]) groups[key] = [];
       groups[key].push(row.value);
     }
@@ -337,6 +399,7 @@
   }
 
   onMount(() => {
+    if (!loggedIn) return;
     loadAlarms();
     checkPush();
     loadFilterOptions();
@@ -344,9 +407,26 @@
     const t = setInterval(() => { loadAlarms(); loadSnoozed(); }, 5000);
     return () => clearInterval(t);
   });
+
+  window.addEventListener('pymon:logout', () => { loggedIn = false; });
 </script>
 
 <main>
+  {#if !loggedIn}
+    <div class="login-page">
+      <div class="login-card">
+        <h1>pymon</h1>
+        <form onsubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+          <input type="text" placeholder="Username" bind:value={loginUser} disabled={loginLoading} />
+          <input type="password" placeholder="Password" bind:value={loginPass} disabled={loginLoading} />
+          {#if loginError}<div class="login-error">{loginError}</div>{/if}
+          <button type="submit" disabled={loginLoading || !loginUser || !loginPass}>
+            {loginLoading ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
+      </div>
+    </div>
+  {:else}
   <!-- Header -->
   <header>
     <h1>pymon</h1>
@@ -391,8 +471,16 @@
         {#if openAlarms.length === 0}
           <div class="empty">No open alarms</div>
         {:else}
+          <div class="severity-filters">
+            {#each ['warning', 'critical', 'info'] as sev}
+              <button class="sev-filter-btn" class:active={severityFilter.has(sev)} onclick={() => { const s = new Set(severityFilter); if (s.has(sev)) s.delete(sev); else s.add(sev); severityFilter = s; }}>
+                <span class="sev-dot {sev}"></span>
+                {sev} ({severityCounts[sev] || 0})
+              </button>
+            {/each}
+          </div>
           <div class="alarm-list">
-            {#each alarmGroups.stacks as g (g.key)}
+            {#each filteredStacks as g (g.key)}
               <div class="alarm-card {severityClass(g.alarms[0].severity)} stack-card" class:expanded={expandedStacks.has(g.key)}>
                 <div class="alarm-header">
                   <span class="severity-badge">{g.alarms[0].severity}</span>
@@ -412,7 +500,7 @@
                     <button class="ack-btn ack-this" onclick={() => ack(g.alarms[0].id)} disabled={acking.size > 0} title="Acknowledge latest alarm only">
                       ✓ This
                     </button>
-                    <button class="ack-btn ack-rule" onclick={() => ackRule(g.rule_id)} disabled={acking.size > 0} title="Acknowledge all {g.alarms.length} alarms in this stack">
+                    <button class="ack-btn ack-rule" onclick={() => { if (confirm(`Acknowledge all ${g.alarms.length} alarms for this rule?`)) ackRule(g.rule_id, g.agentid, g.pluginid, g.metric); }} disabled={acking.size > 0} title="Acknowledge all {g.alarms.length} alarms in this stack">
                       ✓ All {g.alarms.length}
                     </button>
                   </div>
@@ -438,7 +526,7 @@
                 {/if}
               </div>
             {/each}
-            {#each alarmGroups.singles as alarm (alarm.id)}
+            {#each filteredSingles as alarm (alarm.id)}
               <div class="alarm-card {severityClass(alarm.severity)}">
                 <div class="alarm-header">
                   <span class="severity-badge">{alarm.severity}</span>
@@ -542,17 +630,17 @@
           {/each}
         </select>
 
-        <select bind:value={filters.agentid} onchange={onAgentChange}>
-          <option value="">All Agents</option>
-          {#each agents as a}
-            <option value={a}>{a}</option>
+        <select multiple bind:value={filters.agentid} onchange={onAgentChange}>
+          {#each filteredAgents as a}
+            <option value={a.id}>{a.title}</option>
           {/each}
         </select>
+        <button class="clear-btn" onclick={() => { filters.agentid = []; onAgentChange(); }} title="Clear agent selection">✕</button>
 
         <select bind:value={filters.pluginid} onchange={onPluginChange}>
           <option value="">All Plugins</option>
           {#each plugins as p}
-            <option value={p}>{p}</option>
+            <option value={p.id}>{p.title}</option>
           {/each}
         </select>
 
@@ -625,8 +713,8 @@
                 {#each pagedData as row (row.id)}
                   <tr>
                     <td class="cell-time">{fmtTime(row.timestamp)}</td>
-                    <td>{row.agentid}</td>
-                    <td>{row.pluginid}</td>
+                    <td>{row.agent_title}</td>
+                    <td>{row.plugin_title}</td>
                     <td>{row.metric}</td>
                     <td class="cell-value">{fmtVal(row.value)}</td>
                     <td>
@@ -667,16 +755,42 @@
       {/if}
     </section>
   {:else if tab === 'config'}
-    <ConfigView pendingRule={pendingRule} />
+    <ConfigView pendingRule={pendingRule} onLogout={handleLogout} />
+  {/if}
   {/if}
 </main>
 
 <style>
   main {
-    max-width: 960px; margin: 0 auto; padding: 1.5rem;
+    max-width: 1200px; margin: 0 auto; padding: 0.75rem;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #1a1a2e;
   }
+  .login-page {
+    display: flex; justify-content: center; align-items: center;
+    min-height: 60vh;
+  }
+  .login-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 2rem; width: 320px; text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .login-card h1 { margin: 0 0 1.5rem; font-size: 1.5rem; }
+  .login-card form { display: flex; flex-direction: column; gap: 0.75rem; }
+  .login-card input {
+    padding: 0.5rem 0.75rem; border: 1px solid #cbd5e0; border-radius: 5px;
+    font-size: 0.9rem;
+  }
+  .login-card button {
+    padding: 0.5rem; background: #3182ce; color: #fff; border: none;
+    border-radius: 5px; font-size: 0.9rem; cursor: pointer;
+  }
+  .login-card button:disabled { opacity: 0.6; cursor: not-allowed; }
+  .login-error { color: #e53e3e; font-size: 0.85rem; }
+  .logout-btn {
+    background: none; border: 1px solid #cbd5e0; border-radius: 5px;
+    padding: 0.2rem 0.6rem; font-size: 0.75rem; cursor: pointer; color: #718096;
+  }
+  .logout-btn:hover { background: #f7fafc; }
 
   header {
     display: flex; align-items: center; gap: 0.75rem;
@@ -727,6 +841,22 @@
     padding: 0.3rem 0.8rem; cursor: pointer; font-size: 0.8rem; white-space: nowrap;
   }
   .ack-all-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .severity-filters {
+    display: flex; gap: 0.4rem; margin-bottom: 0.75rem; flex-wrap: wrap;
+  }
+  .sev-filter-btn {
+    display: flex; align-items: center; gap: 0.35rem;
+    padding: 0.25rem 0.6rem; border: 1px solid #cbd5e0; border-radius: 999px;
+    background: #f7fafc; color: #4a5568; cursor: pointer; font-size: 0.78rem;
+    transition: all 0.15s;
+  }
+  .sev-filter-btn.active { background: #edf2f7; border-color: #718096; font-weight: 600; }
+  .sev-dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+  }
+  .sev-dot.warning { background: #dd6b20; }
+  .sev-dot.critical { background: #e53e3e; }
+  .sev-dot.info { background: #3182ce; }
   .alarms-section h2 {
     font-size: 1.2rem; font-weight: 600; margin: 0 0 0.75rem 0;
     padding-bottom: 0.4rem; border-bottom: 2px solid #e2e8f0;
@@ -820,7 +950,18 @@
     font-size: 0.82rem; background: #fff; min-width: 120px;
   }
 
+  .filter-bar select[multiple] {
+    min-width: 160px; min-height: 100px; padding: 0.2rem;
+  }
+  .filter-bar select[multiple] option { padding: 0.15rem 0.4rem; }
+
   .filter-bar input { flex: 1; min-width: 140px; }
+
+  .clear-btn {
+    background: none; border: 1px solid #cbd5e0; border-radius: 5px;
+    cursor: pointer; font-size: 0.78rem; padding: 0.3rem 0.5rem; color: #888;
+  }
+  .clear-btn:hover { background: #fed7d7; color: #c53030; border-color: #f5c6c6; }
 
   .time-presets { display: flex; gap: 0; }
   .preset-btn {

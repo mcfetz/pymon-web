@@ -25,7 +25,7 @@
     const map = {};
     for (const row of raw) {
       if (typeof row.value !== 'number') continue;
-      const key = `${row.agentid} › ${row.pluginid} › ${row.metric}`;
+      const key = `${row.agent_title || row.agentid} › ${row.plugin_title || row.pluginid} › ${row.metric}`;
       if (!map[key]) map[key] = [];
       map[key].push({ x: parseTimestamp(row.timestamp), y: row.value, meta: row });
     }
@@ -106,8 +106,8 @@
                   if (!raw) return ctx.parsed.y.toString();
                   return [
                     `Value: ${raw.value}`,
-                    `Agent: ${raw.agentid}`,
-                    `Plugin: ${raw.pluginid}`,
+                    `Agent: ${raw.agent_title || raw.agentid}`,
+                    `Plugin: ${raw.plugin_title || raw.pluginid}`,
                     `Metric: ${raw.metric}`,
                   ];
                 },

@@ -10,11 +10,10 @@
   let { value = '', onchange } = $props();
 
   let editorEl = $state(null);
-  let view = null;
+  let cm = null;
 
-  function createEditor() {
-    if (!editorEl) return;
-
+  function initCM() {
+    if (!editorEl || cm) return;
     const startState = EditorState.create({
       doc: value,
       extensions: [
@@ -29,32 +28,30 @@
         }),
       ],
     });
-
-    view = new EditorView({ state: startState, parent: editorEl });
+    cm = new EditorView({ state: startState, parent: editorEl });
   }
 
-  function updateContent(newVal) {
-    if (view && newVal !== view.state.doc.toString()) {
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: newVal },
+  function updateDoc(newVal) {
+    if (cm && newVal !== cm.state.doc.toString()) {
+      cm.dispatch({
+        changes: { from: 0, to: cm.state.doc.length, insert: newVal },
       });
     }
   }
 
   $effect(() => {
-    // When value changes externally (e.g. switching plugins), update editor
-    if (view) {
-      const cur = view.state.doc.toString();
-      if (value !== cur) updateContent(value);
+    if (cm) {
+      const cur = cm.state.doc.toString();
+      if (value !== cur) updateDoc(value);
     }
   });
 
   onMount(() => {
-    if (editorEl && !view) createEditor();
+    if (editorEl && !cm) initCM();
   });
 
   onDestroy(() => {
-    view?.destroy();
+    cm?.destroy();
   });
 </script>
 
@@ -63,7 +60,7 @@
 <style>
   .editor-wrap {
     border: 1px solid #cbd5e0; border-radius: 6px; overflow: hidden;
-    height: 450px;
+    height: 100%; min-height: 250px; position: relative;
   }
   .editor-wrap :global(.cm-editor) { height: 100%; }
   .editor-wrap :global(.cm-scroller) { overflow: auto; }
