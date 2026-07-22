@@ -1,9 +1,40 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
+import tailwindcss from '@tailwindcss/vite'
+import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [
+    tailwindcss(),
+    svelte(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      strategies: 'generateSW',
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /\/api\/(?!push|push\/metrics).*/,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'api-cache', expiration: { maxEntries: 50, maxAgeSeconds: 300 } },
+          },
+        ],
+      },
+      manifest: {
+        name: 'pymon',
+        short_name: 'pymon',
+        description: 'pymon monitoring dashboard',
+        theme_color: '#0f172a',
+        background_color: '#020617',
+        display: 'standalone',
+        orientation: 'portrait',
+        icons: [
+          { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+        ],
+      },
+      devOptions: { enabled: true },
+    }),
+  ],
   server: {
     port: 5174,
     strictPort: true,

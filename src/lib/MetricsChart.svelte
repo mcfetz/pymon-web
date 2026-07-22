@@ -156,15 +156,6 @@
 </div>
 
 <style>
-  .chart-wrap {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 0.75rem;
-    margin-bottom: 1rem;
-    position: relative;
-  }
-  .chart-empty {
-    text-align: center; padding: 3rem; color: #aaa; font-style: italic;
-  }
+  .chart-wrap { position: relative; }
+  .chart-empty { text-align: center; padding: 3rem; font-style: italic; }
 </style>
