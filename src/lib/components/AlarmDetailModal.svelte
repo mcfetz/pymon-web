@@ -260,3 +260,40 @@
     </div>
   </div>
 </div>
+
+<style>
+  .dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.5);
+    touch-action: none;
+    overscroll-behavior: none;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 1.5rem;
+  }
+  .dialog {
+    position: relative;
+    z-index: 51;
+    background: #fff;
+    border: 1px solid var(--border-default, #e2e8f0);
+    border-radius: var(--radius-card, 12px);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+    width: calc(100vw - 2rem);
+    max-height: calc(100vh - 3rem - env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    overscroll-behavior: contain;
+  }
+  :global(.dark) .dialog {
+    background: #0f172a;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  }
+  .dialog-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+</style>
