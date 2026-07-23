@@ -121,6 +121,7 @@
   let expandedNotifications = $state(false);
   let expandedBlackoutRules = $state(false);
   let expandedBlackoutAgents = $state(false);
+  let expandedBlackoutGroups = $state(false);
   let showBlackoutDialog = $state(false);
   let editingBlackout = $state(null);
   let editedBlackout = $state(null);
@@ -665,7 +666,7 @@
           <span class="rule-id">{b.title || b.id}</span>
           <span style="font-size:0.7rem;color:var(--text-secondary)">{b.start_time}–{b.end_time}</span>
         </div>
-        <div class="rule-desc">{b.weekdays?.length ? b.weekdays.map(d => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d]).join(', ') : 'every day'} · rules: {b.target_rules?.length || 0} · agents: {b.target_agents?.length || 0} · {b.mode === 'no_alarms' ? 'no alarms' : 'no notifications'}</div>
+        <div class="rule-desc">{b.weekdays?.length ? b.weekdays.map(d => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d]).join(', ') : 'every day'} · rules: {b.target_rules?.length || 0} · agents: {b.target_agents?.length || 0} · groups: {b.target_groups?.length || 0} · {b.mode === 'no_alarms' ? 'no alarms' : 'no notifications'}</div>
         <div class="rule-actions">
           <span class="rule-status" class:active={b.enabled !== false}>{b.enabled !== false ? 'Active' : 'Inactive'}</span>
           <button class="btn-edit" onclick={() => editBlackout(b.id)}>Edit</button>
@@ -1343,6 +1344,31 @@ if __name__ == "__main__":
           </div>
         {/if}
       </div>
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button
+          onclick={() => expandedBlackoutGroups = !expandedBlackoutGroups}
+          class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2"
+          style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
+        >
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutGroups ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
+          target groups
+        </button>
+        {#if expandedBlackoutGroups}
+          <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
+            {#each Object.keys(groups).sort() as gid}
+              <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+                <input type="checkbox" checked={(editedBlackout.target_groups || []).includes(gid)} onchange={(e) => {
+                  const arr = [...(editedBlackout.target_groups || [])];
+                  if (e.target.checked) arr.push(gid); else arr.splice(arr.indexOf(gid), 1);
+                  editedBlackout.target_groups = arr;
+                }} />
+                {gid}
+              </label>
+            {/each}
+          </div>
+        {/if}
+      </div>
     </div>
     <div class="dialog-footer">
       <button class="btn-cancel" onclick={() => showBlackoutDialog = false}>Cancel</button>
@@ -1480,14 +1506,13 @@ if __name__ == "__main__":
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
-        {/if}
-      </section>
+{/if}
+      </div>
     </div>
     <div class="dialog-footer">
       <button class="btn-cancel" onclick={closeAgentDialog}>Cancel</button>
       <button class="btn-save-rule" onclick={closeAgentDialog}>Save</button>
     </div>
-  </div>
 {/if}
 
 <!-- Fullscreen editor overlay -->
