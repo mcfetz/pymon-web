@@ -684,7 +684,7 @@
           {/if}
           <div class="rule-desc" style="font-size:0.72rem;">{(g?.plugins || g || []).length} plugins</div>
           <div class="rule-actions">
-            <button class="btn-edit" onclick={() => { const g = groups[gid] || {}; editedGroup = { id: gid, title: g.title || '', description: g.description || '', plugins: [...(g.plugins || g)] }; showGroupDialog = true; }}>Edit</button>
+            <button class="btn-edit" onclick={() => { const g = groups[gid] || {}; editedGroup = { id: gid, title: g.title || gid, description: g.description || '', plugins: [...(g.plugins || g || [])] }; showGroupDialog = true; }}>Edit</button>
             <button class="btn-del" onclick={async () => { if (!confirm(`Delete group ${gid}?`)) return; try { await deleteGroup(gid); groups = await fetchAdminGroups(); } catch (e) { error = e.message; } }}>Delete</button>
           </div>
         </div>
@@ -1391,8 +1391,12 @@ if __name__ == "__main__":
       {#if expandedGroupGeneral}
         <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
           <div class="dialog-field">
+            <label>ID</label>
+            <input type="text" bind:value={editedGroup.id} disabled={!!editedGroup.id} placeholder="auto-generated" />
+          </div>
+          <div class="dialog-field">
             <label>Title</label>
-            <input type="text" bind:value={editedGroup.id} disabled={!!editedGroup.id} placeholder="group-name" />
+            <input type="text" bind:value={editedGroup.title} placeholder="group name" />
           </div>
           <div class="dialog-field">
             <label>Description</label>
@@ -1425,18 +1429,19 @@ if __name__ == "__main__":
     </div>
     <div class="dialog-footer">
       <button class="btn-cancel" onclick={() => showGroupDialog = false}>Cancel</button>
-      <button class="btn-save-rule" onclick={async () => {
-        if (!editedGroup.id?.trim()) return;
+<button class="btn-save-rule" onclick={async () => {
+        const gid = editedGroup.id?.trim() || genId('g');
+        if (!gid) return;
         try {
-          await setGroupPlugins(editedGroup.id.trim(), {
-          plugins: editedGroup.plugins || [],
-          title: editedGroup.title || '',
-          description: editedGroup.description || '',
-        });
+          await setGroupPlugins(gid, {
+            plugins: editedGroup.plugins || [],
+            title: editedGroup.title || '',
+            description: editedGroup.description || '',
+          });
           showGroupDialog = false;
           groups = await fetchAdminGroups();
         } catch (e) { error = e.message; }
-      }} disabled={!editedGroup.id?.trim()}>Save</button>
+      }} disabled={!editedGroup.title?.trim()}>Save</button>
     </div>
   </div>
 {/if}
