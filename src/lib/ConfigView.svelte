@@ -128,6 +128,11 @@
   let expandedExecGeneral = $state(true);
   let expandedExecSettings = $state(true);
   let expandedNotifyGeneral = $state(true);
+  let expandedNotifySettings = $state(true);
+  let expandedNotifyNtfy = $state(true);
+  let expandedNotifyEmail = $state(true);
+  let expandedNotifyPush = $state(true);
+  let expandedNotifyTwilio = $state(true);
   let expandedBlackoutGeneral = $state(true);
   let expandedGroupGeneral = $state(true);
   let expandedPluginGeneral = $state(true);
@@ -1146,16 +1151,16 @@ if __name__ == "__main__":
         {#if expandedExecSettings}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
             <div class="dialog-field">
-              <label>Shell Command</label>
-              <textarea rows="3" bind:value={editedExec.command} style="padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;font-family:monospace;"></textarea>
-              <div style="font-size:0.72rem;color:#888;margin-top:0.2rem;">Available variables: {'{rule_id}'}, {'{agentid}'}, {'{pluginid}'}, {'{metric}'}, {'{value}'}, {'{message}'}, {'{severity}'}</div>
-            </div>
-            <div class="dialog-field">
               <label>Execute on</label>
               <select bind:value={editedExec.execution_target} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
                 <option value="server">server</option>
                 <option value="agent">agent</option>
               </select>
+            </div>
+            <div class="dialog-field">
+              <label>Shell Command</label>
+              <textarea rows="3" bind:value={editedExec.command} style="padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;font-family:monospace;"></textarea>
+              <div style="font-size:0.72rem;color:#888;margin-top:0.2rem;">Available variables: {'{rule_id}'}, {'{agentid}'}, {'{pluginid}'}, {'{metric}'}, {'{value}'}, {'{message}'}, {'{severity}'}</div>
             </div>
           </div>
         {/if}
@@ -1177,38 +1182,122 @@ if __name__ == "__main__":
       <button class="btn-close" onclick={() => showNotifyDialog = false}>✕</button>
     </div>
     <div class="dialog-body">
-{#each notifySchema.fields as field}
-          {@const ftype = field.key}
-        {@const isCommon = ['id','title','enabled','type'].includes(ftype)}
-        {@const isEmail = editedNotify.type === 'email' && ['to','from','server','port','user','password','use_tls'].includes(ftype)}
-        {@const isWebPush = editedNotify.type === 'web_push' && ['vapid_public_key','vapid_private_key','vapid_subject'].includes(ftype)}
-        {@const isNtfy = editedNotify.type === 'ntfy' && ['ntfy_url','ntfy_topic','ntfy_access_token'].includes(ftype)}
-        {@const isTwilio = editedNotify.type === 'twilio_call' && ['twilio_account_sid','twilio_auth_token','twilio_call_from','twilio_call_to'].includes(ftype)}
-        {#if isCommon || isEmail || isWebPush || isNtfy || isTwilio}
-          <div class="dialog-field">
-            <label>{field.label}</label>
-            {#if field.type === 'select'}
-              <select bind:value={editedNotify[field.key]}>
-                {#each field.options || [] as opt}
-                  <option value={opt}>{opt}</option>
-                {/each}
+      <div style="margin-bottom:0.5rem;">
+        <button onclick={() => expandedNotifyGeneral = !expandedNotifyGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedNotifyGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
+        </button>
+      </div>
+      {#if expandedNotifyGeneral}
+        <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+          <div style="display:flex;gap:1rem;">
+            <div class="dialog-field" style="flex:1">
+              <label>ID</label>
+              <input type="text" bind:value={editedNotify.id} />
+            </div>
+            <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
+              <input type="checkbox" checked={editedNotify.enabled ?? true} onchange={(e) => editedNotify.enabled = e.target.checked} />
+              <label style="margin:0;">Enabled</label>
+            </div>
+          </div>
+          <div class="dialog-field"><label>Title</label><input type="text" bind:value={editedNotify.title} /></div>
+          <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedNotify.description} /></div>
+        </div>
+      {/if}
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button onclick={() => expandedNotifySettings = !expandedNotifySettings} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedNotifySettings ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Settings
+        </button>
+        {#if expandedNotifySettings}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+            <div class="dialog-field">
+              <label>Type</label>
+              <select bind:value={editedNotify.type} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+                <option value="ntfy">ntfy</option>
+                <option value="email">email</option>
+                <option value="web_push">web_push</option>
+                <option value="twilio_call">twilio_call</option>
               </select>
-            {:else if field.type === 'boolean'}
-              <input type="checkbox" checked={editedNotify[field.key] ?? false} onchange={(e) => editedNotify[field.key] = e.target.checked} />
-            {:else if field.type === 'number'}
-              <input type="number" value={editedNotify[field.key] ?? ''} oninput={(e) => editedNotify[field.key] = parseInt(e.target.value) || 0} />
-            {:else}
-              <input type="text" bind:value={editedNotify[field.key]} />
+            </div>
+          </div>
+        {/if}
+      </div>
+
+      {#if editedNotify.type}
+        {#if editedNotify.type === 'ntfy'}
+          <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+            <button onclick={() => expandedNotifyNtfy = !expandedNotifyNtfy} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+              <span style="display:inline-block; transition: transform 0.2s; transform: {expandedNotifyNtfy ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Ntfy
+            </button>
+            {#if expandedNotifyNtfy}
+              <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+                <div class="dialog-field"><label>ntfy Server URL</label><input type="text" bind:value={editedNotify.ntfy_url} /></div>
+                <div class="dialog-field"><label>ntfy Topic</label><input type="text" bind:value={editedNotify.ntfy_topic} /></div>
+                <div class="dialog-field"><label>ntfy Access Token</label><input type="text" bind:value={editedNotify.ntfy_access_token} /></div>
+              </div>
             {/if}
           </div>
         {/if}
-      {/each}
-      {#if editedNotify.type}
-        <button class="btn-cancel" style="margin-top:0.5rem;background:#805ad5;color:#fff;border:none;" onclick={async () => {
-          try { await testNotification(editedNotify); alert('Test sent successfully'); }
-          catch (e) { alert('Test failed: ' + e.message); }
-        }}>Send Test</button>
+
+        {#if editedNotify.type === 'email'}
+          <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+            <button onclick={() => expandedNotifyEmail = !expandedNotifyEmail} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+              <span style="display:inline-block; transition: transform 0.2s; transform: {expandedNotifyEmail ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Email
+            </button>
+            {#if expandedNotifyEmail}
+              <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+                <div class="dialog-field"><label>Recipient</label><input type="text" bind:value={editedNotify.to} /></div>
+                <div class="dialog-field"><label>Sender</label><input type="text" bind:value={editedNotify.from} /></div>
+                <div class="dialog-field"><label>SMTP Server</label><input type="text" bind:value={editedNotify.server} /></div>
+                <div style="display:flex;gap:0.5rem;">
+                  <div class="dialog-field" style="flex:1"><label>Port</label><input type="number" bind:value={editedNotify.port} /></div>
+                  <div class="dialog-field" style="flex:1"><label>SMTP User</label><input type="text" bind:value={editedNotify.user} /></div>
+                </div>
+                <div class="dialog-field"><label>Password</label><input type="text" bind:value={editedNotify.password} /></div>
+                <div class="dialog-field">
+                  <label><input type="checkbox" checked={editedNotify.use_tls ?? true} onchange={(e) => editedNotify.use_tls = e.target.checked} /> Use TLS</label>
+                </div>
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        {#if editedNotify.type === 'web_push'}
+          <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+            <button onclick={() => expandedNotifyPush = !expandedNotifyPush} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+              <span style="display:inline-block; transition: transform 0.2s; transform: {expandedNotifyPush ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Push
+            </button>
+            {#if expandedNotifyPush}
+              <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+                <div class="dialog-field"><label>VAPID Public Key</label><input type="text" bind:value={editedNotify.vapid_public_key} /></div>
+                <div class="dialog-field"><label>VAPID Private Key</label><input type="text" bind:value={editedNotify.vapid_private_key} /></div>
+                <div class="dialog-field"><label>VAPID Subject</label><input type="text" bind:value={editedNotify.vapid_subject} /></div>
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        {#if editedNotify.type === 'twilio_call'}
+          <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+            <button onclick={() => expandedNotifyTwilio = !expandedNotifyTwilio} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+              <span style="display:inline-block; transition: transform 0.2s; transform: {expandedNotifyTwilio ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Twilio
+            </button>
+            {#if expandedNotifyTwilio}
+              <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+                <div class="dialog-field"><label>Account SID</label><input type="text" bind:value={editedNotify.twilio_account_sid} /></div>
+                <div class="dialog-field"><label>Auth Token</label><input type="text" bind:value={editedNotify.twilio_auth_token} /></div>
+                <div class="dialog-field"><label>Call From</label><input type="text" bind:value={editedNotify.twilio_call_from} /></div>
+                <div class="dialog-field"><label>Call To</label><input type="text" bind:value={editedNotify.twilio_call_to} /></div>
+              </div>
+            {/if}
+          </div>
+        {/if}
       {/if}
+
+      <button class="btn-cancel" style="margin-top:0.5rem;background:#805ad5;color:#fff;border:none;" onclick={async () => {
+        try { await testNotification(editedNotify); alert('Test sent successfully'); }
+        catch (e) { alert('Test failed: ' + e.message); }
+      }}>Send Test</button>
     </div>
     <div class="dialog-footer">
       <button class="btn-cancel" onclick={() => showNotifyDialog = false}>Cancel</button>
