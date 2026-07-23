@@ -901,22 +901,23 @@ if __name__ == "__main__":
       <button class="btn-close" onclick={() => showRuleDialog = false}>✕</button>
     </div>
     <div class="dialog-body">
-      <div style="display:flex;gap:1rem;">
-        <div class="dialog-field" style="flex:1">
-          <label>ID</label>
-          <input type="text" bind:value={editedRule.id} />
-        </div>
-        <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
-          <input type="checkbox" checked={editedRule.enabled ?? true} onchange={(e) => editedRule.enabled = e.target.checked} />
-          <label style="margin:0;">Enabled</label>
-        </div>
-      </div>
-
-      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
-        <button onclick={() => expandedRuleGeneral = !expandedRuleGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+      <div style="margin-bottom:0.5rem;">
+        <button onclick={() => expandedRuleGeneral = !expandedRuleGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedRuleGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> general
         </button>
-        {#if expandedRuleGeneral}
+      </div>
+      {#if expandedRuleGeneral}
+        <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+          <div style="display:flex;gap:1rem;">
+            <div class="dialog-field" style="flex:1">
+              <label>ID</label>
+              <input type="text" bind:value={editedRule.id} />
+            </div>
+            <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
+              <input type="checkbox" checked={editedRule.enabled ?? true} onchange={(e) => editedRule.enabled = e.target.checked} />
+              <label style="margin:0;">Enabled</label>
+            </div>
+          </div>
           <div class="dialog-field">
             <label>Severity</label>
             <div class="flex items-center gap-2">
@@ -929,8 +930,8 @@ if __name__ == "__main__":
             </div>
           </div>
           <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedRule.description} /></div>
-        {/if}
-      </div>
+        </div>
+      {/if}
 
       {#each ruleSchema.fields as field}
         {#if field.key === 'agents_mode' || field.key === 'agents' || field.key === 'executors' || field.key === 'notifications' || field.key === 'severity' || field.key === 'id' || field.key === 'enabled' || field.key === 'description'}
@@ -1113,26 +1114,27 @@ if __name__ == "__main__":
       <button class="btn-close" onclick={() => showExecDialog = false}>✕</button>
     </div>
     <div class="dialog-body">
-      <div style="display:flex;gap:1rem;">
-        <div class="dialog-field" style="flex:1">
-          <label>ID</label>
-          <input type="text" bind:value={editedExec.id} />
-        </div>
-        <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
-          <input type="checkbox" checked={editedExec.enabled ?? true} onchange={(e) => editedExec.enabled = e.target.checked} />
-          <label style="margin:0;">Enabled</label>
-        </div>
-      </div>
-
-      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
-        <button onclick={() => expandedExecGeneral = !expandedExecGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+      <div style="margin-bottom:0.5rem;">
+        <button onclick={() => expandedExecGeneral = !expandedExecGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedExecGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> general
         </button>
-        {#if expandedExecGeneral}
+      </div>
+      {#if expandedExecGeneral}
+        <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+          <div style="display:flex;gap:1rem;">
+            <div class="dialog-field" style="flex:1">
+              <label>ID</label>
+              <input type="text" bind:value={editedExec.id} />
+            </div>
+            <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
+              <input type="checkbox" checked={editedExec.enabled ?? true} onchange={(e) => editedExec.enabled = e.target.checked} />
+              <label style="margin:0;">Enabled</label>
+            </div>
+          </div>
           <div class="dialog-field"><label>Title</label><input type="text" bind:value={editedExec.title} /></div>
           <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedExec.description} /></div>
-        {/if}
-      </div>
+        </div>
+      {/if}
 
       <div class="dialog-field" style="margin-top:0.5rem;">
         <label>Shell Command</label>
