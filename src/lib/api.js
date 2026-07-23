@@ -112,8 +112,8 @@ export function setAgentEnabled(agentid, enabled) {
 export function updateAgent(agentid, data) {
   return api(`/admin/agents/${agentid}`, { method: 'PUT', body: data });
 }
-export function setGroupPlugins(groupid, plugins) {
-  return api(`/admin/groups/${groupid}`, { method: 'PUT', body: { plugins } });
+export function setGroupPlugins(groupid, data) {
+  return api(`/admin/groups/${groupid}`, { method: 'PUT', body: data });
 }
 export function deleteGroup(groupid) {
   return api(`/admin/groups/${groupid}`, { method: 'DELETE' });

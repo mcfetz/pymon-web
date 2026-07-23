@@ -135,6 +135,7 @@
   let expandedNotifyTwilio = $state(true);
   let expandedBlackoutGeneral = $state(true);
   let expandedGroupGeneral = $state(true);
+  let expandedGroupPlugins = $state(true);
   let expandedPluginGeneral = $state(true);
   let expandedAgentGeneral = $state(true);
   let expandedAgentSettings = $state(true);
@@ -185,7 +186,11 @@
     const ids = Object.keys(groups);
     if (!filterText) return ids.sort();
     const q = filterText.toLowerCase();
-    return ids.filter(gid => gid.toLowerCase().includes(q)).sort();
+    return ids.filter(gid => {
+        const g = groups[gid];
+        const t = g?.title || '';
+        return gid.toLowerCase().includes(q) || t.toLowerCase().includes(q);
+      }).sort();
   });
 
   let filteredPlugins = $derived.by(() => {
@@ -663,19 +668,23 @@
     <div class="rules-header">
       <h3>Groups</h3>
       <input type="text" class="filter-input" placeholder="Filter groups..." bind:value={filterText} />
-      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={() => { editedGroup = { plugins: [] }; showGroupDialog = true; }}><Plus size={14} strokeWidth={2} /></button>
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={() => { editedGroup = { id: '', title: '', description: '', plugins: [] }; showGroupDialog = true; }}><Plus size={14} strokeWidth={2} /></button>
     </div>
     {#if filteredGroups.length === 0}
       <div class="empty">No groups</div>
     {:else}
       {#each filteredGroups as gid}
+        {@const g = groups[gid]}
         <div class="rule-card">
           <div class="rule-head">
-            <span class="rule-id">{gid}</span>
+            <span class="rule-id">{g?.title || gid}</span>
           </div>
-          <div class="rule-desc">{(groups[gid] || []).join(', ') || '—'}</div>
+          {#if g?.description}
+            <div class="rule-desc">{g.description}</div>
+          {/if}
+          <div class="rule-desc" style="font-size:0.72rem;">{(g?.plugins || g || []).length} plugins</div>
           <div class="rule-actions">
-            <button class="btn-edit" onclick={() => { editedGroup = { id: gid, plugins: [...(groups[gid] || [])] }; showGroupDialog = true; }}>Edit</button>
+            <button class="btn-edit" onclick={() => { const g = groups[gid] || {}; editedGroup = { id: gid, title: g.title || '', description: g.description || '', plugins: [...(g.plugins || g)] }; showGroupDialog = true; }}>Edit</button>
             <button class="btn-del" onclick={async () => { if (!confirm(`Delete group ${gid}?`)) return; try { await deleteGroup(gid); groups = await fetchAdminGroups(); } catch (e) { error = e.message; } }}>Delete</button>
           </div>
         </div>
@@ -1233,7 +1242,7 @@ if __name__ == "__main__":
               <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
                 <div class="dialog-field"><label>ntfy Server URL</label><input type="text" bind:value={editedNotify.ntfy_url} /></div>
                 <div class="dialog-field"><label>ntfy Topic</label><input type="text" bind:value={editedNotify.ntfy_topic} /></div>
-                <div class="dialog-field"><label>ntfy Access Token</label><input type="text" bind:value={editedNotify.ntfy_access_token} /></div>
+                <div class="dialog-field"><label>ntfy Access Token</label><input type="password" bind:value={editedNotify.ntfy_access_token} /></div>
               </div>
             {/if}
           </div>
@@ -1253,7 +1262,7 @@ if __name__ == "__main__":
                   <div class="dialog-field" style="flex:1"><label>Port</label><input type="number" bind:value={editedNotify.port} /></div>
                   <div class="dialog-field" style="flex:1"><label>SMTP User</label><input type="text" bind:value={editedNotify.user} /></div>
                 </div>
-                <div class="dialog-field"><label>Password</label><input type="text" bind:value={editedNotify.password} /></div>
+                <div class="dialog-field"><label>Password</label><input type="password" bind:value={editedNotify.password} /></div>
                 <div class="dialog-field">
                   <label><input type="checkbox" checked={editedNotify.use_tls ?? true} onchange={(e) => editedNotify.use_tls = e.target.checked} /> Use TLS</label>
                 </div>
@@ -1270,7 +1279,7 @@ if __name__ == "__main__":
             {#if expandedNotifyPush}
               <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
                 <div class="dialog-field"><label>VAPID Public Key</label><input type="text" bind:value={editedNotify.vapid_public_key} /></div>
-                <div class="dialog-field"><label>VAPID Private Key</label><input type="text" bind:value={editedNotify.vapid_private_key} /></div>
+                <div class="dialog-field"><label>VAPID Private Key</label><input type="password" bind:value={editedNotify.vapid_private_key} /></div>
                 <div class="dialog-field"><label>VAPID Subject</label><input type="text" bind:value={editedNotify.vapid_subject} /></div>
               </div>
             {/if}
@@ -1285,7 +1294,7 @@ if __name__ == "__main__":
             {#if expandedNotifyTwilio}
               <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
                 <div class="dialog-field"><label>Account SID</label><input type="text" bind:value={editedNotify.twilio_account_sid} /></div>
-                <div class="dialog-field"><label>Auth Token</label><input type="text" bind:value={editedNotify.twilio_auth_token} /></div>
+                <div class="dialog-field"><label>Auth Token</label><input type="password" bind:value={editedNotify.twilio_auth_token} /></div>
                 <div class="dialog-field"><label>Call From</label><input type="text" bind:value={editedNotify.twilio_call_from} /></div>
                 <div class="dialog-field"><label>Call To</label><input type="text" bind:value={editedNotify.twilio_call_to} /></div>
               </div>
@@ -1374,24 +1383,44 @@ if __name__ == "__main__":
       <button class="btn-close" onclick={() => showGroupDialog = false}>✕</button>
     </div>
     <div class="dialog-body">
-      <div class="dialog-field">
-        <label>Name</label>
-        <input type="text" bind:value={editedGroup.id} disabled={!!editedGroup.id} placeholder="group-name" />
+      <div style="margin-bottom:0.5rem;">
+        <button onclick={() => expandedGroupGeneral = !expandedGroupGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedGroupGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
+        </button>
       </div>
-      <div class="dialog-field">
-        <label>Plugins</label>
-        <div class="dialog-array" style="max-height:250px;overflow-y:auto;">
-          {#each [...allPluginNames].sort() as pn}
-            <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
-              <input type="checkbox" checked={(editedGroup.plugins || []).includes(pn)} onchange={(e) => {
-                const arr = [...(editedGroup.plugins || [])];
-                if (e.target.checked) arr.push(pn); else arr.splice(arr.indexOf(pn), 1);
-                editedGroup.plugins = arr;
-              }} />
-              {pn}
-            </label>
-          {/each}
+      {#if expandedGroupGeneral}
+        <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+          <div class="dialog-field">
+            <label>Title</label>
+            <input type="text" bind:value={editedGroup.id} disabled={!!editedGroup.id} placeholder="group-name" />
+          </div>
+          <div class="dialog-field">
+            <label>Description</label>
+            <input type="text" bind:value={editedGroup.description} />
+          </div>
         </div>
+      {/if}
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button onclick={() => expandedGroupPlugins = !expandedGroupPlugins} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedGroupPlugins ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Plugins
+        </button>
+        {#if expandedGroupPlugins}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+            <div class="dialog-array" style="max-height:250px;overflow-y:auto;">
+              {#each [...allPluginNames].sort() as pn}
+                <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+                  <input type="checkbox" checked={(editedGroup.plugins || []).includes(pn)} onchange={(e) => {
+                    const arr = [...(editedGroup.plugins || [])];
+                    if (e.target.checked) arr.push(pn); else arr.splice(arr.indexOf(pn), 1);
+                    editedGroup.plugins = arr;
+                  }} />
+                  {pn}
+                </label>
+              {/each}
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
     <div class="dialog-footer">
@@ -1399,7 +1428,11 @@ if __name__ == "__main__":
       <button class="btn-save-rule" onclick={async () => {
         if (!editedGroup.id?.trim()) return;
         try {
-          await setGroupPlugins(editedGroup.id.trim(), editedGroup.plugins || []);
+          await setGroupPlugins(editedGroup.id.trim(), {
+          plugins: editedGroup.plugins || [],
+          title: editedGroup.title || '',
+          description: editedGroup.description || '',
+        });
           showGroupDialog = false;
           groups = await fetchAdminGroups();
         } catch (e) { error = e.message; }
