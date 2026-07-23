@@ -576,7 +576,7 @@
       <div class="rule-card" style="border-left: 3px solid {rule.severity === 'critical' ? '#ef4444' : rule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}">
         <div class="rule-head">
           <svelte:component this={rule.severity === 'critical' ? AlertCircle : rule.severity === 'warning' ? AlertTriangle : Info} size={14} strokeWidth={2} style="color: {rule.severity === 'critical' ? '#ef4444' : rule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}" />
-          <span class="rule-id">{rule.id}</span>
+          <span class="rule-id">{rule.title || rule.id}</span>
         </div>
         <div class="rule-desc">{rule.description || '—'}</div>
         <div class="rule-actions">
@@ -921,6 +921,7 @@ if __name__ == "__main__":
               <label style="margin:0;">Enabled</label>
             </div>
           </div>
+          <div class="dialog-field"><label>Title</label><input type="text" bind:value={editedRule.title} /></div>
           <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedRule.description} /></div>
         </div>
       {/if}
