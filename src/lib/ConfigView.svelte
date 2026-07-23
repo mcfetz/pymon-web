@@ -11,7 +11,7 @@
     fetchRuleSchema, fetchRules, saveRule, deleteRule,
     fetchExecutors, saveExecutor, deleteExecutor,
     fetchNotifications, saveNotification, deleteNotification, fetchNotifySchema, testNotification,
-    fetchAdminPlugins, fetchPluginSource, fetchPluginTemplate, savePluginSource, deletePlugin, togglePluginEnabled,
+    fetchAdminPlugins, fetchPluginSource, fetchPluginTemplate, savePluginSource, deletePlugin, togglePluginEnabled, savePluginMeta,
     updateAccount, setToken,
     fetchBlackouts, fetchBlackoutSchema, saveBlackout, deleteBlackout,
   } from './api.js';
@@ -141,6 +141,7 @@
   let expandedPluginCode = $state(true);
   let expandedAgentGeneral = $state(true);
   let expandedAgentSettings = $state(true);
+  let expandedAgentPlugins = $state(true);
   let showBlackoutDialog = $state(false);
   let editingBlackout = $state(null);
   let editedBlackout = $state(null);
@@ -439,10 +440,10 @@
   let agentPlugins = $derived.by(() => {
     if (!selectedAgent || !agents[selectedAgent]) return [];
     const a = agents[selectedAgent];
-    // Resolve from groups + direct assignments
     const fromGroups = new Set();
     for (const g of a.groups) {
-      for (const p of (groups[g] || [])) fromGroups.add(p);
+      const plugins = groups[g]?.plugins || groups[g] || [];
+      for (const p of plugins) fromGroups.add(p);
     }
     const direct = new Set(Object.keys(a.plugins || {}));
     return [...new Set([...fromGroups, ...direct])].sort();
@@ -558,13 +559,12 @@
           {#if a.description}
             <div class="rule-desc">{a.description}</div>
           {/if}
-          <div class="rule-desc" style="font-size:0.72rem;">groups: {a.groups?.length ? a.groups.join(', ') : '—'}</div>
           <div class="rule-actions">
             <span class="rule-status" class:active={a.enabled !== false}>{a.enabled !== false ? 'Enabled' : 'Disabled'}</span>
             <button class="btn-edit" onclick={() => openAgentDialog(id)}>Edit</button>
             <button class="btn-dup" onclick={async () => {
               const newId = genId('a');
-              await createAgent(newId, a.groups || []);
+              await createAgent(newId, a.groups || [], (a.title || '') + ' Copy');
               for (const [plugin, cfg] of Object.entries(a.plugins || {})) {
                 await setAgentPluginConfig(newId, plugin, cfg);
               }
@@ -594,10 +594,10 @@
         </div>
         <div class="rule-desc">{rule.description || '—'}</div>
         <div class="rule-actions">
-          <span class="rule-status" class:active={rule.enabled}>{rule.enabled ? 'Active' : 'Inactive'}</span>
+          <span class="rule-status" class:active={rule.enabled}>{rule.enabled ? 'Enabled' : 'Disabled'}</span>
           <button class="btn-edit" onclick={() => editRule(rule.id)}>Edit</button>
           <button class="btn-dup" onclick={async () => {
-            const copy = { ...rule, id: genId('r') };
+            const copy = { ...rule, id: genId('r'), title: (rule.title || '') + ' Copy' };
             await saveRule(copy.id, copy);
             rules = await fetchRules();
           }}>Duplicate</button>
@@ -623,10 +623,10 @@
           <div class="rule-desc">{exec.description}</div>
         {/if}
         <div class="rule-actions">
-          <span class="rule-status" class:active={exec.enabled ?? true}>{exec.enabled ?? true ? 'Active' : 'Inactive'}</span>
+          <span class="rule-status" class:active={exec.enabled ?? true}>{exec.enabled ?? true ? 'Enabled' : 'Disabled'}</span>
           <button class="btn-edit" onclick={() => editExec(exec.id)}>Edit</button>
           <button class="btn-dup" onclick={async () => {
-            const copy = { ...exec, id: genId('e') };
+            const copy = { ...exec, id: genId('e'), title: (exec.title || '') + ' Copy' };
             await saveExecutor(copy.id, copy);
             executors = await fetchExecutors();
           }}>Duplicate</button>
@@ -652,10 +652,10 @@
           <div class="rule-desc">{n.description}</div>
         {/if}
         <div class="rule-actions">
-          <span class="rule-status" class:active={n.enabled ?? true}>{n.enabled ?? true ? 'Active' : 'Inactive'}</span>
+          <span class="rule-status" class:active={n.enabled ?? true}>{n.enabled ?? true ? 'Enabled' : 'Disabled'}</span>
           <button class="btn-edit" onclick={() => editNotify(n.id)}>Edit</button>
           <button class="btn-dup" onclick={async () => {
-            const copy = { ...n, id: genId('n') };
+            const copy = { ...n, id: genId('n'), title: (n.title || '') + ' Copy' };
             await saveNotification(copy.id, copy);
             notifications = await fetchNotifications();
           }}>Duplicate</button>
@@ -684,9 +684,15 @@
           {#if g?.description}
             <div class="rule-desc">{g.description}</div>
           {/if}
-          <div class="rule-desc" style="font-size:0.72rem;">{(g?.plugins || g || []).length} plugins</div>
           <div class="rule-actions">
             <button class="btn-edit" onclick={() => { const g = groups[gid] || {}; editedGroup = { id: gid, title: g.title || gid, description: g.description || '', plugins: [...(g.plugins || g || [])] }; showGroupDialog = true; }}>Edit</button>
+            <button class="btn-dup" onclick={async () => {
+              const ng = genId('g');
+              const g = groups[gid] || {};
+              const plugins = g.plugins || g || [];
+              await setGroupPlugins(ng, { plugins: [...plugins], title: (g.title || '') + ' Copy', description: g.description || '' });
+              groups = await fetchAdminGroups();
+            }}>Duplicate</button>
             <button class="btn-del" onclick={async () => { if (!confirm(`Delete group ${gid}?`)) return; try { await deleteGroup(gid); groups = await fetchAdminGroups(); } catch (e) { error = e.message; } }}>Delete</button>
           </div>
         </div>
@@ -706,14 +712,13 @@
 <div class="rule-head">
             <span class="rule-id">{b.title || b.id}</span>
           </div>
-          {#if b.description}
+{#if b.description}
             <div class="rule-desc">{b.description}</div>
           {/if}
-          <div class="rule-desc" style="font-size:0.72rem;">{b.weekdays?.length ? b.weekdays.map(d => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d]).join(', ') : 'every day'} · {b.start_time}–{b.end_time} · rules: {b.target_rules?.length || 0} · agents: {b.target_agents?.length || 0} · groups: {b.target_groups?.length || 0}</div>
-        <div class="rule-actions">
-          <span class="rule-status" class:active={b.enabled !== false}>{b.enabled !== false ? 'Active' : 'Inactive'}</span>
+          <div class="rule-actions">
+          <span class="rule-status" class:active={b.enabled !== false}>{b.enabled !== false ? 'Enabled' : 'Disabled'}</span>
           <button class="btn-edit" onclick={() => editBlackout(b.id)}>Edit</button>
-          <button class="btn-dup" onclick={async () => { const copy = { ...b, id: genId('b') }; await saveBlackout(copy.id, copy); blackouts = await fetchBlackouts(); }}>Duplicate</button>
+          <button class="btn-dup" onclick={async () => { const copy = { ...b, id: genId('b'), title: (b.title || '') + ' Copy' }; await saveBlackout(copy.id, copy); blackouts = await fetchBlackouts(); }}>Duplicate</button>
           <button class="btn-del" onclick={() => handleDeleteBlackout(b.id)}>Delete</button>
         </div>
       </div>
@@ -728,8 +733,7 @@
     <div class="rules-header">
       <h3>Plugins</h3>
       <input type="text" class="filter-input" placeholder="Filter plugins..." bind:value={filterText} />
-      <div class="ml-auto" style="display:flex;gap:0.4rem;">
-        <button class="p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={async () => {
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={async () => {
           const nn = genId('p');
           const template = `#!/usr/bin/env python3
 """${nn}.py — Description of your plugin. No external deps."""
@@ -832,21 +836,7 @@ if __name__ == "__main__":
             showPluginDialog = true;
           } catch (err) { error = err.message; }
         }}><Plus size={14} strokeWidth={2} /></button>
-        <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px dashed var(--border-default);color:var(--text-secondary);transition:all 0.15s">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <input type="file" accept=".py" style="display:none" onchange={async (e) => {
-            const file = e.target.files?.[0]; if (!file) return;
-            const name = file.name.replace(/\.py$/, '');
-            const text = await file.text();
-            try {
-              await fetch('/api/admin/plugins/'+name+'/source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: text });
-              pluginList = await fetchAdminPlugins();
-            } catch (err) { error = err.message; }
-            e.target.value = '';
-          }} />
-        </label>
       </div>
-    </div>
     {#each filteredPlugins as p}
       <div class="rule-card" style="cursor:pointer;" class:active={selPluginName === p.name}>
 <div class="rule-head">
@@ -856,10 +846,9 @@ if __name__ == "__main__":
           <div class="rule-desc">{p.description}</div>
         {/if}
         <div class="rule-actions">
-          <span class="rule-status" class:active={p.enabled !== false}>{p.enabled !== false ? 'Active' : 'Inactive'}</span>
+          <span class="rule-status" class:active={p.enabled !== false}>{p.enabled !== false ? 'Enabled' : 'Disabled'}</span>
           <button class="btn-edit" onclick={async () => { const pi = pluginList.find(x => x.name === p.name); editedPlugin = { ...pi }; pluginSource = await fetchPluginSource(pi.name); pluginSourceDirty = false; checkResult = null; showPluginDialog = true; }}>Edit</button>
-          <a href="/api/admin/plugins/{p.name}/source" download="{p.name}.py" style="font-size:0.78rem;color:#4361ee;text-decoration:none;" onclick={(e) => e.stopPropagation()}>Download</a>
-          <button class="btn-dup" onclick={async () => { const nn = genId('p'); const src = await fetchPluginSource(p.name); await fetch('/api/admin/plugins/'+nn+'/source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: src }); pluginList = await fetchAdminPlugins(); }}>Duplicate</button>
+          <button class="btn-dup" onclick={async () => { const nn = genId('p'); const src = await fetchPluginSource(p.name); await fetch('/api/admin/plugins/'+nn+'/source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: src }); await savePluginMeta(nn, { label: (p.label || p.name) + ' Copy', description: p.description || '' }); pluginList = await fetchAdminPlugins(); }}>Duplicate</button>
           <button class="btn-del" onclick={async () => { if (confirm(`Delete plugin ${p.name}?`)) { await deletePlugin(p.name); if (selPluginName === p.name) { selPluginName = null; pluginSource = ''; } pluginList = await fetchAdminPlugins(); } }}>Delete</button>
         </div>
       </div>
@@ -1366,6 +1355,7 @@ if __name__ == "__main__":
                 catch(e) { checkResult = { ok: false, errors: [{ type: 'error', msg: e.message }]}; }
                 finally { checking = false; }
               }}>Check</button>
+              <a href="/api/admin/plugins/{editedPlugin.name}/source" download="{editedPlugin.name}.py" class="btn-cancel" style="display:inline-flex;align-items:center;gap:0.2rem;text-decoration:none;">⬇ Download</a>
               <button class="btn-cancel" onclick={() => fsEditor = pluginSource}>⛶ Fullscreen</button>
               <span style="flex:1;"></span>
               <span style="font-size:0.78rem;color:#888;align-self:center;">{pluginSourceDirty ? '(unsaved)' : ''}</span>
@@ -1389,6 +1379,7 @@ if __name__ == "__main__":
       <button class="btn-save-rule" onclick={async () => {
         if (pluginSourceDirty) await savePluginSource(editedPlugin.name, pluginSource);
         await togglePluginEnabled(editedPlugin.name, editedPlugin.enabled !== false);
+        await savePluginMeta(editedPlugin.name, { label: editedPlugin.label || '', description: editedPlugin.description || '' });
         showPluginDialog = false; selPluginName = null; pluginSourceDirty = false;
         pluginList = await fetchAdminPlugins();
       }}>Save</button>
@@ -1614,7 +1605,7 @@ if __name__ == "__main__":
                   if (e.target.checked) arr.push(gid); else arr.splice(arr.indexOf(gid), 1);
                   editedBlackout.target_groups = arr;
                 }} />
-                {gid}
+{groups[gid]?.title || gid}
               </label>
             {/each}
           </div>
@@ -1663,32 +1654,30 @@ if __name__ == "__main__":
       {#if expandedAgentGeneral}
         <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
           <div style="display:flex;gap:1rem;margin-bottom:0.5rem;">
-            <div style="flex:1">
-              <label style="font-size:0.82rem;font-weight:600;color:#555;">ID</label>
-              <span style="display:block;font-size:0.82rem;color:#888;padding-top:0.3rem;">{agentId}</span>
+            <div class="dialog-field" style="flex:1">
+              <label>ID</label>
+              <input type="text" value={agentId} disabled />
             </div>
-            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;padding-top:1.2rem;">
+            <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
               <input type="checkbox" checked={agent.enabled !== false} onchange={async (e) => {
                 const val = e.target.checked;
                 try { await setAgentEnabled(agentId, val); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
                 catch (err) { error = err.message; }
               }} />
-              Enabled
-            </label>
+              <label style="margin:0;">Enabled</label>
+            </div>
           </div>
           <div style="margin-bottom:0.5rem;">
             <label style="font-size:0.82rem;font-weight:600;color:#555;">Title</label>
-            <input type="text" value={agent.title || ''} onchange={async (e) => {
-              const val = e.target.value.trim();
-              try { await updateAgent(agentId, { title: val }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
+            <input type="text" bind:value={agent.title} onblur={async () => {
+              try { await updateAgent(agentId, { title: agent.title }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
               catch (err) { error = err.message; }
             }} style="width:100%;padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;margin-top:0.2rem;" />
           </div>
           <div style="margin-bottom:0.5rem;">
             <label style="font-size:0.82rem;font-weight:600;color:#555;">Description</label>
-            <input type="text" value={agent.description || ''} onchange={async (e) => {
-              const val = e.target.value.trim();
-              try { await updateAgent(agentId, { description: val }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
+            <input type="text" bind:value={agent.description} onblur={async () => {
+              try { await updateAgent(agentId, { description: agent.description }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
               catch (err) { error = err.message; }
             }} style="width:100%;padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;margin-top:0.2rem;" />
           </div>
@@ -1707,53 +1696,65 @@ if __name__ == "__main__":
 
       <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
         <button onclick={() => expandedAgentSettings = !expandedAgentSettings} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
-          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgentSettings ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Settings
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgentSettings ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Assigned groups
         </button>
         {#if expandedAgentSettings}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
-            <section class="config-section" style="margin-bottom:0.75rem;">
-              <h4 style="margin:0 0 0.4rem;font-size:0.85rem;color:#555;">Groups</h4>
-              <div class="chip-list">
-                {#each Object.keys(groups).sort() as g}
-                  <button class="chip" class:active={agent.groups?.includes(g)} onclick={async () => { await toggleGroup(agentId, g); editedAgentData = { ...agents[agentId], id: agentId }; }}>{g}</button>
-                {/each}
-              </div>
-            </section>
-            <section class="config-section">
-              <h4 style="margin:0 0 0.4rem;font-size:0.85rem;color:#555;">Plugins</h4>
-              <div class="plugin-grid">
-                {#each agentPlugins as p}
-                  {@const schema = schemas[p]}
-                  {@const hasConfig = p in (agent.plugins || {})}
-                  <div class="plugin-card" class:active={selectedPlugin === p} class:configured={hasConfig}>
-                    <div class="plugin-header">
-                      <span class="plugin-name">{schema?.label || p}</span>
-                      <button class="toggle-btn" class:active={hasConfig} onclick={async () => { await togglePlugin(agentId, p); editedAgentData = { ...agents[agentId], id: agentId }; selectedPlugin = null; editedPluginConfig = null; }}>{hasConfig ? 'On' : 'Off'}</button>
-                    </div>
-                    <div class="plugin-desc">{schema?.description || ''}</div>
-                    {#if hasConfig}
-                      <button class="edit-btn" onclick={() => selectPlugin(agentId, p)}>{selectedPlugin === p ? 'Editing...' : 'Configure'}</button>
-                    {/if}
+            <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
+              {#each Object.keys(groups).sort() as g}
+                <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+                  <input type="checkbox" checked={agent.groups?.includes(g)} onchange={async () => { await toggleGroup(agentId, g); editedAgentData = { ...agents[agentId], id: agentId }; }} />
+                  {groups[g]?.title || g}
+                </label>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button onclick={() => expandedAgentPlugins = !expandedAgentPlugins} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgentPlugins ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Plugins
+        </button>
+        {#if expandedAgentPlugins}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+            <div class="plugin-grid">
+              {#each agentPlugins as p}
+                {@const schema = schemas[p]}
+                {@const hasConfig = p in (agent.plugins || {})}
+                <div class="plugin-card" class:active={selectedPlugin === p} class:configured={hasConfig}>
+                  <div class="plugin-header">
+                    <span class="plugin-name">{schema?.label || p}</span>
+                    <button class="toggle-btn" class:active={hasConfig} onclick={async () => { await togglePlugin(agentId, p); editedAgentData = { ...agents[agentId], id: agentId }; selectedPlugin = null; editedPluginConfig = null; }}>{hasConfig ? 'On' : 'Off'}</button>
                   </div>
-                {/each}
-              </div>
-              {#if selectedPlugin}
-                <div style="margin-top:0.75rem;border-top:1px solid #e2e8f0;padding-top:0.75rem;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-                    <strong style="font-size:0.85rem;">{schemas[selectedPlugin]?.label || selectedPlugin}</strong>
-                    <button class="btn-close" onclick={() => { selectedPlugin = null; editedPluginConfig = null; }}>✕</button>
-                  </div>
-                  <PluginForm schema={schemas[selectedPlugin]} config={agents[agentId]?.plugins?.[selectedPlugin] || {}} onchange={(c) => editedPluginConfig = c} />
-                  <button class="btn-save" style="margin-top:0.5rem;" onclick={async () => { await savePluginConfig(agentId, selectedPlugin); editedAgentData = { ...agents[agentId], id: agentId }; }} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                  <div class="plugin-desc">{schema?.description || ''}</div>
+                  {#if hasConfig}
+                    <button class="edit-btn" onclick={() => selectPlugin(agentId, p)}>{selectedPlugin === p ? 'Editing...' : 'Configure'}</button>
+                  {/if}
                 </div>
-              {/if}
-            </section>
+              {/each}
+            </div>
+            {#if selectedPlugin}
+              <div style="margin-top:0.75rem;border-top:1px solid #e2e8f0;padding-top:0.75rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                  <strong style="font-size:0.85rem;">{schemas[selectedPlugin]?.label || selectedPlugin}</strong>
+                  <button class="btn-close" onclick={() => { selectedPlugin = null; editedPluginConfig = null; }}>✕</button>
+                </div>
+                <PluginForm schema={schemas[selectedPlugin]} config={agents[agentId]?.plugins?.[selectedPlugin] || {}} onchange={(c) => editedPluginConfig = c} />
+              </div>
+            {/if}
           </div>
         {/if}
       </div>
     </div>
     <div class="dialog-footer">
       <button class="btn-cancel" onclick={closeAgentDialog}>Close</button>
+      <button class="btn-save-rule" onclick={async () => {
+        if (selectedPlugin && editedPluginConfig) {
+          await savePluginConfig(agentId, selectedPlugin);
+        }
+        closeAgentDialog();
+      }}>Save</button>
     </div>
   </div>
 {/if}
@@ -1827,7 +1828,7 @@ if __name__ == "__main__":
   .rule-status.active { background: rgba(34,197,94,0.1); color: #22c55e; }
   .btn-edit { font-size: 0.7rem; color: var(--color-primary); cursor: pointer; background: none; border: none; padding: 0.1rem 0.3rem; }
   .btn-dup { font-size: 0.7rem; color: #8b5cf6; cursor: pointer; background: none; border: none; padding: 0.1rem 0.3rem; }
-  .btn-del { font-size: 0.7rem; color: #ef4444; cursor: pointer; background: none; border: none; padding: 0.1rem 0.3rem; }
+  .btn-del { font-size: 0.7rem; color: #ef4444; cursor: pointer; background: none; border: none; padding: 0.1rem 0.3rem; margin-left: auto; }
   .btn-add-rule { padding: 0.3rem 0.6rem; background: rgba(34,197,94,0.1); color: #22c55e; border: none; border-radius: 5px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
   .btn-install { background: #1a202c; color: #e2e8f0; border: none; border-radius: 6px; padding: 0.4rem 0.8rem; cursor: pointer; font-family: monospace; font-size: 0.8rem; margin-top: 0.5rem; }
   .btn-install:hover { background: #2d3748; }

@@ -176,6 +176,9 @@ export function deletePlugin(name) {
 export function togglePluginEnabled(name, enabled) {
   return api(`/admin/plugins/${name}/enabled`, { method: 'PUT', body: { enabled } });
 }
+export function savePluginMeta(name, data) {
+  return api(`/admin/plugins/${name}/meta`, { method: 'PUT', body: data });
+}
 
 export function updateAccount(data) {
   return api('/account', { method: 'PUT', body: data });
