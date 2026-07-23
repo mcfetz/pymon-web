@@ -57,7 +57,7 @@
         >{acking.has(latest?.id) ? '...' : '✓'}</button>
         {#if alarms.length > 1}
           <button
-            onclick={() => onAckAll(rule_id, agentid, pluginid, metric)}
+            onclick={() => { if (confirm(`Acknowledge all ${alarms.length} alarms for this rule?`)) onAckAll(rule_id, agentid, pluginid, metric); }}
             disabled={acking.size > 0}
             class="px-2.5 py-1 text-[11px] font-medium transition-all duration-150 hover:brightness-110 active:scale-95 disabled:opacity-50 border-l"
             style="background: rgba(22,163,74,0.15); color: #16a34a; border-color: var(--border-default)"

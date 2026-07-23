@@ -23,7 +23,7 @@
         >
           <div class="icon-wrap relative">
             {#if id === 'alarms' && alarmCount > 0}
-              <span class="absolute -top-2 -right-3 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1 animate-scale-in" style="background: var(--color-primary)">{alarmCount}</span>
+              <span class="absolute -top-2.5 -right-3.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1 animate-scale-in" style="background: var(--color-primary)">{alarmCount}</span>
             {/if}
             <Icon
               size={20}
@@ -41,3 +41,11 @@
     </div>
   </div>
 </nav>
+<style>
+  .icon-wrap :global(svg) {
+    transition: transform 0.2s ease;
+  }
+  .icon-wrap:hover :global(svg) {
+    transform: translateY(-2px) scale(1.1);
+  }
+</style>

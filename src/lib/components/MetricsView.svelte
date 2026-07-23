@@ -1,6 +1,8 @@
 <script>
   import GlassCard from './GlassCard.svelte';
   import EmptyState from './EmptyState.svelte';
+  import MultiSelect from './MultiSelect.svelte';
+  import Select from './Select.svelte';
   import MetricsChart from '../MetricsChart.svelte';
   import { ChartArea } from 'lucide-svelte';
 
@@ -48,51 +50,48 @@
 </script>
 
 <div class="space-y-4">
-  <GlassCard>
+  <GlassCard className="relative z-10">
     <div class="flex flex-wrap items-end gap-2 p-4">
-      <select
-        value={filters.group}
-        onchange={(e) => { filters.group = e.target.value; onfilterchange(); ongroupchange(); }}
-        class="px-3 py-2 rounded-lg border text-xs bg-transparent outline-none"
-        style="border-color: var(--border-default); color: var(--text-primary); min-width: 100px"
-      >
-        <option value="">All Groups</option>
-        {#each groups as g}
-          <option value={g}>{g}</option>
-        {/each}
-      </select>
+      <div class="flex flex-col gap-0.5">
+        <span class="text-[9px] uppercase tracking-wide font-semibold" style="color: var(--text-secondary)">group</span>
+        <Select
+          items={groups.map(g => ({ id: g, title: g }))}
+          selected={filters.group}
+          placeholder="all groups"
+          onchange={(v) => { filters.group = v; onfilterchange(); ongroupchange(); }}
+        />
+      </div>
 
-      <select
-        multiple
-        value={filters.agentid}
-        onchange={(e) => { filters.agentid = Array.from(e.target.selectedOptions, o => o.value); onagentchange(); }}
-        class="px-3 py-2 rounded-lg border text-xs bg-transparent outline-none"
-        style="border-color: var(--border-default); color: var(--text-primary); min-width: 120px; height: 100px"
-      >
-        {#each filteredAgents as a}
-          <option value={a.id}>{a.title}</option>
-        {/each}
-      </select>
+      <div class="flex flex-col gap-0.5">
+        <span class="text-[9px] uppercase tracking-wide font-semibold" style="color: var(--text-secondary)">agents</span>
+        <MultiSelect
+          items={filteredAgents}
+          selected={filters.agentid}
+          placeholder="all agents"
+          onchange={(s) => { filters.agentid = s; onagentchange(); }}
+        />
+      </div>
 
-      <select
-        value={filters.pluginid}
-        onchange={(e) => { filters.pluginid = e.target.value; onpluginchange(); }}
-        class="px-3 py-2 rounded-lg border text-xs bg-transparent outline-none"
-        style="border-color: var(--border-default); color: var(--text-primary)"
-      >
-        <option value="">All Plugins</option>
-        {#each plugins as p}
-          <option value={p.id}>{p.title}</option>
-        {/each}
-      </select>
+      <div class="flex flex-col gap-0.5">
+        <span class="text-[9px] uppercase tracking-wide font-semibold" style="color: var(--text-secondary)">plugin</span>
+        <Select
+          items={plugins}
+          selected={filters.pluginid}
+          placeholder="all plugins"
+          onchange={(v) => { filters.pluginid = v; onpluginchange(); }}
+        />
+      </div>
 
-      <input
-        type="text"
-        placeholder="metric name..."
-        bind:value={filters.metric}
-        class="px-3 py-2 rounded-lg border text-xs bg-transparent outline-none flex-1 min-w-[120px]"
-        style="border-color: var(--border-default); color: var(--text-primary)"
-      />
+      <div class="flex flex-col gap-0.5 flex-1 min-w-[120px]">
+        <span class="text-[9px] uppercase tracking-wide font-semibold invisible">_</span>
+        <input
+          type="text"
+          placeholder="metric name..."
+          bind:value={filters.metric}
+          class="px-3 py-2 rounded-lg border text-xs bg-transparent outline-none"
+          style="border-color: var(--border-default); color: var(--text-primary)"
+        />
+      </div>
 
       <div class="flex gap-1">
         {#each timePresets as p}
@@ -127,7 +126,7 @@
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
       {#each metricsStats as s}
         <GlassCard hover={false} className="p-3">
-          <p class="text-[10px] uppercase tracking-wide font-semibold m-0 mb-1" style="color: var(--text-secondary)">{s.label}</p>
+          <p class="text-[10px] uppercase tracking-wide font-semibold m-0 mb-1 truncate" style="color: var(--text-secondary)">{s.label}</p>
           <p class="text-sm font-mono font-bold m-0" style="color: var(--text-primary)">{fmtVal(s.value)}</p>
         </GlassCard>
       {/each}

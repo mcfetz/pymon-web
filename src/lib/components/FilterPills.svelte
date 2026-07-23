@@ -8,7 +8,7 @@
   }
 </script>
 
-<div class="flex flex-wrap gap-1.5">
+<div class="flex flex-wrap gap-1.5 justify-center">
   {#each options as opt}
     <button
       onclick={() => toggle(opt)}

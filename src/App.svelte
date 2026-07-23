@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { fly } from 'svelte/transition';
   import MetricsChart from './lib/MetricsChart.svelte';
   import ConfigView from './lib/ConfigView.svelte';
   import {
@@ -17,6 +18,8 @@
   import AlarmList from './lib/components/AlarmList.svelte';
   import MetricsView from './lib/components/MetricsView.svelte';
   import AccountPage from './lib/components/AccountPage.svelte';
+  import PageHeader from './lib/components/PageHeader.svelte';
+  import { Bell, Clock, ChartArea } from 'lucide-svelte';
   import { updateAccount } from './lib/api.js';
 
   initTheme();
@@ -99,6 +102,10 @@
   });
   let filteredStacks = $derived(alarmGroups.stacks.filter(g => severityFilter.has(g.alarms[0].severity)));
   let filteredSingles = $derived(alarmGroups.singles.filter(a => severityFilter.has(a.severity)));
+  // History severity filter
+  let histSeverityFilter = $state(new Set(['warning', 'critical', 'info']));
+  let histFilteredStacks = $derived(historyGroups.stacks.filter(g => histSeverityFilter.has(g.alarms[0].severity)));
+  let histFilteredSingles = $derived(historyGroups.singles.filter(a => histSeverityFilter.has(a.severity)));
   let snoozedSet = $state(new Set());
 
   async function handleToggleSnooze(alarm) {
@@ -366,8 +373,10 @@
       </div>
     {/if}
 
-    <div class="mx-auto max-w-xl px-4 animate-fade-in">
+    <div class="mx-auto max-w-xl px-4">
       {#if tab === 'alarms'}
+        <div class="animate-slide-up">
+        <PageHeader icon={Bell} title="Alarms" />
         <AlarmList
           stacks={filteredStacks}
           singles={filteredSingles}
@@ -384,12 +393,14 @@
           {severityCounts}
           onseveritychange={(s) => severityFilter = s}
         />
+        </div>
       {:else if tab === 'history'}
+        <div class="animate-slide-up">
+        <PageHeader icon={Clock} title="History" />
         {#if historyAlarms.length > 0}
-          <h2 class="text-base font-semibold mb-3" style="color: var(--text-secondary)">history ({historyAlarms.length})</h2>
           <AlarmList
-            stacks={historyGroups.stacks}
-            singles={historyGroups.singles}
+            stacks={histFilteredStacks}
+            singles={histFilteredSingles}
             onAck={() => {}}
             onAckRule={() => {}}
             onRule={openRule}
@@ -399,15 +410,18 @@
             acking={new Set()}
             expandedStacks={expandedHistoryStacks}
             onexpand={(key) => { const s = new Set(expandedHistoryStacks); if (s.has(key)) s.delete(key); else s.add(key); expandedHistoryStacks = s; }}
-            severityFilter={new Set(['warning', 'critical', 'info'])}
+            severityFilter={histSeverityFilter}
             severityCounts={{}}
-            onseveritychange={() => {}}
+            onseveritychange={(s) => histSeverityFilter = s}
             history={true}
           />
         {:else}
           <div class="text-center py-16 text-sm opacity-50" style="color: var(--text-secondary)">no history</div>
         {/if}
+        </div>
       {:else if tab === 'metrics'}
+        <div class="animate-slide-up">
+        <PageHeader icon={ChartArea} title="Metrics" />
         <MetricsView
           {filters}
           onfilterchange={() => {}}
@@ -438,10 +452,15 @@
           chartData={metricsData}
           timePresets={TIME_PRESETS}
         />
+        </div>
       {:else if tab === 'config'}
+        <div class="animate-slide-up">
         <ConfigView {pendingRule} onLogout={handleLogout} />
+        </div>
       {:else if tab === 'account'}
+        <div class="animate-slide-up">
         <AccountPage onlogout={handleLogout} onsave={handleAccountSave} />
+        </div>
       {/if}
     </div>
 

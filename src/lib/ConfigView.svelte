@@ -819,6 +819,19 @@ if __name__ == "__main__":
                 </label>
               {/each}
             </div>
+          {:else if field.key === 'agents'}
+            <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
+              {#each Object.values(agents).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id)) as agent (agent.id)}
+                <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+                  <input type="checkbox" checked={(editedRule[field.key] || []).includes(agent.id)} onchange={(e) => {
+                    const arr = [...(editedRule[field.key] || [])];
+                    if (e.target.checked) arr.push(agent.id); else arr.splice(arr.indexOf(agent.id), 1);
+                    editedRule[field.key] = arr;
+                  }} />
+                  {agent.title || agent.id}
+                </label>
+              {/each}
+            </div>
           {:else if field.key === 'executors'}
             <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
               {#each Object.values(executors).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id)) as ex (ex.id)}
