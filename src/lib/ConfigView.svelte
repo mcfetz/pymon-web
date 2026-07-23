@@ -120,6 +120,7 @@
   let expandedExecutors = $state(false);
   let expandedNotifications = $state(false);
   let expandedRuleGeneral = $state(true);
+  let expandedRuleSettings = $state(true);
   let expandedBlackoutRules = $state(false);
   let expandedBlackoutAgents = $state(false);
   let expandedBlackoutGroups = $state(false);
@@ -900,7 +901,7 @@ if __name__ == "__main__":
   <div class="dialog">
     <div class="dialog-header">
       <h3>Rule {editingRule?.id?.includes('new_') ? 'create' : 'edit'}</h3>
-      <button class="btn-close" onclick={() => showRuleDialog = false}>✕</button>
+      <button class="btn-close" onclick={() => showRuleDialog = false}>&#10005;</button>
     </div>
     <div class="dialog-body">
       <div style="margin-bottom:0.5rem;">
@@ -920,90 +921,83 @@ if __name__ == "__main__":
               <label style="margin:0;">Enabled</label>
             </div>
           </div>
-          <div class="dialog-field">
-            <label>Severity</label>
-            <div class="flex items-center gap-2">
-              <select bind:value={editedRule.severity} class="px-3 py-2 rounded-lg border text-xs bg-transparent outline-none" style="border-color: var(--border-default); color: var(--text-primary)">
-                <option value="warning">warning</option>
-                <option value="critical">critical</option>
-                <option value="info">info</option>
-              </select>
-              <svelte:component this={editedRule.severity === 'critical' ? AlertCircle : editedRule.severity === 'warning' ? AlertTriangle : Info} size={16} strokeWidth={2} style="color: {editedRule.severity === 'critical' ? '#ef4444' : editedRule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}" />
-            </div>
-          </div>
           <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedRule.description} /></div>
         </div>
       {/if}
 
-      {#each ruleSchema.fields as field}
-        {#if field.key === 'agents_mode' || field.key === 'agents' || field.key === 'executors' || field.key === 'notifications' || field.key === 'severity' || field.key === 'id' || field.key === 'enabled' || field.key === 'description'}
-          <!-- skip - rendered above -->
-        {:else}
-        <div class="dialog-field">
-          <label>{field.label}</label>
-          {#if field.key === 'pluginid'}
-            <select bind:value={editedRule[field.key]}>
-              <option value="">—</option>
-              {#each filteredPlugins as p}
-                <option value={p.name}>{p.label} ({p.name})</option>
-              {/each}
-            </select>
-          {:else if field.key === 'notifications'}
-            <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-              {#each Object.values(notifications).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id)) as n (n.id)}
-                <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
-                  <input type="checkbox" checked={(editedRule[field.key] || []).includes(n.id)} onchange={(e) => {
-                    const arr = [...(editedRule[field.key] || [])];
-                    if (e.target.checked) arr.push(n.id); else arr.splice(arr.indexOf(n.id), 1);
-                    editedRule[field.key] = arr;
-                  }} />
-                  {n.title || n.id} ({n.id})
-                </label>
-              {/each}
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button onclick={() => expandedRuleSettings = !expandedRuleSettings} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedRuleSettings ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Settings
+        </button>
+        {#if expandedRuleSettings}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+            <div class="dialog-field">
+              <label>Severity</label>
+              <select bind:value={editedRule.severity} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+                <option value="warning">warning</option>
+                <option value="critical">critical</option>
+                <option value="info">info</option>
+              </select>
             </div>
-          {:else if field.key === 'executors'}
-            <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-              {#each Object.values(executors).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id)) as ex (ex.id)}
-                <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
-                  <input type="checkbox" checked={(editedRule[field.key] || []).includes(ex.id)} onchange={(e) => {
-                    const arr = [...(editedRule[field.key] || [])];
-                    if (e.target.checked) arr.push(ex.id); else arr.splice(arr.indexOf(ex.id), 1);
-                    editedRule[field.key] = arr;
-                  }} />
-                  {ex.title || ex.id} ({ex.id})
-                </label>
-              {/each}
+            <div class="dialog-field">
+              <label>Plugin</label>
+              <select bind:value={editedRule.pluginid} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+                <option value="">—</option>
+                {#each filteredPlugins as p}
+                  <option value={p.name}>{p.label} ({p.name})</option>
+                {/each}
+              </select>
             </div>
-          {:else if field.type === 'select'}
-            <select bind:value={editedRule[field.key]}>
-              {#each field.options || [] as opt}
-                <option value={opt}>{opt}</option>
-              {/each}
-            </select>
-          {:else if field.type === 'boolean'}
-            <input type="checkbox" checked={editedRule[field.key] || false} onchange={(e) => editedRule[field.key] = e.target.checked} />
-          {:else if field.type === 'number'}
-            <input type="number" value={editedRule[field.key] ?? ''} oninput={(e) => editedRule[field.key] = parseFloat(e.target.value) || 0} />
-          {:else if field.type === 'array:string'}
-            <div class="dialog-array">
-              {#each (editedRule[field.key] || []) as item, i}
-                <div class="array-row">
-                  <input type="text" value={item} oninput={(e) => { const a = [...(editedRule[field.key] || [])]; a[i] = e.target.value; editedRule[field.key] = a; }} />
-                  <button class="btn-sm" onclick={() => { const a = [...(editedRule[field.key] || [])]; a.splice(i,1); editedRule[field.key] = a; }}>✕</button>
-                </div>
-              {/each}
-              <button class="btn-sm" onclick={() => { editedRule[field.key] = [...(editedRule[field.key] || []), '']; }}>+</button>
+            <div style="display:flex;gap:0.5rem;">
+              <div class="dialog-field" style="flex:1">
+                <label>Metric</label>
+                <input type="text" bind:value={editedRule.metric} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+              </div>
+              <div class="dialog-field" style="width:100px">
+                <label>Condition</label>
+                <select bind:value={editedRule.condition} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+                  {#each ['gt','ge','lt','le','eq','ne'] as c}
+                    <option value={c}>{c}</option>
+                  {/each}
+                </select>
+              </div>
+              <div class="dialog-field" style="width:100px">
+                <label>Threshold</label>
+                <input type="number" bind:value={editedRule.threshold} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+              </div>
             </div>
-          {:else}
-            <input type="text" bind:value={editedRule[field.key]} />
-          {/if}
-        </div>
+            <div style="display:flex;gap:0.5rem;">
+              <div class="dialog-field" style="flex:1">
+                <label>Scope</label>
+                <select bind:value={editedRule.scope} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+                  <option value="single">single</option>
+                  <option value="moving_avg">moving_avg</option>
+                  <option value="count_ratio">count_ratio</option>
+                </select>
+              </div>
+              <div class="dialog-field" style="width:100px">
+                <label>Window</label>
+                <input type="number" bind:value={editedRule.window_size} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+              </div>
+              <div class="dialog-field" style="width:100px">
+                <label>Min violations</label>
+                <input type="number" bind:value={editedRule.min_violations} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+              </div>
+            </div>
+            <div class="dialog-field">
+              <label>Fire mode</label>
+              <select bind:value={editedRule.fire} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+                <option value="single">single</option>
+                <option value="multi">multi</option>
+                <option value="replace">replace</option>
+              </select>
+            </div>
+          </div>
         {/if}
-      {/each}
+      </div>
 
       <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
-        <button
-          onclick={() => expandedAgents = !expandedAgents}
+        <button onclick={() => expandedAgents = !expandedAgents}
           class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2"
           style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
         >
@@ -1045,8 +1039,7 @@ if __name__ == "__main__":
       </div>
 
       <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
-        <button
-          onclick={() => expandedNotifications = !expandedNotifications}
+        <button onclick={() => expandedNotifications = !expandedNotifications}
           class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2"
           style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
         >
@@ -1076,8 +1069,7 @@ if __name__ == "__main__":
       </div>
 
       <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
-        <button
-          onclick={() => expandedExecutors = !expandedExecutors}
+        <button onclick={() => expandedExecutors = !expandedExecutors}
           class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2"
           style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
         >
@@ -1113,7 +1105,7 @@ if __name__ == "__main__":
   </div>
 {/if}
 
-<!-- Executor Dialog -->
+<!-- Executor Dialog --><!-- Executor Dialog -->
 {#if showExecDialog && editedExec}
   <div class="dialog-overlay" onclick={() => showExecDialog = false}></div>
   <div class="dialog">
