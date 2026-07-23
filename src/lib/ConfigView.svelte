@@ -134,9 +134,11 @@
   let expandedNotifyPush = $state(true);
   let expandedNotifyTwilio = $state(true);
   let expandedBlackoutGeneral = $state(true);
+  let expandedBlackoutSettings = $state(true);
   let expandedGroupGeneral = $state(true);
   let expandedGroupPlugins = $state(true);
   let expandedPluginGeneral = $state(true);
+  let expandedPluginCode = $state(true);
   let expandedAgentGeneral = $state(true);
   let expandedAgentSettings = $state(true);
   let showBlackoutDialog = $state(false);
@@ -728,9 +730,7 @@
       <input type="text" class="filter-input" placeholder="Filter plugins..." bind:value={filterText} />
       <div class="ml-auto" style="display:flex;gap:0.4rem;">
         <button class="p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={async () => {
-          const name = prompt('New plugin name (without .py):');
-          if (!name?.trim()) return;
-          const nn = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+          const nn = genId('p');
           const template = `#!/usr/bin/env python3
 """${nn}.py — Description of your plugin. No external deps."""
 import json
@@ -930,7 +930,7 @@ if __name__ == "__main__":
           <div style="display:flex;gap:1rem;">
             <div class="dialog-field" style="flex:1">
               <label>ID</label>
-              <input type="text" bind:value={editedRule.id} disabled={typeof editingRule === 'string'} />
+              <input type="text" value={editedRule.id || ''} placeholder="auto-generated" disabled={typeof editingRule === 'string'} />
             </div>
             <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
               <input type="checkbox" checked={editedRule.enabled ?? true} onchange={(e) => editedRule.enabled = e.target.checked} />
@@ -1141,7 +1141,7 @@ if __name__ == "__main__":
           <div style="display:flex;gap:1rem;">
             <div class="dialog-field" style="flex:1">
               <label>ID</label>
-              <input type="text" bind:value={editedExec.id} disabled={typeof editingExec === 'string'} />
+              <input type="text" value={editedExec.id || ''} placeholder="auto-generated" disabled={typeof editingExec === 'string'} />
             </div>
             <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
               <input type="checkbox" checked={editedExec.enabled ?? true} onchange={(e) => editedExec.enabled = e.target.checked} />
@@ -1201,7 +1201,7 @@ if __name__ == "__main__":
           <div style="display:flex;gap:1rem;">
             <div class="dialog-field" style="flex:1">
               <label>ID</label>
-              <input type="text" bind:value={editedNotify.id} disabled={typeof editingNotify === 'string'} />
+              <input type="text" value={editedNotify.id || ''} placeholder="auto-generated" disabled={typeof editingNotify === 'string'} />
             </div>
             <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
               <input type="checkbox" checked={editedNotify.enabled ?? true} onchange={(e) => editedNotify.enabled = e.target.checked} />
@@ -1324,43 +1324,64 @@ if __name__ == "__main__":
       <button class="btn-close" onclick={() => { showPluginDialog = false; selPluginName = null; }}>✕</button>
     </div>
     <div class="dialog-body" style="overflow:visible;display:flex;flex-direction:column;gap:0.6rem;">
-      <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0;flex-shrink:0;">
-        <div class="dialog-field" style="flex:1;">
-          <label>ID (filename)</label>
-          <input type="text" value={editedPlugin.name} disabled />
-        </div>
-        <div class="dialog-field" style="flex:1;">
-          <label>Title</label>
-          <input type="text" bind:value={editedPlugin.label} />
-        </div>
-        <div class="dialog-field" style="justify-content:center;">
-          <label>
-            <input type="checkbox" checked={editedPlugin.enabled !== false} onchange={(e) => editedPlugin.enabled = e.target.checked} />
-            Enabled
-          </label>
-        </div>
+      <div style="margin-bottom:0.5rem;">
+        <button onclick={() => expandedPluginGeneral = !expandedPluginGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedPluginGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
+        </button>
       </div>
-      <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem;">
-        <button class="btn-cancel" disabled={checking} onclick={async () => {
-          checking = true; checkResult = null;
-          try { const r = await fetch('/api/admin/plugins/check', { method: 'POST', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: pluginSource }); checkResult = await r.json(); }
-          catch(e) { checkResult = { ok: false, errors: [{ type: 'error', msg: e.message }]}; }
-          finally { checking = false; }
-        }}>Check</button>
-        <button class="btn-cancel" onclick={() => fsEditor = pluginSource}>⛶ Fullscreen</button>
-        <span style="flex:1;"></span>
-        <span style="font-size:0.78rem;color:#888;align-self:center;">{pluginSourceDirty ? '(unsaved)' : ''}</span>
-      </div>
-      {#key editedPlugin.name}
-        <div style="height:350px;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;display:flex;flex-direction:column;">
-          <CodeEditor value={pluginSource} onchange={(v) => { pluginSource = v; pluginSourceDirty = true; }} />
-        </div>
-      {/key}
-      {#if checkResult}
-        <div class="check-result" class:ok={checkResult.ok}>
-          {#if checkResult.ok}✅ No errors{:else}<strong>⚠ {checkResult.errors.length} Errors:</strong>{#each checkResult.errors as err}<div class="check-error">Line {err.line || '?'}: {err.msg}</div>{/each}{/if}
+      {#if expandedPluginGeneral}
+        <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+          <div style="display:flex;gap:1rem;">
+            <div class="dialog-field" style="flex:1">
+              <label>ID</label>
+              <input type="text" value={editedPlugin.name} disabled />
+            </div>
+            <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
+              <input type="checkbox" checked={editedPlugin.enabled !== false} onchange={async (e) => { await togglePluginEnabled(editedPlugin.name, e.target.checked); editedPlugin.enabled = e.target.checked; pluginList = await fetchAdminPlugins(); }} />
+              <label style="margin:0;">Enabled</label>
+            </div>
+          </div>
+          <div class="dialog-field">
+            <label>Title</label>
+            <input type="text" bind:value={editedPlugin.label} />
+          </div>
+          <div class="dialog-field">
+            <label>Description</label>
+            <input type="text" bind:value={editedPlugin.description} />
+          </div>
         </div>
       {/if}
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button onclick={() => expandedPluginCode = !expandedPluginCode} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedPluginCode ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Code
+        </button>
+        {#if expandedPluginCode}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+            <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem;">
+              <button class="btn-cancel" disabled={checking} onclick={async () => {
+                checking = true; checkResult = null;
+                try { const r = await fetch('/api/admin/plugins/check', { method: 'POST', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: pluginSource }); checkResult = await r.json(); }
+                catch(e) { checkResult = { ok: false, errors: [{ type: 'error', msg: e.message }]}; }
+                finally { checking = false; }
+              }}>Check</button>
+              <button class="btn-cancel" onclick={() => fsEditor = pluginSource}>⛶ Fullscreen</button>
+              <span style="flex:1;"></span>
+              <span style="font-size:0.78rem;color:#888;align-self:center;">{pluginSourceDirty ? '(unsaved)' : ''}</span>
+            </div>
+            {#key editedPlugin.name}
+              <div style="height:350px;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;display:flex;flex-direction:column;">
+                <CodeEditor value={pluginSource} onchange={(v) => { pluginSource = v; pluginSourceDirty = true; }} />
+              </div>
+            {/key}
+            {#if checkResult}
+              <div class="check-result" class:ok={checkResult.ok}>
+                {#if checkResult.ok}✅ No errors{:else}<strong>⚠ {checkResult.errors.length} Errors:</strong>{#each checkResult.errors as err}<div class="check-error">Line {err.line || '?'}: {err.msg}</div>{/each}{/if}
+              </div>
+            {/if}
+          </div>
+        {/if}
+      </div>
     </div>
     <div class="dialog-footer">
       <button class="btn-cancel" onclick={() => { showPluginDialog = false; selPluginName = null; }}>Close</button>
@@ -1465,7 +1486,7 @@ if __name__ == "__main__":
           <div style="display:flex;gap:1rem;">
             <div class="dialog-field" style="flex:1">
               <label>ID</label>
-              <input type="text" readonly value={editedBlackout.id || '(auto)'} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-secondary)" />
+              <input type="text" readonly placeholder="auto-generated" style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-secondary)" />
             </div>
             <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
               <input type="checkbox" checked={editedBlackout.enabled !== false} onchange={(e) => editedBlackout.enabled = e.target.checked} />
