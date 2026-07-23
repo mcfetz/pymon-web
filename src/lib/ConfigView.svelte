@@ -824,11 +824,12 @@ if __name__ == "__main__":
           try {
             await fetch(`/api/admin/plugins/${nn}/source`, { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: template });
             pluginList = await fetchAdminPlugins();
-            // Open the editor with the new plugin
-            selPluginName = nn;
+            const pi = pluginList.find(x => x.name === nn);
+            editedPlugin = { ...pi, name: nn, label: nn, description: '', enabled: true };
             pluginSource = template;
             pluginSourceDirty = false;
             checkResult = null;
+            showPluginDialog = true;
           } catch (err) { error = err.message; }
         }}><Plus size={14} strokeWidth={2} /></button>
         <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px dashed var(--border-default);color:var(--text-secondary);transition:all 0.15s">
