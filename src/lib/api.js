@@ -180,3 +180,13 @@ export function togglePluginEnabled(name, enabled) {
 export function updateAccount(data) {
   return api('/account', { method: 'PUT', body: data });
 }
+
+// ── Blackouts ──
+export function fetchBlackouts() { return api('/admin/blackouts'); }
+export function fetchBlackoutSchema() { return api('/admin/blackouts/schema'); }
+export function saveBlackout(id, data) {
+  return api(`/admin/blackouts/${id}`, { method: 'PUT', body: data });
+}
+export function deleteBlackout(id) {
+  return api(`/admin/blackouts/${id}`, { method: 'DELETE' });
+}

@@ -12,6 +12,7 @@
     fetchNotifications, saveNotification, deleteNotification, fetchNotifySchema, testNotification,
     fetchAdminPlugins, fetchPluginSource, fetchPluginTemplate, savePluginSource, deletePlugin, togglePluginEnabled,
     updateAccount, setToken,
+    fetchBlackouts, fetchBlackoutSchema, saveBlackout, deleteBlackout,
   } from './api.js';
 
   let { pendingRule = null, onLogout = () => {} } = $props();
@@ -117,7 +118,12 @@
   let fsEditor = $state(null);
   let expandedAgents = $state(false);
   let expandedExecutors = $state(false);
-  let expandedNotifications = $state(false); // fullscreen editor content
+  let expandedNotifications = $state(false);
+  let showBlackoutDialog = $state(false);
+  let editingBlackout = $state(null);
+  let editedBlackout = $state(null);
+  let blackouts = $state({});
+  let blackoutSchema = $state({ fields: [] }); // fullscreen editor content
 
   // ── Filters ──
   let filterText = $state('');
@@ -173,14 +179,16 @@
   async function load() {
     loading = true; error = null;
     try {
-      const [s, a, g, rs, rsc, ex, nt, ns, pl] = await Promise.all([
+      const [s, a, g, rs, rsc, ex, nt, ns, pl, bs, bsc] = await Promise.all([
         fetchPluginSchemas(), fetchAdminAgents(), fetchAdminGroups(),
         fetchRules(), fetchRuleSchema(), fetchExecutors(),
         fetchNotifications(), fetchNotifySchema(),
         fetchAdminPlugins(),
+        fetchBlackouts(), fetchBlackoutSchema(),
       ]);
       schemas = s; agents = a; groups = g; rules = rs; ruleSchema = rsc;
       executors = ex; notifications = nt; notifySchema = ns; pluginList = pl;
+      blackouts = bs; blackoutSchema = bsc;
       allPluginNames = Object.keys(s);
     } catch (e) { error = e.message; }
     finally { loading = false; }
@@ -425,6 +433,49 @@
     if (e.key === 'Escape' && fsEditor !== null) closeFs();
   }
 
+  function openNewBlackout() {
+    const def = {};
+    for (const f of blackoutSchema.fields) {
+      if ('default' in f) def[f.key] = Array.isArray(f.default) ? [...f.default] : f.default;
+      else def[f.key] = '';
+    }
+    def.id = '';
+    editingBlackout = def;
+    editedBlackout = { ...def };
+    showBlackoutDialog = true;
+  }
+  function editBlackout(id) {
+    editingBlackout = id;
+    editedBlackout = { ...blackouts[id], id };
+    showBlackoutDialog = true;
+  }
+  async function handleSaveBlackout() {
+    if (!editedBlackout) return;
+    if (!editedBlackout.id?.trim()) editedBlackout.id = genId('b');
+    saving = true;
+    try {
+      if (editingBlackout && typeof editingBlackout === 'string' && editingBlackout !== editedBlackout.id)
+        await deleteBlackout(editingBlackout);
+      await saveBlackout(editedBlackout.id, editedBlackout);
+      showBlackoutDialog = false;
+      editingBlackout = null;
+      editedBlackout = null;
+      blackouts = await fetchBlackouts();
+    } catch (e) { error = e.message; }
+    finally { saving = false; }
+  }
+  async function handleDeleteBlackout(id) {
+    if (!confirm(`Really delete blackout ${id}?`)) return;
+    try { await deleteBlackout(id); blackouts = await fetchBlackouts(); }
+    catch (e) { error = e.message; }
+  }
+  let filteredBlackouts = $derived.by(() => {
+    const vals = Object.values(blackouts);
+    if (!filterText) return vals.sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+    const q = filterText.toLowerCase();
+    return vals.filter(b => (b.title || b.id).toLowerCase().includes(q)).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+  });
+
   onMount(load);
 </script>
 
@@ -441,6 +492,7 @@
       <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'executors' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'executors' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'executors' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'executors'}>Executors</button>
       <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'notify' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'notify' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'notify' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'notify'}>Notifications</button>
       <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'groups' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'groups' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'groups' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'groups'}>Groups</button>
+      <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'blackouts' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'blackouts' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'blackouts' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'blackouts'}>Blackouts</button>
       <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'plugins' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'plugins' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'plugins' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'plugins'}>Plugins</button>
       <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'account' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'account' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'account' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'account'}>Account</button>
     </div>
@@ -466,7 +518,7 @@
         <div class="rule-card">
           <div class="rule-head">
             <span class="status-dot" class:online={a.online} style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:0.3rem;"></span>
-            <span class="rule-id">{a.title || id} ({id})</span>
+            <span class="rule-id">{a.title || id}</span>
             <span style="margin-left:auto;font-size:0.75rem;color:#888;">
               {#if a.last_seen}{fmtTime(a.last_seen)}{:else}never{/if}
             </span>
@@ -532,7 +584,6 @@
         <div class="rule-head">
           <span class="rule-id">{exec.title || exec.id}</span>
         </div>
-        <div class="rule-desc" style="font-family:monospace;font-size:0.8rem;">{exec.command || '—'}</div>
         <div class="rule-actions">
           <span class="rule-status" class:active={exec.enabled ?? true}>{exec.enabled ?? true ? 'Active' : 'Inactive'}</span>
           <button class="btn-edit" onclick={() => editExec(exec.id)}>Edit</button>
@@ -596,6 +647,33 @@
           </div>
         </div>
       {/each}
+    {/if}
+  </div>
+{/if}
+{#if view === 'blackouts'}
+  <div class="rules-view">
+    <div class="rules-header">
+      <h3>Blackouts</h3>
+      <input type="text" class="filter-input" placeholder="Filter blackouts..." bind:value={filterText} />
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewBlackout}><Plus size={14} strokeWidth={2} /></button>
+    </div>
+    {#each filteredBlackouts as b}
+      <div class="rule-card">
+        <div class="rule-head">
+          <span class="rule-id">{b.title || b.id}</span>
+          <span style="font-size:0.7rem;color:var(--text-secondary)">{b.start_time}–{b.end_time}</span>
+        </div>
+        <div class="rule-desc">{b.weekdays?.length ? b.weekdays.map(d => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d]).join(', ') : 'every day'} · {b.target_mode}: {b.targets?.length || 0} · {b.mode === 'no_alarms' ? 'no alarms' : 'no notifications'}</div>
+        <div class="rule-actions">
+          <span class="rule-status" class:active={b.enabled !== false}>{b.enabled !== false ? 'Active' : 'Inactive'}</span>
+          <button class="btn-edit" onclick={() => editBlackout(b.id)}>Edit</button>
+          <button class="btn-dup" onclick={async () => { const copy = { ...b, id: genId('b') }; await saveBlackout(copy.id, copy); blackouts = await fetchBlackouts(); }}>Duplicate</button>
+          <button class="btn-del" onclick={() => handleDeleteBlackout(b.id)}>Delete</button>
+        </div>
+      </div>
+    {/each}
+    {#if filteredBlackouts.length === 0}
+      <div class="empty">No blackouts</div>
     {/if}
   </div>
 {/if}
@@ -726,9 +804,8 @@ if __name__ == "__main__":
     </div>
     {#each filteredPlugins as p}
       <div class="rule-card" style="cursor:pointer;" class:active={selPluginName === p.name}>
-        <div class="rule-head">
-          <span class="rule-id">{p.label} ({p.name})</span>
-          <span class="rule-badge">{p.size} B</span>
+<div class="rule-head">
+            <span class="rule-id">{p.label}</span>
         </div>
         <div class="rule-desc">{p.description || '—'}</div>
         <div class="rule-actions">
@@ -1161,6 +1238,87 @@ if __name__ == "__main__":
           groups = await fetchAdminGroups();
         } catch (e) { error = e.message; }
       }} disabled={!editedGroup.id?.trim()}>Save</button>
+    </div>
+  </div>
+{/if}
+
+<!-- Blackout Dialog -->
+{#if showBlackoutDialog && editedBlackout}
+  <div class="dialog-overlay" onclick={() => showBlackoutDialog = false}></div>
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>Blackout {editingBlackout?.id?.includes('new_') ? 'create' : 'edit'}</h3>
+      <button class="btn-close" onclick={() => showBlackoutDialog = false}>✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-field">
+        <label>Title</label>
+        <input type="text" bind:value={editedBlackout.title} class="filter-input" />
+      </div>
+      <div class="dialog-field">
+        <label>Enabled</label>
+        <input type="checkbox" checked={editedBlackout.enabled || false} onchange={(e) => editedBlackout.enabled = e.target.checked} />
+      </div>
+      <div class="dialog-field">
+        <label>Weekdays</label>
+        <div class="dialog-array" style="display:flex;flex-wrap:wrap;gap:0.25rem;">
+          {#each ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as day, i}
+            <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+              <input type="checkbox" checked={(editedBlackout.weekdays || []).includes(i)} onchange={(e) => {
+                const arr = [...(editedBlackout.weekdays || [])];
+                if (e.target.checked) arr.push(i); else arr.splice(arr.indexOf(i), 1);
+                editedBlackout.weekdays = arr.sort((a,b) => a-b);
+              }} />
+              {day}
+            </label>
+          {/each}
+        </div>
+      </div>
+      <div class="dialog-field" style="display:flex;gap:0.5rem;">
+        <div style="flex:1">
+          <label>Start time</label>
+          <input type="time" bind:value={editedBlackout.start_time} class="filter-input" />
+        </div>
+        <div style="flex:1">
+          <label>End time</label>
+          <input type="time" bind:value={editedBlackout.end_time} class="filter-input" />
+        </div>
+      </div>
+      <div class="dialog-field">
+        <label>Target mode</label>
+        <select bind:value={editedBlackout.target_mode} class="filter-input" style="width:100%">
+          <option value="rules">rules</option>
+          <option value="agents">agents</option>
+        </select>
+      </div>
+      <div class="dialog-field">
+        <label>Targets</label>
+        <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
+          {#each (editedBlackout.target_mode === 'rules' ? Object.values(rules).sort((a,b) => a.id.localeCompare(b.id)) : Object.entries(agents).sort(([ka,a],[kb,b]) => String(a.title||ka).localeCompare(String(b.title||kb)))) as item}
+            {@const id = editedBlackout.target_mode === 'rules' ? item.id : item[0]}
+            {@const title = editedBlackout.target_mode === 'rules' ? item.id : (item[1].title || id)}
+            <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+              <input type="checkbox" checked={(editedBlackout.targets || []).includes(id)} onchange={(e) => {
+                const arr = [...(editedBlackout.targets || [])];
+                if (e.target.checked) arr.push(id); else arr.splice(arr.indexOf(id), 1);
+                editedBlackout.targets = arr;
+              }} />
+              {title}
+            </label>
+          {/each}
+        </div>
+      </div>
+      <div class="dialog-field">
+        <label>Blackout mode</label>
+        <select bind:value={editedBlackout.mode} class="filter-input" style="width:100%">
+          <option value="no_alarms">no alarms</option>
+          <option value="no_notifications">no notifications</option>
+        </select>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-cancel" onclick={() => showBlackoutDialog = false}>Cancel</button>
+      <button class="btn-save-rule" onclick={handleSaveBlackout} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
     </div>
   </div>
 {/if}
