@@ -532,6 +532,9 @@
               {#if a.last_seen}{fmtTime(a.last_seen)}{:else}never{/if}
             </span>
           </div>
+          {#if a.description}
+            <div class="rule-desc">{a.description}</div>
+          {/if}
           <div class="rule-desc" style="font-size:0.72rem;">groups: {a.groups?.length ? a.groups.join(', ') : '—'}</div>
           <div class="rule-actions">
             <span class="rule-status" class:active={a.enabled !== false}>{a.enabled !== false ? 'Enabled' : 'Disabled'}</span>
@@ -593,6 +596,9 @@
         <div class="rule-head">
           <span class="rule-id">{exec.title || exec.id}</span>
         </div>
+        {#if exec.description}
+          <div class="rule-desc">{exec.description}</div>
+        {/if}
         <div class="rule-actions">
           <span class="rule-status" class:active={exec.enabled ?? true}>{exec.enabled ?? true ? 'Active' : 'Inactive'}</span>
           <button class="btn-edit" onclick={() => editExec(exec.id)}>Edit</button>
@@ -619,6 +625,9 @@
         <div class="rule-head">
           <span class="rule-id">{n.title || n.id}</span>
         </div>
+        {#if n.description}
+          <div class="rule-desc">{n.description}</div>
+        {/if}
         <div class="rule-actions">
           <span class="rule-status" class:active={n.enabled ?? true}>{n.enabled ?? true ? 'Active' : 'Inactive'}</span>
           <button class="btn-edit" onclick={() => editNotify(n.id)}>Edit</button>
@@ -670,7 +679,10 @@
 <div class="rule-head">
             <span class="rule-id">{b.title || b.id}</span>
           </div>
-          <div class="rule-desc">{b.weekdays?.length ? b.weekdays.map(d => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d]).join(', ') : 'every day'} · {b.start_time}–{b.end_time} · rules: {b.target_rules?.length || 0} · agents: {b.target_agents?.length || 0} · groups: {b.target_groups?.length || 0}</div>
+          {#if b.description}
+            <div class="rule-desc">{b.description}</div>
+          {/if}
+          <div class="rule-desc" style="font-size:0.72rem;">{b.weekdays?.length ? b.weekdays.map(d => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d]).join(', ') : 'every day'} · {b.start_time}–{b.end_time} · rules: {b.target_rules?.length || 0} · agents: {b.target_agents?.length || 0} · groups: {b.target_groups?.length || 0}</div>
         <div class="rule-actions">
           <span class="rule-status" class:active={b.enabled !== false}>{b.enabled !== false ? 'Active' : 'Inactive'}</span>
           <button class="btn-edit" onclick={() => editBlackout(b.id)}>Edit</button>
@@ -814,7 +826,9 @@ if __name__ == "__main__":
 <div class="rule-head">
             <span class="rule-id">{p.label}</span>
         </div>
-        <div class="rule-desc">{p.description || '—'}</div>
+        {#if p.description}
+          <div class="rule-desc">{p.description}</div>
+        {/if}
         <div class="rule-actions">
           <span class="rule-status" class:active={p.enabled !== false}>{p.enabled !== false ? 'Active' : 'Inactive'}</span>
           <button class="btn-edit" onclick={async () => { const pi = pluginList.find(x => x.name === p.name); editedPlugin = { ...pi }; pluginSource = await fetchPluginSource(pi.name); pluginSourceDirty = false; checkResult = null; showPluginDialog = true; }}>Edit</button>
@@ -1263,6 +1277,10 @@ if __name__ == "__main__":
         <input type="text" bind:value={editedBlackout.title} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
       </div>
       <div class="dialog-field">
+        <label>Description</label>
+        <input type="text" bind:value={editedBlackout.description} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+      </div>
+      <div class="dialog-field">
         <label>Enabled</label>
         <input type="checkbox" checked={editedBlackout.enabled !== false} onchange={(e) => editedBlackout.enabled = e.target.checked} />
       </div>
@@ -1429,6 +1447,16 @@ if __name__ == "__main__":
           catch (err) { error = err.message; }
         }} style="flex:1;padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;" />
         <span style="font-size:0.72rem;color:#aaa;">ID: {agentId}</span>
+      </div>
+
+      <!-- Description -->
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+        <label style="font-size:0.82rem;font-weight:600;color:#555;min-width:60px;">Description</label>
+        <input type="text" value={agent.description || ''} onchange={async (e) => {
+          const val = e.target.value.trim();
+          try { await updateAgent(agentId, { description: val }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
+          catch (err) { error = err.message; }
+        }} style="flex:1;padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;" />
       </div>
 
       <!-- Enabled toggle -->
