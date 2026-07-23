@@ -119,9 +119,15 @@
   let expandedAgents = $state(false);
   let expandedExecutors = $state(false);
   let expandedNotifications = $state(false);
+  let expandedRuleGeneral = $state(true);
   let expandedBlackoutRules = $state(false);
   let expandedBlackoutAgents = $state(false);
   let expandedBlackoutGroups = $state(false);
+  let expandedExecGeneral = $state(true);
+  let expandedNotifyGeneral = $state(true);
+  let expandedBlackoutGeneral = $state(true);
+  let expandedGroupGeneral = $state(true);
+  let expandedPluginGeneral = $state(true);
   let showBlackoutDialog = $state(false);
   let editingBlackout = $state(null);
   let editedBlackout = $state(null);
@@ -895,20 +901,40 @@ if __name__ == "__main__":
       <button class="btn-close" onclick={() => showRuleDialog = false}>✕</button>
     </div>
     <div class="dialog-body">
-      <div class="dialog-field" style="margin-bottom:0.75rem">
-        <label>Severity</label>
-        <div class="flex items-center gap-2">
-          <select bind:value={editedRule.severity} class="px-3 py-2 rounded-lg border text-xs bg-transparent outline-none" style="border-color: var(--border-default); color: var(--text-primary)">
-            <option value="warning">warning</option>
-            <option value="critical">critical</option>
-            <option value="info">info</option>
-          </select>
-          <svelte:component this={editedRule.severity === 'critical' ? AlertCircle : editedRule.severity === 'warning' ? AlertTriangle : Info} size={16} strokeWidth={2} style="color: {editedRule.severity === 'critical' ? '#ef4444' : editedRule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}" />
+      <div style="display:flex;gap:1rem;">
+        <div class="dialog-field" style="flex:1">
+          <label>ID</label>
+          <input type="text" bind:value={editedRule.id} />
+        </div>
+        <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
+          <input type="checkbox" checked={editedRule.enabled ?? true} onchange={(e) => editedRule.enabled = e.target.checked} />
+          <label style="margin:0;">Enabled</label>
         </div>
       </div>
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button onclick={() => expandedRuleGeneral = !expandedRuleGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedRuleGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> general
+        </button>
+        {#if expandedRuleGeneral}
+          <div class="dialog-field">
+            <label>Severity</label>
+            <div class="flex items-center gap-2">
+              <select bind:value={editedRule.severity} class="px-3 py-2 rounded-lg border text-xs bg-transparent outline-none" style="border-color: var(--border-default); color: var(--text-primary)">
+                <option value="warning">warning</option>
+                <option value="critical">critical</option>
+                <option value="info">info</option>
+              </select>
+              <svelte:component this={editedRule.severity === 'critical' ? AlertCircle : editedRule.severity === 'warning' ? AlertTriangle : Info} size={16} strokeWidth={2} style="color: {editedRule.severity === 'critical' ? '#ef4444' : editedRule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}" />
+            </div>
+          </div>
+          <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedRule.description} /></div>
+        {/if}
+      </div>
+
       {#each ruleSchema.fields as field}
-        {#if field.key === 'agents_mode' || field.key === 'agents' || field.key === 'executors' || field.key === 'notifications' || field.key === 'severity'}
-          <!-- skip - rendered in collapsible section -->
+        {#if field.key === 'agents_mode' || field.key === 'agents' || field.key === 'executors' || field.key === 'notifications' || field.key === 'severity' || field.key === 'id' || field.key === 'enabled' || field.key === 'description'}
+          <!-- skip - rendered above -->
         {:else}
         <div class="dialog-field">
           <label>{field.label}</label>
@@ -1087,19 +1113,28 @@ if __name__ == "__main__":
       <button class="btn-close" onclick={() => showExecDialog = false}>✕</button>
     </div>
     <div class="dialog-body">
-      <div class="dialog-field">
-        <label>Enabled</label>
-        <input type="checkbox" checked={editedExec.enabled ?? true} onchange={(e) => editedExec.enabled = e.target.checked} />
+      <div style="display:flex;gap:1rem;">
+        <div class="dialog-field" style="flex:1">
+          <label>ID</label>
+          <input type="text" bind:value={editedExec.id} />
+        </div>
+        <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
+          <input type="checkbox" checked={editedExec.enabled ?? true} onchange={(e) => editedExec.enabled = e.target.checked} />
+          <label style="margin:0;">Enabled</label>
+        </div>
       </div>
-      <div class="dialog-field">
-        <label>ID</label>
-        <input type="text" bind:value={editedExec.id} />
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button onclick={() => expandedExecGeneral = !expandedExecGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedExecGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> general
+        </button>
+        {#if expandedExecGeneral}
+          <div class="dialog-field"><label>Title</label><input type="text" bind:value={editedExec.title} /></div>
+          <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedExec.description} /></div>
+        {/if}
       </div>
-      <div class="dialog-field">
-        <label>Title</label>
-        <input type="text" bind:value={editedExec.title} />
-      </div>
-      <div class="dialog-field">
+
+      <div class="dialog-field" style="margin-top:0.5rem;">
         <label>Shell Command</label>
         <textarea rows="3" bind:value={editedExec.command} style="padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;font-family:monospace;"></textarea>
         <div style="font-size:0.72rem;color:#888;margin-top:0.2rem;">Available variables: {'{rule_id}'}, {'{agentid}'}, {'{pluginid}'}, {'{metric}'}, {'{value}'}, {'{message}'}, {'{severity}'}</div>
@@ -1121,8 +1156,8 @@ if __name__ == "__main__":
       <button class="btn-close" onclick={() => showNotifyDialog = false}>✕</button>
     </div>
     <div class="dialog-body">
-      {#each notifySchema.fields as field}
-        {@const ftype = field.key}
+{#each notifySchema.fields as field}
+          {@const ftype = field.key}
         {@const isCommon = ['id','title','enabled','type'].includes(ftype)}
         {@const isEmail = editedNotify.type === 'email' && ['to','from','server','port','user','password','use_tls'].includes(ftype)}
         {@const isWebPush = editedNotify.type === 'web_push' && ['vapid_public_key','vapid_private_key','vapid_subject'].includes(ftype)}
@@ -1272,17 +1307,25 @@ if __name__ == "__main__":
       <button class="btn-close" onclick={() => showBlackoutDialog = false}>✕</button>
     </div>
     <div class="dialog-body">
-      <div class="dialog-field">
-        <label>Title</label>
-        <input type="text" bind:value={editedBlackout.title} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+      <div style="display:flex;gap:1rem;">
+        <div class="dialog-field" style="flex:1">
+          <label>ID</label>
+          <input type="text" readonly value={editedBlackout.id || '(auto)'} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-secondary)" />
+        </div>
+        <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
+          <input type="checkbox" checked={editedBlackout.enabled !== false} onchange={(e) => editedBlackout.enabled = e.target.checked} />
+          <label style="margin:0;">Enabled</label>
+        </div>
       </div>
-      <div class="dialog-field">
-        <label>Description</label>
-        <input type="text" bind:value={editedBlackout.description} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
-      </div>
-      <div class="dialog-field">
-        <label>Enabled</label>
-        <input type="checkbox" checked={editedBlackout.enabled !== false} onchange={(e) => editedBlackout.enabled = e.target.checked} />
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button onclick={() => expandedBlackoutGeneral = !expandedBlackoutGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> general
+        </button>
+        {#if expandedBlackoutGeneral}
+          <div class="dialog-field"><label>Title</label><input type="text" bind:value={editedBlackout.title} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" /></div>
+          <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedBlackout.description} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" /></div>
+        {/if}
       </div>
       <div class="dialog-field">
         <label>Weekdays</label>
