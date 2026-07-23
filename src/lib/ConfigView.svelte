@@ -3,6 +3,7 @@
   import { AlertTriangle, AlertCircle, Info, Plus } from 'lucide-svelte';
   import PluginForm from './PluginForm.svelte';
   import CodeEditor from './CodeEditor.svelte';
+  import Tooltip from './components/Tooltip.svelte';
   import {
     fetchPluginSchemas, fetchAdminAgents, fetchAdminGroups,
     createAgent, deleteAgent, setAgentGroups, setAgentPluginConfig,
@@ -125,6 +126,7 @@
   let expandedBlackoutAgents = $state(false);
   let expandedBlackoutGroups = $state(false);
   let expandedExecGeneral = $state(true);
+  let expandedExecSettings = $state(true);
   let expandedNotifyGeneral = $state(true);
   let expandedBlackoutGeneral = $state(true);
   let expandedGroupGeneral = $state(true);
@@ -162,7 +164,7 @@
     const vals = Object.values(executors);
     if (!filterText) return vals.sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
     const q = filterText.toLowerCase();
-    return vals.filter(ex => (ex.title || ex.id).toLowerCase().includes(q) || ex.id.toLowerCase().includes(q) || (ex.command || '').toLowerCase().includes(q))
+    return vals.filter(ex => (ex.title || ex.id).toLowerCase().includes(q) || ex.id.toLowerCase().includes(q) || (ex.command || '').toLowerCase().includes(q) || (ex.description || '').toLowerCase().includes(q))
       .sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
   });
 
@@ -969,7 +971,7 @@ if __name__ == "__main__":
             </div>
             <div style="display:flex;gap:0.5rem;">
               <div class="dialog-field" style="flex:1">
-                <label>Scope</label>
+                <label>Scope <Tooltip text="Single — evaluate each individual measurement. Moving avg — evaluate average of last N values. Count ratio — evaluate how many of last N values violate the threshold." /></label>
                 <select bind:value={editedRule.scope} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
                   <option value="single">single</option>
                   <option value="moving_avg">moving_avg</option>
@@ -977,16 +979,16 @@ if __name__ == "__main__":
                 </select>
               </div>
               <div class="dialog-field" style="width:100px">
-                <label>Window</label>
+                <label>Window <Tooltip text="Number of recent measurements to consider for moving_avg and count_ratio scopes." /></label>
                 <input type="number" bind:value={editedRule.window_size} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
               </div>
               <div class="dialog-field" style="width:100px">
-                <label>Min violations</label>
+                <label>Violations <Tooltip text="Minimum number of threshold violations needed within the window for count_ratio to trigger." /></label>
                 <input type="number" bind:value={editedRule.min_violations} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
               </div>
             </div>
             <div class="dialog-field">
-              <label>Fire mode</label>
+              <label>Fire mode <Tooltip text="Single — only one open alarm per agent+rule until ack'd. Multi — new alarm for every violation. Replace — ack existing open alarm and create a new one." /></label>
               <select bind:value={editedRule.fire} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
                 <option value="single">single</option>
                 <option value="multi">multi</option>
@@ -1137,10 +1139,26 @@ if __name__ == "__main__":
         </div>
       {/if}
 
-      <div class="dialog-field" style="margin-top:0.5rem;">
-        <label>Shell Command</label>
-        <textarea rows="3" bind:value={editedExec.command} style="padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;font-family:monospace;"></textarea>
-        <div style="font-size:0.72rem;color:#888;margin-top:0.2rem;">Available variables: {'{rule_id}'}, {'{agentid}'}, {'{pluginid}'}, {'{metric}'}, {'{value}'}, {'{message}'}, {'{severity}'}</div>
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button onclick={() => expandedExecSettings = !expandedExecSettings} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedExecSettings ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Settings
+        </button>
+        {#if expandedExecSettings}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+            <div class="dialog-field">
+              <label>Shell Command</label>
+              <textarea rows="3" bind:value={editedExec.command} style="padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;font-family:monospace;"></textarea>
+              <div style="font-size:0.72rem;color:#888;margin-top:0.2rem;">Available variables: {'{rule_id}'}, {'{agentid}'}, {'{pluginid}'}, {'{metric}'}, {'{value}'}, {'{message}'}, {'{severity}'}</div>
+            </div>
+            <div class="dialog-field">
+              <label>Execute on</label>
+              <select bind:value={editedExec.execution_target} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+                <option value="server">server</option>
+                <option value="agent">agent</option>
+              </select>
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
     <div class="dialog-footer">
