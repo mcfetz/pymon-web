@@ -1009,6 +1009,7 @@ if __name__ == "__main__":
           restricted agents
         </button>
         {#if expandedAgents}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
           {#each ruleSchema.fields as field}
             {#if field.key === 'agents_mode'}
               <div class="dialog-field">
@@ -1037,6 +1038,7 @@ if __name__ == "__main__":
               </div>
             {/if}
           {/each}
+          </div>
         {/if}
       </div>
 
@@ -1050,6 +1052,7 @@ if __name__ == "__main__":
           notifications
         </button>
         {#if expandedNotifications}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
           {#each ruleSchema.fields as field}
             {#if field.key === 'notifications'}
               <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
@@ -1066,6 +1069,7 @@ if __name__ == "__main__":
               </div>
             {/if}
           {/each}
+          </div>
         {/if}
       </div>
 
@@ -1079,6 +1083,7 @@ if __name__ == "__main__":
           executors
         </button>
         {#if expandedExecutors}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
           {#each ruleSchema.fields as field}
             {#if field.key === 'executors'}
               <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
@@ -1095,6 +1100,7 @@ if __name__ == "__main__":
               </div>
             {/if}
           {/each}
+          </div>
         {/if}
       </div>
     </div>
@@ -1372,6 +1378,7 @@ if __name__ == "__main__":
           target rules
         </button>
         {#if expandedBlackoutRules}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
           <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
             {#each Object.values(rules).sort((a,b) => a.id.localeCompare(b.id)) as rule}
               <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
@@ -1383,6 +1390,7 @@ if __name__ == "__main__":
                 {rule.id}
               </label>
             {/each}
+          </div>
           </div>
         {/if}
       </div>
@@ -1397,6 +1405,7 @@ if __name__ == "__main__":
           target agents
         </button>
         {#if expandedBlackoutAgents}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
           <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
             {#each Object.entries(agents).sort(([ka,a],[kb,b]) => String(a.title||ka).localeCompare(String(b.title||kb))) as [agentId, agent]}
               <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
@@ -1408,6 +1417,7 @@ if __name__ == "__main__":
                 {agent.title || agentId}
               </label>
             {/each}
+          </div>
           </div>
         {/if}
       </div>
@@ -1422,6 +1432,7 @@ if __name__ == "__main__":
           target groups
         </button>
         {#if expandedBlackoutGroups}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
           <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
             {#each Object.keys(groups).sort() as gid}
               <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
@@ -1433,6 +1444,7 @@ if __name__ == "__main__":
                 {gid}
               </label>
             {/each}
+          </div>
           </div>
         {/if}
       </div>
