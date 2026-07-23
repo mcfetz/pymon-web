@@ -128,6 +128,8 @@
   let expandedBlackoutGeneral = $state(true);
   let expandedGroupGeneral = $state(true);
   let expandedPluginGeneral = $state(true);
+  let expandedAgentGeneral = $state(true);
+  let expandedAgentSettings = $state(true);
   let showBlackoutDialog = $state(false);
   let editingBlackout = $state(null);
   let editedBlackout = $state(null);
@@ -1478,130 +1480,111 @@ if __name__ == "__main__":
   <div class="dialog-overlay" onclick={closeAgentDialog}></div>
   <div class="dialog" style="width:640px;top:5%;max-height:90vh;">
     <div class="dialog-header">
-      <h3>Agent: {agentId}</h3>
+      <h3>Agent edit</h3>
       <button class="btn-close" onclick={closeAgentDialog}>✕</button>
     </div>
     <div class="dialog-body" style="overflow:visible;">
-      <!-- Status & Install -->
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
-        <span class="status-dot" class:online={agent.online} style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;"></span>
-        <span style="font-size:0.85rem;">{agent.online ? 'Online' : 'Offline'}</span>
-        {#if agent.last_seen}
-          <span style="font-size:0.75rem;color:#888;">last seen: {fmtTime(agent.last_seen)}</span>
-        {/if}
-        <span style="flex:1;"></span>
-        <button class="btn-install" style="width:auto;padding:0.35rem 0.8rem;font-size:0.78rem;" onclick={() => navigator.clipboard.writeText(`curl -s '${window.location.origin}/api/agent/install.sh?agentid=${agentId}&apikey=${agent.apikey}' | sh`)}>
-          📋 Copy install command
+      <div style="margin-bottom:0.5rem;">
+        <button onclick={() => expandedAgentGeneral = !expandedAgentGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgentGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> general
         </button>
       </div>
-
-      <!-- Title -->
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
-        <label style="font-size:0.82rem;font-weight:600;color:#555;min-width:60px;">Title</label>
-        <input type="text" value={agent.title || ''} onchange={async (e) => {
-          const val = e.target.value.trim();
-          try { await updateAgent(agentId, { title: val }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
-          catch (err) { error = err.message; }
-        }} style="flex:1;padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;" />
-        <span style="font-size:0.72rem;color:#aaa;">ID: {agentId}</span>
-      </div>
-
-      <!-- Description -->
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
-        <label style="font-size:0.82rem;font-weight:600;color:#555;min-width:60px;">Description</label>
-        <input type="text" value={agent.description || ''} onchange={async (e) => {
-          const val = e.target.value.trim();
-          try { await updateAgent(agentId, { description: val }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
-          catch (err) { error = err.message; }
-        }} style="flex:1;padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;" />
-      </div>
-
-      <!-- Enabled toggle -->
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;padding-bottom:0.5rem;border-bottom:1px solid #e2e8f0;">
-        <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;">
-          <input type="checkbox" checked={agent.enabled !== false} onchange={async (e) => {
-            const val = e.target.checked;
-            try {
-              await setAgentEnabled(agentId, val);
-              await load();
-              editedAgentData = { ...agents[agentId], id: agentId };
-            } catch (err) { error = err.message; }
-          }} />
-          Agent enabled
-        </label>
-      </div>
-
-      <!-- Groups -->
-      <section class="config-section" style="margin-bottom:0.75rem;">
-        <h4 style="margin:0 0 0.4rem;font-size:0.85rem;color:#555;">Groups</h4>
-        <div class="chip-list">
-          {#each Object.keys(groups).sort() as g}
-            <button
-              class="chip"
-              class:active={agent.groups?.includes(g)}
-              onclick={async () => {
-                await toggleGroup(agentId, g);
-                editedAgentData = { ...agents[agentId], id: agentId };
-              }}
-            >{g}</button>
-          {/each}
-        </div>
-      </section>
-
-      <!-- Plugins with inline config -->
-      <section class="config-section">
-        <h4 style="margin:0 0 0.4rem;font-size:0.85rem;color:#555;">Plugins</h4>
-        <div class="plugin-grid">
-          {#each agentPlugins as p}
-            {@const schema = schemas[p]}
-            {@const hasConfig = p in (agent.plugins || {})}
-            <div class="plugin-card" class:active={selectedPlugin === p} class:configured={hasConfig}>
-              <div class="plugin-header">
-                <span class="plugin-name">{schema?.label || p}</span>
-                <button
-                  class="toggle-btn"
-                  class:active={hasConfig}
-                  onclick={async () => {
-                    await togglePlugin(agentId, p);
-                    editedAgentData = { ...agents[agentId], id: agentId };
-                    selectedPlugin = null; editedPluginConfig = null;
-                  }}
-                >{hasConfig ? 'On' : 'Off'}</button>
-              </div>
-              <div class="plugin-desc">{schema?.description || ''}</div>
-              {#if hasConfig}
-                <button class="edit-btn" onclick={() => selectPlugin(agentId, p)}>
-                  {selectedPlugin === p ? 'Editing...' : 'Configure'}
-                </button>
-              {/if}
+      {#if expandedAgentGeneral}
+        <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+          <div style="display:flex;gap:1rem;margin-bottom:0.5rem;">
+            <div style="flex:1">
+              <label style="font-size:0.82rem;font-weight:600;color:#555;">ID</label>
+              <span style="display:block;font-size:0.82rem;color:#888;padding-top:0.3rem;">{agentId}</span>
             </div>
-          {/each}
-        </div>
-        {#if selectedPlugin}
-          <div style="margin-top:0.75rem;border-top:1px solid #e2e8f0;padding-top:0.75rem;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-              <strong style="font-size:0.85rem;">{schemas[selectedPlugin]?.label || selectedPlugin}</strong>
-              <button class="btn-close" onclick={() => { selectedPlugin = null; editedPluginConfig = null; }}>✕</button>
-            </div>
-            <PluginForm
-              schema={schemas[selectedPlugin]}
-              config={agents[agentId]?.plugins?.[selectedPlugin] || {}}
-              onchange={(c) => editedPluginConfig = c}
-            />
-            <button class="btn-save" style="margin-top:0.5rem;" onclick={async () => {
-              await savePluginConfig(agentId, selectedPlugin);
-              editedAgentData = { ...agents[agentId], id: agentId };
-            }} disabled={saving}>
-              {saving ? 'Saving...' : 'Save'}
-            </button>
+            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;padding-top:1.2rem;">
+              <input type="checkbox" checked={agent.enabled !== false} onchange={async (e) => {
+                const val = e.target.checked;
+                try { await setAgentEnabled(agentId, val); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
+                catch (err) { error = err.message; }
+              }} />
+              Enabled
+            </label>
           </div>
-{/if}
+          <div style="margin-bottom:0.5rem;">
+            <label style="font-size:0.82rem;font-weight:600;color:#555;">Title</label>
+            <input type="text" value={agent.title || ''} onchange={async (e) => {
+              const val = e.target.value.trim();
+              try { await updateAgent(agentId, { title: val }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
+              catch (err) { error = err.message; }
+            }} style="width:100%;padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;margin-top:0.2rem;" />
+          </div>
+          <div style="margin-bottom:0.5rem;">
+            <label style="font-size:0.82rem;font-weight:600;color:#555;">Description</label>
+            <input type="text" value={agent.description || ''} onchange={async (e) => {
+              const val = e.target.value.trim();
+              try { await updateAgent(agentId, { description: val }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
+              catch (err) { error = err.message; }
+            }} style="width:100%;padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;margin-top:0.2rem;" />
+          </div>
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+            <span class="status-dot" class:online={agent.online} style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;"></span>
+            <span style="font-size:0.85rem;">{agent.online ? 'Online' : 'Offline'}</span>
+            {#if agent.last_seen}
+              <span style="font-size:0.75rem;color:#888;">last seen: {fmtTime(agent.last_seen)}</span>
+            {/if}
+          </div>
+          <button class="btn-install" style="width:auto;padding:0.35rem 0.8rem;font-size:0.78rem;" onclick={() => navigator.clipboard.writeText(`curl -s '${window.location.origin}/api/agent/install.sh?agentid=${agentId}&apikey=${agent.apikey}' | sh`)}>
+            📋 Copy install command
+          </button>
+        </div>
+      {/if}
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button onclick={() => expandedAgentSettings = !expandedAgentSettings} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgentSettings ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> settings
+        </button>
+        {#if expandedAgentSettings}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+            <section class="config-section" style="margin-bottom:0.75rem;">
+              <h4 style="margin:0 0 0.4rem;font-size:0.85rem;color:#555;">Groups</h4>
+              <div class="chip-list">
+                {#each Object.keys(groups).sort() as g}
+                  <button class="chip" class:active={agent.groups?.includes(g)} onclick={async () => { await toggleGroup(agentId, g); editedAgentData = { ...agents[agentId], id: agentId }; }}>{g}</button>
+                {/each}
+              </div>
+            </section>
+            <section class="config-section">
+              <h4 style="margin:0 0 0.4rem;font-size:0.85rem;color:#555;">Plugins</h4>
+              <div class="plugin-grid">
+                {#each agentPlugins as p}
+                  {@const schema = schemas[p]}
+                  {@const hasConfig = p in (agent.plugins || {})}
+                  <div class="plugin-card" class:active={selectedPlugin === p} class:configured={hasConfig}>
+                    <div class="plugin-header">
+                      <span class="plugin-name">{schema?.label || p}</span>
+                      <button class="toggle-btn" class:active={hasConfig} onclick={async () => { await togglePlugin(agentId, p); editedAgentData = { ...agents[agentId], id: agentId }; selectedPlugin = null; editedPluginConfig = null; }}>{hasConfig ? 'On' : 'Off'}</button>
+                    </div>
+                    <div class="plugin-desc">{schema?.description || ''}</div>
+                    {#if hasConfig}
+                      <button class="edit-btn" onclick={() => selectPlugin(agentId, p)}>{selectedPlugin === p ? 'Editing...' : 'Configure'}</button>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+              {#if selectedPlugin}
+                <div style="margin-top:0.75rem;border-top:1px solid #e2e8f0;padding-top:0.75rem;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                    <strong style="font-size:0.85rem;">{schemas[selectedPlugin]?.label || selectedPlugin}</strong>
+                    <button class="btn-close" onclick={() => { selectedPlugin = null; editedPluginConfig = null; }}>✕</button>
+                  </div>
+                  <PluginForm schema={schemas[selectedPlugin]} config={agents[agentId]?.plugins?.[selectedPlugin] || {}} onchange={(c) => editedPluginConfig = c} />
+                  <button class="btn-save" style="margin-top:0.5rem;" onclick={async () => { await savePluginConfig(agentId, selectedPlugin); editedAgentData = { ...agents[agentId], id: agentId }; }} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                </div>
+              {/if}
+            </section>
+          </div>
+        {/if}
       </div>
     </div>
     <div class="dialog-footer">
-      <button class="btn-cancel" onclick={closeAgentDialog}>Cancel</button>
-      <button class="btn-save-rule" onclick={closeAgentDialog}>Save</button>
+      <button class="btn-cancel" onclick={closeAgentDialog}>Close</button>
     </div>
+  </div>
 {/if}
 
 <!-- Fullscreen editor overlay -->
