@@ -1,0 +1,11 @@
+services:
+  pymon-web:
+    build: .
+    image: pymon-web:latest
+    container_name: pymon-web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      # URL of the pymon-server as seen from inside the container network
+      PYMON_API_URL: "http://pymon-server:5000"
