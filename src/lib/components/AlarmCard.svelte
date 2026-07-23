@@ -20,7 +20,7 @@
     return new Date(s).toLocaleString();
   }
 
-  let latest = alarms[0];
+  let latest = $derived(alarms[0]);
 </script>
 
 <div

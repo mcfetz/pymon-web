@@ -16,12 +16,23 @@
     fetchBlackouts, fetchBlackoutSchema, saveBlackout, deleteBlackout,
   } from './api.js';
 
-  let { pendingRule = null, onLogout = () => {} } = $props();
+  let { pendingRule = null, onLogout = () => {}, onClearPendingRule = () => {} } = $props();
+
+  let anyDialogOpen = $derived(
+    showRuleDialog || showExecDialog || showNotifyDialog || showPluginDialog ||
+    showGroupDialog || showBlackoutDialog || showAgentDialog
+  );
+
+  $effect(() => {
+    document.body.style.overflow = anyDialogOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  });
 
   $effect(() => {
     if (pendingRule?.id && pendingRule.id in rules) {
       view = 'rules';
       editRule(pendingRule.id);
+      onClearPendingRule();
     }
   });
 
@@ -1774,13 +1785,13 @@ if __name__ == "__main__":
 {/if}
 
 <style>
-  .dialog-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.5); }
-  .dialog { position: fixed; top: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 51; background: #fff; border: 1px solid var(--border-default, #e2e8f0); border-radius: var(--radius-card); box-shadow: 0 16px 48px rgba(0,0,0,0.15); max-width: 500px; width: calc(100vw - 2rem); max-height: calc(100vh - 3rem); overflow-y: auto; }
+  .dialog-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.5); touch-action: none; overscroll-behavior: none; }
+  .dialog { position: fixed; top: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 51; background: #fff; border: 1px solid var(--border-default, #e2e8f0); border-radius: var(--radius-card); box-shadow: 0 16px 48px rgba(0,0,0,0.15); max-width: 500px; width: calc(100vw - 2rem); max-height: calc(100vh - 3rem - env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain; }
   :global(.dark) .dialog { background: #0f172a; box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
   .dialog-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-default); }
   .dialog-header h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary); }
   .dialog-body { padding: 1rem 1.25rem; }
-  .dialog-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem; border-top: 1px solid var(--border-default); }
+  .dialog-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border-default); }
   .dialog-field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.5rem; }
   .dialog-field label { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
   .dialog-field select, .dialog-field input[type="text"], .dialog-field input[type="number"] { padding: 0.35rem 0.5rem; border: 1px solid var(--border-default); border-radius: 5px; font-size: 0.82rem; background: var(--bg-surface); color: var(--text-primary); }

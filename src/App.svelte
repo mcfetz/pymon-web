@@ -464,7 +464,7 @@
       {:else if tab === 'config'}
         <div class="animate-slide-up">
         <PageHeader icon={Cog} title="Configuration" />
-        <ConfigView {pendingRule} onLogout={handleLogout} />
+        <ConfigView {pendingRule} onLogout={handleLogout} onClearPendingRule={() => pendingRule = null} />
         </div>
       {:else if tab === 'account'}
         <div class="animate-slide-up">
