@@ -718,7 +718,7 @@ if __name__ == "__main__":
             const name = file.name.replace(/\.py$/, '');
             const text = await file.text();
             try {
-              await fetch('/api/admin/plugins/'+name+'source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: text });
+              await fetch('/api/admin/plugins/'+name+'/source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: text });
               pluginList = await fetchAdminPlugins();
             } catch (err) { error = err.message; }
             e.target.value = '';
@@ -1394,6 +1394,7 @@ if __name__ == "__main__":
   .edit-btn { font-size: 0.7rem; color: var(--color-primary); text-decoration: none; cursor: pointer; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e0; flex-shrink: 0; display: inline-block; }
   .status-dot.online { background: #22c55e; }
-  .rules-header h3 { margin: 0; font-size: 1rem; color: var(--text-primary); }
+  .rules-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .rules-header h3 { margin: 0; font-size: 1rem; color: var(--text-primary); flex-shrink: 0; }
   .filter-input { flex: 1; min-width: 120px; padding: 0.3rem 0.5rem; border: 1px solid var(--border-default); border-radius: 5px; font-size: 0.8rem; background: var(--bg-surface); color: var(--text-primary); }
 </style>
