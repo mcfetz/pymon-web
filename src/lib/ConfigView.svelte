@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { AlertTriangle, AlertCircle, Info } from 'lucide-svelte';
+  import { AlertTriangle, AlertCircle, Info, Plus } from 'lucide-svelte';
   import PluginForm from './PluginForm.svelte';
   import CodeEditor from './CodeEditor.svelte';
   import {
@@ -435,7 +435,7 @@
   {#if loading}
     <div class="text-center py-16 text-sm" style="color: var(--text-secondary)">loading configuration...</div>
   {:else}
-    <div class="flex flex-wrap gap-1 mb-4">
+    <div class="flex flex-wrap gap-1 justify-center my-4">
       <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'agents' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'agents' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'agents' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'agents'}>Agents</button>
       <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'rules' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'rules' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'rules' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'rules'}>Rules</button>
       <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'executors' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'executors' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'executors' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'executors'}>Executors</button>
@@ -450,13 +450,13 @@
     <div class="rules-header">
       <h3>Agents</h3>
       <input type="text" class="filter-input" placeholder="Filter agents..." bind:value={filterText} />
-      <button class="btn-add-rule" onclick={async () => {
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={async () => {
         const title = prompt('Agent title:');
         if (!title?.trim()) return;
         const id = genId('a');
         try { await createAgent(id, [], title.trim()); await load(); }
         catch (e) { error = e.message; }
-      }}>+ New Agent</button>
+      }}><Plus size={14} strokeWidth={2} /></button>
     </div>
     {#if filteredAgents.length === 0}
       <div class="empty">No agents</div>
@@ -497,7 +497,7 @@
     <div class="rules-header">
       <h3>Alarm Rules</h3>
       <input type="text" class="filter-input" placeholder="Filter rules..." bind:value={filterText} />
-      <button class="btn-add-rule" onclick={openNewRule}>+ New Rule</button>
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewRule}><Plus size={14} strokeWidth={2} /></button>
     </div>
 
     {#each filteredRules as rule (rule.id)}
@@ -526,7 +526,7 @@
     <div class="rules-header">
       <h3>Executors</h3>
       <input type="text" class="filter-input" placeholder="Filter executors..." bind:value={filterText} />
-      <button class="btn-add-rule" onclick={openNewExec}>+ New Executor</button>
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewExec}><Plus size={14} strokeWidth={2} /></button>
     </div>
     {#each filteredExecutors as exec (exec.id)}
       <div class="rule-card">
@@ -553,7 +553,7 @@
     <div class="rules-header">
       <h3>Notifications</h3>
       <input type="text" class="filter-input" placeholder="Filter notifications..." bind:value={filterText} />
-      <button class="btn-add-rule" onclick={openNewNotify}>+ New Notification</button>
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewNotify}><Plus size={14} strokeWidth={2} /></button>
     </div>
     {#each filteredNotifications as n (n.id)}
       <div class="rule-card">
@@ -580,7 +580,7 @@
     <div class="rules-header">
       <h3>Groups</h3>
       <input type="text" class="filter-input" placeholder="Filter groups..." bind:value={filterText} />
-      <button class="btn-add-rule" onclick={() => { editedGroup = { plugins: [] }; showGroupDialog = true; }}>+ New Group</button>
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={() => { editedGroup = { plugins: [] }; showGroupDialog = true; }}><Plus size={14} strokeWidth={2} /></button>
     </div>
     {#if filteredGroups.length === 0}
       <div class="empty">No groups</div>
@@ -606,8 +606,8 @@
     <div class="rules-header">
       <h3>Plugins</h3>
       <input type="text" class="filter-input" placeholder="Filter plugins..." bind:value={filterText} />
-      <div style="display:flex;gap:0.4rem;">
-        <button class="btn-add-rule" onclick={async () => {
+      <div class="ml-auto" style="display:flex;gap:0.4rem;">
+        <button class="p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={async () => {
           const name = prompt('New plugin name (without .py):');
           if (!name?.trim()) return;
           const nn = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
@@ -710,15 +710,15 @@ if __name__ == "__main__":
             pluginSourceDirty = false;
             checkResult = null;
           } catch (err) { error = err.message; }
-        }}>+ New Plugin</button>
-        <label class="btn-add-rule" style="cursor:pointer;">
-          + Upload .py
+        }}><Plus size={14} strokeWidth={2} /></button>
+        <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:1px dashed var(--border-default);color:var(--text-secondary);transition:all 0.15s">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           <input type="file" accept=".py" style="display:none" onchange={async (e) => {
             const file = e.target.files?.[0]; if (!file) return;
             const name = file.name.replace(/\.py$/, '');
             const text = await file.text();
             try {
-              await fetch('/api/admin/plugins/'+name+'/source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: text });
+              await fetch('/api/admin/plugins/'+name+'source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: text });
               pluginList = await fetchAdminPlugins();
             } catch (err) { error = err.message; }
             e.target.value = '';
