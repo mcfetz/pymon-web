@@ -1455,57 +1455,68 @@ if __name__ == "__main__":
       <button class="btn-close" onclick={() => showBlackoutDialog = false}>✕</button>
     </div>
     <div class="dialog-body">
-      <div style="display:flex;gap:1rem;">
-        <div class="dialog-field" style="flex:1">
-          <label>ID</label>
-          <input type="text" readonly value={editedBlackout.id || '(auto)'} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-secondary)" />
-        </div>
-        <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
-          <input type="checkbox" checked={editedBlackout.enabled !== false} onchange={(e) => editedBlackout.enabled = e.target.checked} />
-          <label style="margin:0;">Enabled</label>
-        </div>
-      </div>
-
-      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
-        <button onclick={() => expandedBlackoutGeneral = !expandedBlackoutGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+      <div style="margin-bottom:0.5rem;">
+        <button onclick={() => expandedBlackoutGeneral = !expandedBlackoutGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
         </button>
-        {#if expandedBlackoutGeneral}
+      </div>
+      {#if expandedBlackoutGeneral}
+        <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+          <div style="display:flex;gap:1rem;">
+            <div class="dialog-field" style="flex:1">
+              <label>ID</label>
+              <input type="text" readonly value={editedBlackout.id || '(auto)'} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-secondary)" />
+            </div>
+            <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
+              <input type="checkbox" checked={editedBlackout.enabled !== false} onchange={(e) => editedBlackout.enabled = e.target.checked} />
+              <label style="margin:0;">Enabled</label>
+            </div>
+          </div>
           <div class="dialog-field"><label>Title</label><input type="text" bind:value={editedBlackout.title} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" /></div>
           <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedBlackout.description} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" /></div>
+        </div>
+      {/if}
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button onclick={() => expandedBlackoutSettings = !expandedBlackoutSettings} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutSettings ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Settings
+        </button>
+        {#if expandedBlackoutSettings}
+          <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+            <div class="dialog-field">
+              <label>Weekdays</label>
+              <div style="display:flex;gap:0.3rem;flex-wrap:wrap;">
+                {#each ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as day, i}
+                  <label class="checkbox-row" style="cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:0.2rem;">
+                    <input type="checkbox" checked={(editedBlackout.weekdays || []).includes(i)} onchange={(e) => {
+                      const arr = [...(editedBlackout.weekdays || [])];
+                      if (e.target.checked) arr.push(i); else arr.splice(arr.indexOf(i), 1);
+                      editedBlackout.weekdays = arr.sort((a,b) => a-b);
+                    }} />
+                    {day}
+                  </label>
+                {/each}
+              </div>
+            </div>
+            <div style="display:flex;gap:0.5rem;">
+              <div class="dialog-field" style="flex:1">
+                <label>Start time</label>
+                <input type="time" bind:value={editedBlackout.start_time} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+              </div>
+              <div class="dialog-field" style="flex:1">
+                <label>End time</label>
+                <input type="time" bind:value={editedBlackout.end_time} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+              </div>
+            </div>
+            <div class="dialog-field" style="margin-bottom:0.5rem">
+              <label>Blackout mode</label>
+              <select bind:value={editedBlackout.mode} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+                <option value="no_alarms">no alarms</option>
+                <option value="no_notifications">no notifications</option>
+              </select>
+            </div>
+          </div>
         {/if}
-      </div>
-      <div class="dialog-field">
-        <label>Weekdays</label>
-        <div style="display:flex;gap:0.3rem;flex-wrap:wrap;">
-          {#each ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as day, i}
-            <label class="checkbox-row" style="cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:0.2rem;">
-              <input type="checkbox" checked={(editedBlackout.weekdays || []).includes(i)} onchange={(e) => {
-                const arr = [...(editedBlackout.weekdays || [])];
-                if (e.target.checked) arr.push(i); else arr.splice(arr.indexOf(i), 1);
-                editedBlackout.weekdays = arr.sort((a,b) => a-b);
-              }} />
-              {day}
-            </label>
-          {/each}
-        </div>
-      </div>
-      <div style="display:flex;gap:0.5rem;">
-        <div class="dialog-field" style="flex:1">
-          <label>Start time</label>
-          <input type="time" bind:value={editedBlackout.start_time} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
-        </div>
-        <div class="dialog-field" style="flex:1">
-          <label>End time</label>
-          <input type="time" bind:value={editedBlackout.end_time} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
-        </div>
-      </div>
-      <div class="dialog-field" style="margin-bottom:0.5rem">
-        <label>Blackout mode</label>
-        <select bind:value={editedBlackout.mode} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
-          <option value="no_alarms">no alarms</option>
-          <option value="no_notifications">no notifications</option>
-        </select>
       </div>
 
       <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
