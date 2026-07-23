@@ -490,7 +490,7 @@
     <div class="text-center py-16 text-sm" style="color: var(--text-secondary)">loading configuration...</div>
   {:else}
     <div class="flex gap-0 mb-6 border-b overflow-x-auto" style="border-color: var(--border-default)">
-      {#each ['Agents','Rules','Executors','Notifications','Groups','Blackouts','Plugins','Account'] as label}
+      {#each ['Agents','Rules','Executors','Notifications','Groups','Blackouts','Plugins'] as label}
         {@const id = label === 'Notifications' ? 'notify' : label.toLowerCase()}
         <button
           onclick={() => view = id}
@@ -668,11 +668,10 @@
     </div>
     {#each filteredBlackouts as b}
       <div class="rule-card">
-        <div class="rule-head">
-          <span class="rule-id">{b.title || b.id}</span>
-          <span style="font-size:0.7rem;color:var(--text-secondary)">{b.start_time}–{b.end_time}</span>
-        </div>
-        <div class="rule-desc">{b.weekdays?.length ? b.weekdays.map(d => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d]).join(', ') : 'every day'} · rules: {b.target_rules?.length || 0} · agents: {b.target_agents?.length || 0} · groups: {b.target_groups?.length || 0} · {b.mode === 'no_alarms' ? 'no alarms' : 'no notifications'}</div>
+<div class="rule-head">
+            <span class="rule-id">{b.title || b.id}</span>
+          </div>
+          <div class="rule-desc">{b.weekdays?.length ? b.weekdays.map(d => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d]).join(', ') : 'every day'} · {b.start_time}–{b.end_time} · rules: {b.target_rules?.length || 0} · agents: {b.target_agents?.length || 0} · groups: {b.target_groups?.length || 0}</div>
         <div class="rule-actions">
           <span class="rule-status" class:active={b.enabled !== false}>{b.enabled !== false ? 'Active' : 'Inactive'}</span>
           <button class="btn-edit" onclick={() => editBlackout(b.id)}>Edit</button>
