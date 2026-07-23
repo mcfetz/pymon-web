@@ -107,8 +107,8 @@
   let histFilteredStacks = $derived(historyGroups.stacks.filter(g => histSeverityFilter.has(g.alarms[0].severity)));
   let histFilteredSingles = $derived(historyGroups.singles.filter(a => histSeverityFilter.has(a.severity)));
   let snoozedSet = $state(new Set());
-  let alarmsTruncated = $derived(openAlarms.length >= 500);
-  let historyTruncated = $derived(historyAlarms.length >= 500);
+  let alarmsTruncated = $state(false);
+  let historyTruncated = $state(false);
 
   async function handleToggleSnooze(alarm) {
     try {
@@ -122,15 +122,19 @@
     try {
       const snoozed = await fetchSnoozed();
       snoozedSet = new Set(snoozed.map(s => `${s.rule_id}|${s.agentid}|${s.pluginid}|${s.metric}`));
-    } catch {}
+    } catch (e) {
+      console.error('loadSnoozed failed:', e);
+    }
   }
 
   async function loadAlarms() {
     loading = true; error = null;
     try {
-      const [open, hist] = await Promise.all([fetchAlarms(false), fetchAlarms(true)]);
-      openAlarms = open;
-      historyAlarms = hist;
+      const [openRes, histRes] = await Promise.all([fetchAlarms(false), fetchAlarms(true)]);
+      openAlarms = openRes.alarms;
+      historyAlarms = histRes.alarms;
+      alarmsTruncated = openRes.truncated;
+      historyTruncated = histRes.truncated;
     } catch (e) { error = e.message; }
     finally { loading = false; }
   }
@@ -139,9 +143,13 @@
     if (!confirm(`Acknowledge all ${openAlarms.length} open alarms?`)) return;
     const ids = openAlarms.map(a => a.id);
     acking = new Set(ids);
-    try { await Promise.all(ids.map(id => acknowledgeAlarm(id))); await loadAlarms(); await loadSnoozed(); }
-    catch (e) { error = e.message; }
-    finally { acking = new Set(); }
+    try {
+      const results = await Promise.allSettled(ids.map(id => acknowledgeAlarm(id)));
+      const failed = results.filter(r => r.status === 'rejected');
+      if (failed.length) error = `${failed.length} alarm(s) could not be acknowledged`;
+      await loadAlarms();
+      await loadSnoozed();
+    } finally { acking = new Set(); }
   }
 
   async function ack(id) {
@@ -348,11 +356,15 @@
   });
 
   async function handleAccountSave({ username, curPw, newPw }) {
-    const body = { current_password: curPw };
-    if (username) body.new_username = username;
-    if (newPw) body.new_password = newPw;
-    const res = await updateAccount(body);
-    setToken(res.token);
+    try {
+      const body = { current_password: curPw };
+      if (username) body.new_username = username;
+      if (newPw) body.new_password = newPw;
+      const res = await updateAccount(body);
+      if (res.token) setToken(res.token);
+    } catch (e) {
+      error = e.message;
+    }
   }
 
   function handleNavigate(v) { tab = v; }

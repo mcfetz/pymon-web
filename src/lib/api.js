@@ -49,9 +49,24 @@ async function api(path, options = {}) {
 }
 
 // ── Alarms ──
-export function fetchAlarms(acknowledged = null) {
+export async function fetchAlarms(acknowledged = null) {
   const params = acknowledged !== null ? `?acknowledged=${acknowledged}` : '';
-  return api(`/alarms${params}`);
+  const token = getToken();
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`/api/alarms${params}`, { headers });
+  if (res.status === 401) {
+    setToken(null);
+    window.dispatchEvent(new CustomEvent('pymon:logout'));
+    throw new Error('session expired');
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const alarms = await res.json();
+  const truncated = res.headers.get('X-Truncated') === 'true';
+  return { alarms, truncated };
 }
 export function acknowledgeAlarm(id) { return api(`/alarms/${id}/ack`); }
 export function fetchOpenAlarms() { return api('/alarms/open'); }
@@ -168,7 +183,14 @@ export function savePluginSource(name, source) {
     method: 'PUT',
     headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'text/plain' },
     body: source,
-  });
+  }).then((r) => { if (!r.ok) throw new Error(r.statusText); return r; });
+}
+export function checkPluginSource(source) {
+  return fetch('/api/admin/plugins/check', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'text/plain' },
+    body: source,
+  }).then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); });
 }
 export function deletePlugin(name) {
   return api(`/admin/plugins/${name}`, { method: 'DELETE' });

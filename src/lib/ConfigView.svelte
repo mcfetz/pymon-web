@@ -11,7 +11,7 @@
     fetchRuleSchema, fetchRules, saveRule, deleteRule,
     fetchExecutors, saveExecutor, deleteExecutor,
     fetchNotifications, saveNotification, deleteNotification, fetchNotifySchema, testNotification,
-    fetchAdminPlugins, fetchPluginSource, fetchPluginTemplate, savePluginSource, deletePlugin, togglePluginEnabled, savePluginMeta,
+    fetchAdminPlugins, fetchPluginSource, fetchPluginTemplate, savePluginSource, checkPluginSource, deletePlugin, togglePluginEnabled, savePluginMeta,
     updateAccount, setToken,
     fetchBlackouts, fetchBlackoutSchema, saveBlackout, deleteBlackout,
   } from './api.js';
@@ -837,7 +837,7 @@ if __name__ == "__main__":
     print(json.dumps(output))
 `;
           try {
-            await fetch(`/api/admin/plugins/${nn}/source`, { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: template });
+            await savePluginSource(nn, template);
             pluginList = await fetchAdminPlugins();
             const pi = pluginList.find(x => x.name === nn);
             editedPlugin = { ...pi, name: nn, label: nn, description: '', enabled: true };
@@ -859,7 +859,7 @@ if __name__ == "__main__":
         <div class="rule-actions">
           <span class="rule-status" class:active={p.enabled !== false}>{p.enabled !== false ? 'Enabled' : 'Disabled'}</span>
           <button class="btn-edit" onclick={async () => { const pi = pluginList.find(x => x.name === p.name); editedPlugin = { ...pi }; pluginSource = await fetchPluginSource(pi.name); pluginSourceDirty = false; checkResult = null; showPluginDialog = true; }}>Edit</button>
-          <button class="btn-dup" onclick={async () => { const nn = genId('p'); const src = await fetchPluginSource(p.name); await fetch('/api/admin/plugins/'+nn+'/source', { method: 'PUT', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: src }); await savePluginMeta(nn, { label: (p.label || p.name) + ' Copy', description: p.description || '' }); pluginList = await fetchAdminPlugins(); }}>Duplicate</button>
+          <button class="btn-dup" onclick={async () => { const nn = genId('p'); const src = await fetchPluginSource(p.name); await savePluginSource(nn, src); await savePluginMeta(nn, { label: (p.label || p.name) + ' Copy', description: p.description || '' }); pluginList = await fetchAdminPlugins(); }}>Duplicate</button>
           <button class="btn-del" onclick={async () => { if (confirm(`Delete plugin ${p.name}?`)) { await deletePlugin(p.name); if (selPluginName === p.name) { selPluginName = null; pluginSource = ''; } pluginList = await fetchAdminPlugins(); } }}>Delete</button>
         </div>
       </div>
@@ -872,7 +872,7 @@ if __name__ == "__main__":
         <div style="display:flex;gap:0.4rem;">
           <button class="btn-cancel" disabled={checking} onclick={async () => {
             checking = true; checkResult = null;
-            try { const r = await fetch('/api/admin/plugins/check', { method: 'POST', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: pluginSource }); checkResult = await r.json(); }
+            try { checkResult = await checkPluginSource(pluginSource); }
             catch(e) { checkResult = { ok: false, errors: [{ type: 'error', msg: e.message }]}; }
             finally { checking = false; }
           }}>Check</button>
@@ -1362,7 +1362,7 @@ if __name__ == "__main__":
             <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem;">
               <button class="btn-cancel" disabled={checking} onclick={async () => {
                 checking = true; checkResult = null;
-                try { const r = await fetch('/api/admin/plugins/check', { method: 'POST', headers: { 'agentid': 'admin', 'X-API-Key': '333', 'Content-Type': 'text/plain' }, body: pluginSource }); checkResult = await r.json(); }
+                try { checkResult = await checkPluginSource(pluginSource); }
                 catch(e) { checkResult = { ok: false, errors: [{ type: 'error', msg: e.message }]}; }
                 finally { checking = false; }
               }}>Check</button>
