@@ -19,7 +19,7 @@
   import MetricsView from './lib/components/MetricsView.svelte';
   import AccountPage from './lib/components/AccountPage.svelte';
   import PageHeader from './lib/components/PageHeader.svelte';
-  import { Bell, Clock, ChartArea } from 'lucide-svelte';
+  import { Bell, Clock, ChartArea, Cog } from 'lucide-svelte';
   import { updateAccount } from './lib/api.js';
 
   initTheme();
@@ -107,6 +107,8 @@
   let histFilteredStacks = $derived(historyGroups.stacks.filter(g => histSeverityFilter.has(g.alarms[0].severity)));
   let histFilteredSingles = $derived(historyGroups.singles.filter(a => histSeverityFilter.has(a.severity)));
   let snoozedSet = $state(new Set());
+  let alarmsTruncated = $derived(openAlarms.length >= 500);
+  let historyTruncated = $derived(historyAlarms.length >= 500);
 
   async function handleToggleSnooze(alarm) {
     try {
@@ -143,18 +145,22 @@
   }
 
   async function ack(id) {
-    acking.add(id);
-    try { await acknowledgeAlarm(id); await loadAlarms(); await loadSnoozed(); }
+    acking = new Set([...acking, id]);
+    try { 
+      await acknowledgeAlarm(id);
+      openAlarms = openAlarms.filter(a => a.id !== id);
+      await loadSnoozed(); 
+    }
     catch (e) { error = e.message; }
-    finally { acking.delete(id); }
+    finally { acking = new Set(); }
   }
 
   async function ackRule(ruleId, agentid, pluginid, metric) {
     const ids = openAlarms.filter(a => a.rule_id === ruleId && a.agentid === agentid && a.pluginid === pluginid && a.metric === metric).map(a => a.id);
-    for (const id of ids) acking.add(id);
+    acking = new Set([...acking, ...ids]);
     try { await Promise.all(ids.map(id => acknowledgeAlarm(id))); await loadAlarms(); await loadSnoozed(); }
     catch (e) { error = e.message; }
-    finally { for (const id of ids) acking.delete(id); }
+    finally { acking = new Set([...acking].filter(x => !ids.includes(x))); }
   }
 
   // ── Push functions ──
@@ -392,6 +398,7 @@
           {severityFilter}
           {severityCounts}
           onseveritychange={(s) => severityFilter = s}
+          truncated={alarmsTruncated}
         />
         </div>
       {:else if tab === 'history'}
@@ -414,6 +421,7 @@
             severityCounts={{}}
             onseveritychange={(s) => histSeverityFilter = s}
             history={true}
+            truncated={historyTruncated}
           />
         {:else}
           <div class="text-center py-16 text-sm opacity-50" style="color: var(--text-secondary)">no history</div>
@@ -454,7 +462,10 @@
         />
         </div>
       {:else if tab === 'config'}
+        <div class="animate-slide-up">
+        <PageHeader icon={Cog} title="Configuration" />
         <ConfigView {pendingRule} onLogout={handleLogout} />
+        </div>
       {:else if tab === 'account'}
         <div class="animate-slide-up">
         <AccountPage onlogout={handleLogout} onsave={handleAccountSave} />

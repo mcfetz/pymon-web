@@ -22,6 +22,7 @@
     severityCounts = {},
     onseveritychange = () => {},
     history = false,
+    truncated = false,
   } = $props();
 
   let sevOptions = ['critical', 'warning', 'info'];
@@ -40,6 +41,9 @@
     icons={sevIcons}
     onchange={onseveritychange}
   />
+  {#if truncated}
+    <div class="text-xs px-3 py-1.5 rounded-lg" style="background:rgba(var(--color-primary-rgb),0.08);color:var(--color-primary)">Showing 500 alarms — there may be more.</div>
+  {/if}
 
   {#each stacks as g (g.key)}
     <div transition:fly|local={{ y: 12, duration: 200 }}>

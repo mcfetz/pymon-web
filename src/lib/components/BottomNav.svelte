@@ -12,7 +12,7 @@
 </script>
 
 <nav class="fixed bottom-0 left-0 right-0 z-40 safe-bottom">
-  <div class="mx-auto max-w-lg px-4 pb-3">
+  <div class="mx-auto max-w-sm px-4 pb-3">
     <div class="glass-pill flex items-center justify-around px-2 py-2">
       {#each items as { id, icon: Icon, label }}
         <button

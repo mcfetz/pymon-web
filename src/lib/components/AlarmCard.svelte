@@ -4,7 +4,12 @@
 
   let { group = null, onAck = () => {}, onAckAll = () => {}, onRule = () => {}, onHistory = () => {}, onSnooze = () => {}, snoozed = false, acking = new Set(), expanded = false, onexpand = () => {}, history = false } = $props();
 
-  let { alarms = [], rule_id = '', agentid = '', pluginid = '', metric = '', severity = 'warning' } = group || {};
+  let alarms = $derived(group?.alarms || []);
+  let rule_id = $derived(group?.rule_id || '');
+  let agentid = $derived(group?.agentid || '');
+  let pluginid = $derived(group?.pluginid || '');
+  let metric = $derived(group?.metric || '');
+  let severity = $derived(group?.alarms?.[0]?.severity || 'warning');
 
   let sevIcons = { critical: AlertCircle, warning: AlertTriangle, info: Info };
   let sevColors = { critical: '#ef4444', warning: '#f59e0b', info: '#3b82f6' };
@@ -91,9 +96,9 @@
   </div>
 
   {#if expanded && alarms.length > 1}
-    <div class="border-t px-4 py-2 space-y-1 max-h-48 overflow-y-auto" style="border-color: var(--border-default">
+    <div class="border-t px-4 py-2 space-y-1 max-h-48 overflow-y-auto" style="border-color: var(--border-default)">
       {#each alarms as alarm, i (alarm.id)}
-        <div class="flex items-center justify-between py-1.5 text-[11px}" style="border-bottom: 1px solid var(--border-default)">
+        <div class="flex items-center justify-between py-1.5 text-[11px]" style="border-bottom: 1px solid var(--border-default)">
           <div class="flex items-center gap-2">
             <span class="opacity-50" style="color: var(--text-secondary)">#{alarms.length - i}</span>
             <span class="font-mono opacity-60" style="color: var(--text-secondary)">{fmt(alarm.created_at)}</span>

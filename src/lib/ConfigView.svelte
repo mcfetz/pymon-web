@@ -1175,7 +1175,7 @@ if __name__ == "__main__":
 <!-- Notifications Dialog -->
 {#if showNotifyDialog && editedNotify}
   <div class="dialog-overlay" onclick={() => showNotifyDialog = false}></div>
-  <div class="dialog" style="width:560px;">
+  <div class="dialog" style="width:560px;max-width:calc(100vw - 2rem)">
     <div class="dialog-header">
       <h3>Notification {editedNotify.id?.includes('new_') ? 'create' : 'edit'}</h3>
       <button class="btn-close" onclick={() => showNotifyDialog = false}>✕</button>
@@ -1308,7 +1308,7 @@ if __name__ == "__main__":
 <!-- Plugin Dialog -->
 {#if showPluginDialog && editedPlugin}
   <div class="dialog-overlay" onclick={() => { showPluginDialog = false; selPluginName = null; }}></div>
-  <div class="dialog" style="width:760px;top:5%;max-height:90vh;">
+  <div class="dialog" style="width:760px;max-width:calc(100vw - 2rem);top:5%;max-height:90vh;">
     <div class="dialog-header">
       <h3>Plugin: {editedPlugin.name}</h3>
       <button class="btn-close" onclick={() => { showPluginDialog = false; selPluginName = null; }}>✕</button>
@@ -1640,7 +1640,7 @@ if __name__ == "__main__":
   {@const agent = editedAgentData}
   {@const agentId = editingAgent}
   <div class="dialog-overlay" onclick={closeAgentDialog}></div>
-  <div class="dialog" style="width:640px;top:5%;max-height:90vh;">
+  <div class="dialog" style="width:640px;max-width:calc(100vw - 2rem);top:5%;max-height:90vh;">
     <div class="dialog-header">
       <h3>Agent edit</h3>
       <button class="btn-close" onclick={closeAgentDialog}>✕</button>
