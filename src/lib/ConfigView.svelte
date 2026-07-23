@@ -930,7 +930,7 @@ if __name__ == "__main__":
           <div style="display:flex;gap:1rem;">
             <div class="dialog-field" style="flex:1">
               <label>ID</label>
-              <input type="text" bind:value={editedRule.id} />
+              <input type="text" bind:value={editedRule.id} disabled={typeof editingRule === 'string'} />
             </div>
             <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
               <input type="checkbox" checked={editedRule.enabled ?? true} onchange={(e) => editedRule.enabled = e.target.checked} />
@@ -1141,7 +1141,7 @@ if __name__ == "__main__":
           <div style="display:flex;gap:1rem;">
             <div class="dialog-field" style="flex:1">
               <label>ID</label>
-              <input type="text" bind:value={editedExec.id} />
+              <input type="text" bind:value={editedExec.id} disabled={typeof editingExec === 'string'} />
             </div>
             <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
               <input type="checkbox" checked={editedExec.enabled ?? true} onchange={(e) => editedExec.enabled = e.target.checked} />
@@ -1201,7 +1201,7 @@ if __name__ == "__main__":
           <div style="display:flex;gap:1rem;">
             <div class="dialog-field" style="flex:1">
               <label>ID</label>
-              <input type="text" bind:value={editedNotify.id} />
+              <input type="text" bind:value={editedNotify.id} disabled={typeof editingNotify === 'string'} />
             </div>
             <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
               <input type="checkbox" checked={editedNotify.enabled ?? true} onchange={(e) => editedNotify.enabled = e.target.checked} />
