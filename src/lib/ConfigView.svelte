@@ -503,8 +503,8 @@
     {#each filteredRules as rule (rule.id)}
       <div class="rule-card" style="border-left: 3px solid {rule.severity === 'critical' ? '#ef4444' : rule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}">
         <div class="rule-head">
-          <span class="rule-id">{rule.id}</span>
           <svelte:component this={rule.severity === 'critical' ? AlertCircle : rule.severity === 'warning' ? AlertTriangle : Info} size={14} strokeWidth={2} style="color: {rule.severity === 'critical' ? '#ef4444' : rule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}" />
+          <span class="rule-id">{rule.id}</span>
         </div>
         <div class="rule-desc">{rule.description || '—'}</div>
         <div class="rule-actions">

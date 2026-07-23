@@ -1,5 +1,5 @@
 <script>
-  import { ShieldCheck } from 'lucide-svelte';
+  import { ShieldCheck, AlertTriangle, AlertCircle, Info } from 'lucide-svelte';
   import FilterPills from './FilterPills.svelte';
   import AlarmCard from './AlarmCard.svelte';
   import EmptyState from './EmptyState.svelte';
@@ -25,7 +25,11 @@
   } = $props();
 
   let sevOptions = ['critical', 'warning', 'info'];
-  let sevColors = { critical: '#fecaca', warning: '#fef08a', info: '#bfdbfe' };
+  let sevIcons = {
+    critical: { icon: AlertCircle, color: '#ef4444' },
+    warning: { icon: AlertTriangle, color: '#f59e0b' },
+    info: { icon: Info, color: '#3b82f6' },
+  };
 </script>
 
 <div class="space-y-3">
@@ -33,7 +37,7 @@
     options={sevOptions}
     selected={severityFilter}
     counts={severityCounts}
-    colors={sevColors}
+    icons={sevIcons}
     onchange={onseveritychange}
   />
 
