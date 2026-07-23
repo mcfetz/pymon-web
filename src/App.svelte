@@ -365,7 +365,7 @@
   {#if !loggedIn}
     <LoginPage error={loginError} loading={loginLoading} onsubmit={handleLogin} />
   {:else}
-    <Header onConfig={() => tab = 'config'} />
+    <Header onAccount={() => tab = 'account'} />
 
     {#if error}
       <div class="mx-auto max-w-xl px-4 mb-4">

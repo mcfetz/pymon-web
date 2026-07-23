@@ -1,5 +1,5 @@
 <script>
-  import { Bell, Clock, ChartArea, User } from 'lucide-svelte';
+  import { Bell, Clock, ChartArea, Cog } from 'lucide-svelte';
 
   let { tab = 'alarms', onNavigate, alarmCount = 0 } = $props();
 
@@ -7,7 +7,7 @@
     { id: 'alarms', icon: Bell, label: 'Alarms' },
     { id: 'history', icon: Clock, label: 'History' },
     { id: 'metrics', icon: ChartArea, label: 'Metrics' },
-    { id: 'account', icon: User, label: 'Account' },
+    { id: 'config', icon: Cog, label: 'Config' },
   ];
 </script>
 

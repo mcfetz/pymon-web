@@ -1,7 +1,7 @@
 <script>
-  import { Bell, Cog } from 'lucide-svelte';
+  import { Bell, User } from 'lucide-svelte';
 
-  let { onConfig = () => {} } = $props();
+  let { onAccount = () => {} } = $props();
 </script>
 
 <header class="sticky top-0 z-30 safe-top mt-3 mb-4">
@@ -14,9 +14,9 @@
         <h1 class="text-base font-bold m-0" style="color: var(--text-primary)">pymon</h1>
       </div>
 
-      <button onclick={onConfig} class="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5" aria-label="config">
+      <button onclick={onAccount} class="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5" aria-label="account">
         <div class="icon-wrap">
-          <Cog size={18} strokeWidth={1.8} style="color: var(--text-secondary)" />
+          <User size={18} strokeWidth={1.8} style="color: var(--text-secondary)" />
         </div>
       </button>
     </div>
