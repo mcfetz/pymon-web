@@ -466,13 +466,12 @@
         <div class="rule-card">
           <div class="rule-head">
             <span class="status-dot" class:online={a.online} style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:0.3rem;"></span>
-            <span class="rule-id">{a.title || id}</span>
-            <span class="rule-badge">{a.groups?.join(', ') || '—'}</span>
+            <span class="rule-id">{a.title || id} ({id})</span>
             <span style="margin-left:auto;font-size:0.75rem;color:#888;">
               {#if a.last_seen}{fmtTime(a.last_seen)}{:else}never{/if}
             </span>
           </div>
-          <div class="rule-desc" style="font-size:0.72rem;color:#999;">{id}</div>
+          <div class="rule-desc" style="font-size:0.72rem;">groups: {a.groups?.length ? a.groups.join(', ') : '—'}</div>
           <div class="rule-actions">
             <span class="rule-status" class:active={a.enabled !== false}>{a.enabled !== false ? 'Enabled' : 'Disabled'}</span>
             <button class="btn-edit" onclick={() => openAgentDialog(id)}>Edit</button>
@@ -589,7 +588,6 @@
         <div class="rule-card">
           <div class="rule-head">
             <span class="rule-id">{gid}</span>
-            <span class="rule-badge">{(groups[gid] || []).length} plugins</span>
           </div>
           <div class="rule-desc">{(groups[gid] || []).join(', ') || '—'}</div>
           <div class="rule-actions">
@@ -1396,5 +1394,5 @@ if __name__ == "__main__":
   .status-dot.online { background: #22c55e; }
   .rules-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
   .rules-header h3 { margin: 0; font-size: 1rem; color: var(--text-primary); flex-shrink: 0; }
-  .filter-input { flex: 1; min-width: 120px; padding: 0.3rem 0.5rem; border: 1px solid var(--border-default); border-radius: 5px; font-size: 0.8rem; background: var(--bg-surface); color: var(--text-primary); }
+  .filter-input { max-width: 180px; min-width: 100px; margin: 0 auto; padding: 0.3rem 0.5rem; border: 1px solid var(--border-default); border-radius: 5px; font-size: 0.8rem; background: var(--bg-surface); color: var(--text-primary); }
 </style>
