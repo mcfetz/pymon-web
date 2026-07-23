@@ -905,7 +905,7 @@ if __name__ == "__main__":
     <div class="dialog-body">
       <div style="margin-bottom:0.5rem;">
         <button onclick={() => expandedRuleGeneral = !expandedRuleGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
-          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedRuleGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> general
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedRuleGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
         </button>
       </div>
       {#if expandedRuleGeneral}
@@ -1008,7 +1008,7 @@ if __name__ == "__main__":
           style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
         >
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgents ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
-          restricted agents
+          Restricted agents
         </button>
         {#if expandedAgents}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
@@ -1051,7 +1051,7 @@ if __name__ == "__main__":
           style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
         >
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedNotifications ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
-          notifications
+          Notifications
         </button>
         {#if expandedNotifications}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
@@ -1082,7 +1082,7 @@ if __name__ == "__main__":
           style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
         >
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedExecutors ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
-          executors
+          Executors
         </button>
         {#if expandedExecutors}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
@@ -1124,7 +1124,7 @@ if __name__ == "__main__":
     <div class="dialog-body">
       <div style="margin-bottom:0.5rem;">
         <button onclick={() => expandedExecGeneral = !expandedExecGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
-          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedExecGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> general
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedExecGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
         </button>
       </div>
       {#if expandedExecGeneral}
@@ -1330,7 +1330,7 @@ if __name__ == "__main__":
 
       <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
         <button onclick={() => expandedBlackoutGeneral = !expandedBlackoutGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
-          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> general
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
         </button>
         {#if expandedBlackoutGeneral}
           <div class="dialog-field"><label>Title</label><input type="text" bind:value={editedBlackout.title} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" /></div>
@@ -1377,7 +1377,7 @@ if __name__ == "__main__":
           style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
         >
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutRules ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
-          target rules
+          Target rules
         </button>
         {#if expandedBlackoutRules}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
@@ -1404,7 +1404,7 @@ if __name__ == "__main__":
           style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
         >
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutAgents ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
-          target agents
+          Target agents
         </button>
         {#if expandedBlackoutAgents}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
@@ -1431,7 +1431,7 @@ if __name__ == "__main__":
           style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
         >
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutGroups ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
-          target groups
+          Target groups
         </button>
         {#if expandedBlackoutGroups}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
@@ -1486,7 +1486,7 @@ if __name__ == "__main__":
     <div class="dialog-body" style="overflow:visible;">
       <div style="margin-bottom:0.5rem;">
         <button onclick={() => expandedAgentGeneral = !expandedAgentGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
-          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgentGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> general
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgentGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
         </button>
       </div>
       {#if expandedAgentGeneral}
@@ -1536,7 +1536,7 @@ if __name__ == "__main__":
 
       <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
         <button onclick={() => expandedAgentSettings = !expandedAgentSettings} class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
-          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgentSettings ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> settings
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgentSettings ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Settings
         </button>
         {#if expandedAgentSettings}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
