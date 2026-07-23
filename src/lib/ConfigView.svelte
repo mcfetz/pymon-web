@@ -799,8 +799,19 @@ if __name__ == "__main__":
       <button class="btn-close" onclick={() => showRuleDialog = false}>✕</button>
     </div>
     <div class="dialog-body">
+      <div class="dialog-field" style="margin-bottom:0.75rem">
+        <label>Severity</label>
+        <div class="flex items-center gap-2">
+          <select bind:value={editedRule.severity} class="px-3 py-2 rounded-lg border text-xs bg-transparent outline-none" style="border-color: var(--border-default); color: var(--text-primary)">
+            <option value="warning">warning</option>
+            <option value="critical">critical</option>
+            <option value="info">info</option>
+          </select>
+          <svelte:component this={editedRule.severity === 'critical' ? AlertCircle : editedRule.severity === 'warning' ? AlertTriangle : Info} size={16} strokeWidth={2} style="color: {editedRule.severity === 'critical' ? '#ef4444' : editedRule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}" />
+        </div>
+      </div>
       {#each ruleSchema.fields as field}
-        {#if field.key === 'agents_mode' || field.key === 'agents' || field.key === 'executors' || field.key === 'notifications'}
+        {#if field.key === 'agents_mode' || field.key === 'agents' || field.key === 'executors' || field.key === 'notifications' || field.key === 'severity'}
           <!-- skip - rendered in collapsible section -->
         {:else}
         <div class="dialog-field">
