@@ -454,9 +454,7 @@
         />
         </div>
       {:else if tab === 'config'}
-        <div class="animate-slide-up">
         <ConfigView {pendingRule} onLogout={handleLogout} />
-        </div>
       {:else if tab === 'account'}
         <div class="animate-slide-up">
         <AccountPage onlogout={handleLogout} onsave={handleAccountSave} />

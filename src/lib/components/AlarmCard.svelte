@@ -1,13 +1,13 @@
 <script>
-  import { ChevronDown, ChevronUp } from 'lucide-svelte';
+  import { ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Info } from 'lucide-svelte';
   import { fade, slide } from 'svelte/transition';
 
   let { group = null, onAck = () => {}, onAckAll = () => {}, onRule = () => {}, onHistory = () => {}, onSnooze = () => {}, snoozed = false, acking = new Set(), expanded = false, onexpand = () => {}, history = false } = $props();
 
   let { alarms = [], rule_id = '', agentid = '', pluginid = '', metric = '', severity = 'warning' } = group || {};
 
-  let sevColors = { critical: '#fca5a5', warning: '#fde68a', info: '#93c5fd' };
-  let sevBg = { critical: 'rgba(239,68,68,0.06)', warning: 'rgba(245,158,11,0.06)', info: 'rgba(59,130,246,0.06)' };
+  let sevIcons = { critical: AlertCircle, warning: AlertTriangle, info: Info };
+  let sevColors = { critical: '#ef4444', warning: '#f59e0b', info: '#3b82f6' };
 
   function fmt(iso) {
     if (!iso) return '';
@@ -25,7 +25,7 @@
   <div class="p-4">
     <div class="flex items-center justify-between mb-2">
       <div class="flex items-center gap-2 flex-1 min-w-0">
-        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide" style="background: {sevBg[severity]}; color: {sevColors[severity]}">{severity}</span>
+        <svelte:component this={sevIcons[severity] || Info} size={14} strokeWidth={2} style="color: {sevColors[severity]}" />
         <span class="text-xs font-medium truncate font-mono" style="color: var(--text-primary)">{rule_id}</span>
         {#if alarms.length > 1}
           <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style="background: var(--color-primary">{alarms.length}×</span>

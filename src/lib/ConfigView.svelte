@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { AlertTriangle, AlertCircle, Info } from 'lucide-svelte';
   import PluginForm from './PluginForm.svelte';
   import CodeEditor from './CodeEditor.svelte';
   import {
@@ -113,7 +114,10 @@
   let checking = $state(false);
   let showPluginDialog = $state(false);
   let editedPlugin = $state(null);
-  let fsEditor = $state(null); // fullscreen editor content
+  let fsEditor = $state(null);
+  let expandedAgents = $state(false);
+  let expandedExecutors = $state(false);
+  let expandedNotifications = $state(false); // fullscreen editor content
 
   // ── Filters ──
   let filterText = $state('');
@@ -497,11 +501,10 @@
     </div>
 
     {#each filteredRules as rule (rule.id)}
-      <div class="rule-card">
+      <div class="rule-card" style="border-left: 3px solid {rule.severity === 'critical' ? '#ef4444' : rule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}">
         <div class="rule-head">
           <span class="rule-id">{rule.id}</span>
-          <span class="rule-sev {rule.severity}">{rule.severity}</span>
-          <span class="rule-badge">{rule.pluginid}/{rule.metric} {rule.condition} {rule.threshold}</span>
+          <svelte:component this={rule.severity === 'critical' ? AlertCircle : rule.severity === 'warning' ? AlertTriangle : Info} size={14} strokeWidth={2} style="color: {rule.severity === 'critical' ? '#ef4444' : rule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}" />
         </div>
         <div class="rule-desc">{rule.description || '—'}</div>
         <div class="rule-actions">
@@ -797,12 +800,15 @@ if __name__ == "__main__":
     </div>
     <div class="dialog-body">
       {#each ruleSchema.fields as field}
+        {#if field.key === 'agents_mode' || field.key === 'agents' || field.key === 'executors' || field.key === 'notifications'}
+          <!-- skip - rendered in collapsible section -->
+        {:else}
         <div class="dialog-field">
           <label>{field.label}</label>
           {#if field.key === 'pluginid'}
             <select bind:value={editedRule[field.key]}>
               <option value="">—</option>
-{#each filteredPlugins as p}
+              {#each filteredPlugins as p}
                 <option value={p.name}>{p.label} ({p.name})</option>
               {/each}
             </select>
@@ -816,19 +822,6 @@ if __name__ == "__main__":
                     editedRule[field.key] = arr;
                   }} />
                   {n.title || n.id} ({n.id})
-                </label>
-              {/each}
-            </div>
-          {:else if field.key === 'agents'}
-            <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-              {#each Object.values(agents).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id)) as agent (agent.id)}
-                <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
-                  <input type="checkbox" checked={(editedRule[field.key] || []).includes(agent.id)} onchange={(e) => {
-                    const arr = [...(editedRule[field.key] || [])];
-                    if (e.target.checked) arr.push(agent.id); else arr.splice(arr.indexOf(agent.id), 1);
-                    editedRule[field.key] = arr;
-                  }} />
-                  {agent.title || agent.id}
                 </label>
               {/each}
             </div>
@@ -869,7 +862,107 @@ if __name__ == "__main__":
             <input type="text" bind:value={editedRule[field.key]} />
           {/if}
         </div>
+        {/if}
       {/each}
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button
+          onclick={() => expandedAgents = !expandedAgents}
+          class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2"
+          style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
+        >
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgents ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
+          restricted agents
+        </button>
+        {#if expandedAgents}
+          {#each ruleSchema.fields as field}
+            {#if field.key === 'agents_mode'}
+              <div class="dialog-field">
+                <label>{field.label}</label>
+                <select bind:value={editedRule[field.key]}>
+                  {#each field.options || [] as opt}
+                    <option value={opt}>{opt}</option>
+                  {/each}
+                </select>
+              </div>
+            {:else if field.key === 'agents'}
+              <div class="dialog-field">
+                <label>{field.label}</label>
+                <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
+                  {#each Object.entries(agents).sort(([ka, a], [kb, b]) => String(a.title || ka).localeCompare(String(b.title || kb))) as [agentId, agent] (agentId)}
+                    <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+                      <input type="checkbox" checked={(editedRule[field.key] || []).includes(agentId)} onchange={(e) => {
+                        const arr = [...(editedRule[field.key] || [])];
+                        if (e.target.checked) arr.push(agentId); else arr.splice(arr.indexOf(agentId), 1);
+                        editedRule[field.key] = arr;
+                      }} />
+                      {agent.title || agentId}
+                    </label>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          {/each}
+        {/if}
+      </div>
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button
+          onclick={() => expandedNotifications = !expandedNotifications}
+          class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2"
+          style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
+        >
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedNotifications ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
+          notifications
+        </button>
+        {#if expandedNotifications}
+          {#each ruleSchema.fields as field}
+            {#if field.key === 'notifications'}
+              <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
+                {#each Object.values(notifications).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id)) as n (n.id)}
+                  <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+                    <input type="checkbox" checked={(editedRule[field.key] || []).includes(n.id)} onchange={(e) => {
+                      const arr = [...(editedRule[field.key] || [])];
+                      if (e.target.checked) arr.push(n.id); else arr.splice(arr.indexOf(n.id), 1);
+                      editedRule[field.key] = arr;
+                    }} />
+                    {n.title || n.id} ({n.id})
+                  </label>
+                {/each}
+              </div>
+            {/if}
+          {/each}
+        {/if}
+      </div>
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button
+          onclick={() => expandedExecutors = !expandedExecutors}
+          class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2"
+          style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
+        >
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedExecutors ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
+          executors
+        </button>
+        {#if expandedExecutors}
+          {#each ruleSchema.fields as field}
+            {#if field.key === 'executors'}
+              <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
+                {#each Object.values(executors).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id)) as ex (ex.id)}
+                  <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+                    <input type="checkbox" checked={(editedRule[field.key] || []).includes(ex.id)} onchange={(e) => {
+                      const arr = [...(editedRule[field.key] || [])];
+                      if (e.target.checked) arr.push(ex.id); else arr.splice(arr.indexOf(ex.id), 1);
+                      editedRule[field.key] = arr;
+                    }} />
+                    {ex.title || ex.id} ({ex.id})
+                  </label>
+                {/each}
+              </div>
+            {/if}
+          {/each}
+        {/if}
+      </div>
     </div>
     <div class="dialog-footer">
       <button class="btn-cancel" onclick={() => showRuleDialog = false}>Cancel</button>
@@ -1218,7 +1311,7 @@ if __name__ == "__main__":
 
 <style>
   .dialog-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.5); }
-  .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51; background: #fff; border: 1px solid var(--border-default, #e2e8f0); border-radius: var(--radius-card); box-shadow: 0 16px 48px rgba(0,0,0,0.15); max-width: 500px; width: calc(100vw - 2rem); max-height: calc(100vh - 4rem); overflow-y: auto; }
+  .dialog { position: fixed; top: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 51; background: #fff; border: 1px solid var(--border-default, #e2e8f0); border-radius: var(--radius-card); box-shadow: 0 16px 48px rgba(0,0,0,0.15); max-width: 500px; width: calc(100vw - 2rem); max-height: calc(100vh - 3rem); overflow-y: auto; }
   :global(.dark) .dialog { background: #0f172a; box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
   .dialog-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-default); }
   .dialog-header h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary); }
