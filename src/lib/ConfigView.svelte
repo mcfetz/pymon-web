@@ -618,7 +618,6 @@
       <div class="rule-card">
         <div class="rule-head">
           <span class="rule-id">{n.title || n.id}</span>
-          <span class="rule-badge">{n.to}</span>
         </div>
         <div class="rule-actions">
           <span class="rule-status" class:active={n.enabled ?? true}>{n.enabled ?? true ? 'Active' : 'Inactive'}</span>
