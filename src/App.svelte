@@ -16,6 +16,7 @@
   import BottomNav from './lib/components/BottomNav.svelte';
   import LoginPage from './lib/components/LoginPage.svelte';
   import AlarmList from './lib/components/AlarmList.svelte';
+  import AlarmDetailModal from './lib/components/AlarmDetailModal.svelte';
   import MetricsView from './lib/components/MetricsView.svelte';
   import AccountPage from './lib/components/AccountPage.svelte';
   import PageHeader from './lib/components/PageHeader.svelte';
@@ -242,6 +243,18 @@
   });
 
   let pendingRule = $state(null);
+  let alarmDetailId = $state(null);
+
+  function openAlarmDetail(id) {
+    if (id == null) return;
+    alarmDetailId = id;
+    window.location.hash = `#alarm/${id}`;
+  }
+
+  function closeAlarmDetail() {
+    alarmDetailId = null;
+    history.pushState('', document.title, window.location.pathname + window.location.search);
+  }
 
   function openRule(ruleId) {
     pendingRule = { id: ruleId, ts: Date.now() };
@@ -372,8 +385,20 @@
   onMount(() => {
     if (!loggedIn) return;
     loadAlarms(); checkPush(); loadFilterOptions(); loadSnoozed();
+
+    // Hash routing — open alarm detail modal on #alarm/<id>
+    function parseHash() {
+      const m = window.location.hash.match(/^#alarm\/(\d+)$/);
+      alarmDetailId = m ? parseInt(m[1]) : null;
+    }
+    parseHash();
+    window.addEventListener('hashchange', parseHash);
+
     const t = setInterval(() => { loadAlarms(); loadSnoozed(); }, 5000);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('hashchange', parseHash);
+    };
   });
 
   window.addEventListener('pymon:logout', () => { loggedIn = false; });
@@ -403,6 +428,7 @@
           onRule={openRule}
           onHistory={jumpToHistory}
           onSnooze={handleToggleSnooze}
+          onDetail={openAlarmDetail}
           {snoozedSet}
           {acking}
           {expandedStacks}
@@ -425,6 +451,7 @@
             onRule={openRule}
             onHistory={jumpToHistory}
             onSnooze={() => {}}
+            onDetail={openAlarmDetail}
             snoozedSet={new Set()}
             acking={new Set()}
             expandedStacks={expandedHistoryStacks}
@@ -488,3 +515,11 @@
     <BottomNav {tab} onNavigate={handleNavigate} alarmCount={openAlarms.length} />
   {/if}
 </main>
+
+{#if alarmDetailId != null}
+  <AlarmDetailModal
+    alarmId={alarmDetailId}
+    onClose={closeAlarmDetail}
+    onAcked={(id) => { openAlarms = openAlarms.filter(a => a.id !== id); loadSnoozed(); }}
+  />
+{/if}

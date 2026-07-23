@@ -14,6 +14,7 @@
     onRule = () => {},
     onHistory = () => {},
     onSnooze = () => {},
+    onDetail = () => {},
     snoozedSet = new Set(),
     acking = new Set(),
     expandedStacks = new Set(),
@@ -54,6 +55,7 @@
         {onRule}
         {onHistory}
         {onSnooze}
+        {onDetail}
         snoozed={snoozedSet.has(g.key)}
         {acking}
         expanded={expandedStacks.has(g.key)}
@@ -72,6 +74,7 @@
         {onRule}
         {onHistory}
         {onSnooze}
+        {onDetail}
         snoozed={snoozedSet.has(`${alarm.rule_id}|${alarm.agentid}|${alarm.pluginid}|${alarm.metric}`)}
         {acking}
         {history}

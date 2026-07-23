@@ -2,7 +2,7 @@
   import { ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Info } from 'lucide-svelte';
   import { fade, slide } from 'svelte/transition';
 
-  let { group = null, onAck = () => {}, onAckAll = () => {}, onRule = () => {}, onHistory = () => {}, onSnooze = () => {}, snoozed = false, acking = new Set(), expanded = false, onexpand = () => {}, history = false } = $props();
+  let { group = null, onAck = () => {}, onAckAll = () => {}, onRule = () => {}, onHistory = () => {}, onSnooze = () => {}, onDetail = () => {}, snoozed = false, acking = new Set(), expanded = false, onexpand = () => {}, history = false } = $props();
 
   let alarms = $derived(group?.alarms || []);
   let rule_id = $derived(group?.rule_id || '');
@@ -50,6 +50,7 @@
     <div class="flex flex-wrap items-center gap-1.5">
       <button onclick={() => onRule(rule_id)} class="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all duration-150 hover:brightness-110 active:scale-95" style="background: rgba(var(--color-primary-rgb), 0.1); color: var(--color-primary">Rule</button>
       <button onclick={() => onHistory(agentid, pluginid, metric)} class="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all duration-150 hover:brightness-110 active:scale-95" style="background: rgba(139,92,246,0.1); color: #8b5cf6">Metrics</button>
+      <button onclick={() => onDetail(latest?.id)} class="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all duration-150 hover:brightness-110 active:scale-95" style="background: rgba(20,184,166,0.1); color: #14b8a6">Details</button>
 
       {#if !history}
       <div class="flex rounded-lg overflow-hidden border ml-auto" style="border-color: var(--border-default">
@@ -106,12 +107,19 @@
               <span class="font-mono font-medium" style="color: var(--text-primary)">{alarm.value}</span>
             {/if}
           </div>
-          <button
-            onclick={() => onAck(alarm.id)}
-            disabled={acking.has(alarm.id)}
-            class="px-2 py-0.5 rounded text-[10px] font-medium transition-all duration-150 hover:brightness-110 disabled:opacity-40"
-            style="background: rgba(34,197,94,0.1); color: #22c55e"
-          >{acking.has(alarm.id) ? '...' : '✓'}</button>
+          <div class="flex items-center gap-1">
+            <button
+              onclick={() => onDetail(alarm.id)}
+              class="px-2 py-0.5 rounded text-[10px] font-medium transition-all duration-150 hover:brightness-110"
+              style="background: rgba(20,184,166,0.1); color: #14b8a6"
+            >details</button>
+            <button
+              onclick={() => onAck(alarm.id)}
+              disabled={acking.has(alarm.id)}
+              class="px-2 py-0.5 rounded text-[10px] font-medium transition-all duration-150 hover:brightness-110 disabled:opacity-40"
+              style="background: rgba(34,197,94,0.1); color: #22c55e"
+            >{acking.has(alarm.id) ? '...' : '✓'}</button>
+          </div>
         </div>
       {/each}
     </div>

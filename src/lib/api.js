@@ -69,6 +69,7 @@ export async function fetchAlarms(acknowledged = null) {
   return { alarms, truncated };
 }
 export function acknowledgeAlarm(id) { return api(`/alarms/${id}/ack`); }
+export function fetchAlarm(id) { return api(`/alarms/${id}`); }
 export function fetchOpenAlarms() { return api('/alarms/open'); }
 export function fetchSnoozed() { return api('/alarms/snoozed'); }
 export function toggleSnooze(data) { return api('/alarms/snooze/toggle', { method: 'POST', body: data }); }
