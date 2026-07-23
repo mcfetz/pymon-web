@@ -119,6 +119,8 @@
   let expandedAgents = $state(false);
   let expandedExecutors = $state(false);
   let expandedNotifications = $state(false);
+  let expandedBlackoutRules = $state(false);
+  let expandedBlackoutAgents = $state(false);
   let showBlackoutDialog = $state(false);
   let editingBlackout = $state(null);
   let editedBlackout = $state(null);
@@ -663,7 +665,7 @@
           <span class="rule-id">{b.title || b.id}</span>
           <span style="font-size:0.7rem;color:var(--text-secondary)">{b.start_time}–{b.end_time}</span>
         </div>
-        <div class="rule-desc">{b.weekdays?.length ? b.weekdays.map(d => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d]).join(', ') : 'every day'} · {b.target_mode}: {b.targets?.length || 0} · {b.mode === 'no_alarms' ? 'no alarms' : 'no notifications'}</div>
+        <div class="rule-desc">{b.weekdays?.length ? b.weekdays.map(d => ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d]).join(', ') : 'every day'} · rules: {b.target_rules?.length || 0} · agents: {b.target_agents?.length || 0} · {b.mode === 'no_alarms' ? 'no alarms' : 'no notifications'}</div>
         <div class="rule-actions">
           <span class="rule-status" class:active={b.enabled !== false}>{b.enabled !== false ? 'Active' : 'Inactive'}</span>
           <button class="btn-edit" onclick={() => editBlackout(b.id)}>Edit</button>
@@ -1253,17 +1255,17 @@ if __name__ == "__main__":
     <div class="dialog-body">
       <div class="dialog-field">
         <label>Title</label>
-        <input type="text" bind:value={editedBlackout.title} class="filter-input" />
+        <input type="text" bind:value={editedBlackout.title} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
       </div>
       <div class="dialog-field">
         <label>Enabled</label>
-        <input type="checkbox" checked={editedBlackout.enabled || false} onchange={(e) => editedBlackout.enabled = e.target.checked} />
+        <input type="checkbox" checked={editedBlackout.enabled !== false} onchange={(e) => editedBlackout.enabled = e.target.checked} />
       </div>
       <div class="dialog-field">
         <label>Weekdays</label>
-        <div class="dialog-array" style="display:flex;flex-wrap:wrap;gap:0.25rem;">
+        <div style="display:flex;gap:0.3rem;flex-wrap:wrap;">
           {#each ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as day, i}
-            <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+            <label class="checkbox-row" style="cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:0.2rem;">
               <input type="checkbox" checked={(editedBlackout.weekdays || []).includes(i)} onchange={(e) => {
                 const arr = [...(editedBlackout.weekdays || [])];
                 if (e.target.checked) arr.push(i); else arr.splice(arr.indexOf(i), 1);
@@ -1274,46 +1276,72 @@ if __name__ == "__main__":
           {/each}
         </div>
       </div>
-      <div class="dialog-field" style="display:flex;gap:0.5rem;">
-        <div style="flex:1">
+      <div style="display:flex;gap:0.5rem;">
+        <div class="dialog-field" style="flex:1">
           <label>Start time</label>
-          <input type="time" bind:value={editedBlackout.start_time} class="filter-input" />
+          <input type="time" bind:value={editedBlackout.start_time} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
         </div>
-        <div style="flex:1">
+        <div class="dialog-field" style="flex:1">
           <label>End time</label>
-          <input type="time" bind:value={editedBlackout.end_time} class="filter-input" />
+          <input type="time" bind:value={editedBlackout.end_time} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
         </div>
       </div>
-      <div class="dialog-field">
-        <label>Target mode</label>
-        <select bind:value={editedBlackout.target_mode} class="filter-input" style="width:100%">
-          <option value="rules">rules</option>
-          <option value="agents">agents</option>
-        </select>
-      </div>
-      <div class="dialog-field">
-        <label>Targets</label>
-        <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-          {#each (editedBlackout.target_mode === 'rules' ? Object.values(rules).sort((a,b) => a.id.localeCompare(b.id)) : Object.entries(agents).sort(([ka,a],[kb,b]) => String(a.title||ka).localeCompare(String(b.title||kb)))) as item}
-            {@const id = editedBlackout.target_mode === 'rules' ? item.id : item[0]}
-            {@const title = editedBlackout.target_mode === 'rules' ? item.id : (item[1].title || id)}
-            <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
-              <input type="checkbox" checked={(editedBlackout.targets || []).includes(id)} onchange={(e) => {
-                const arr = [...(editedBlackout.targets || [])];
-                if (e.target.checked) arr.push(id); else arr.splice(arr.indexOf(id), 1);
-                editedBlackout.targets = arr;
-              }} />
-              {title}
-            </label>
-          {/each}
-        </div>
-      </div>
-      <div class="dialog-field">
+      <div class="dialog-field" style="margin-bottom:0.5rem">
         <label>Blackout mode</label>
-        <select bind:value={editedBlackout.mode} class="filter-input" style="width:100%">
+        <select bind:value={editedBlackout.mode} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
           <option value="no_alarms">no alarms</option>
           <option value="no_notifications">no notifications</option>
         </select>
+      </div>
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button
+          onclick={() => expandedBlackoutRules = !expandedBlackoutRules}
+          class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2"
+          style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
+        >
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutRules ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
+          target rules
+        </button>
+        {#if expandedBlackoutRules}
+          <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
+            {#each Object.values(rules).sort((a,b) => a.id.localeCompare(b.id)) as rule}
+              <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+                <input type="checkbox" checked={(editedBlackout.target_rules || []).includes(rule.id)} onchange={(e) => {
+                  const arr = [...(editedBlackout.target_rules || [])];
+                  if (e.target.checked) arr.push(rule.id); else arr.splice(arr.indexOf(rule.id), 1);
+                  editedBlackout.target_rules = arr;
+                }} />
+                {rule.id}
+              </label>
+            {/each}
+          </div>
+        {/if}
+      </div>
+
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+        <button
+          onclick={() => expandedBlackoutAgents = !expandedBlackoutAgents}
+          class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2"
+          style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;"
+        >
+          <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutAgents ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
+          target agents
+        </button>
+        {#if expandedBlackoutAgents}
+          <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
+            {#each Object.entries(agents).sort(([ka,a],[kb,b]) => String(a.title||ka).localeCompare(String(b.title||kb))) as [agentId, agent]}
+              <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+                <input type="checkbox" checked={(editedBlackout.target_agents || []).includes(agentId)} onchange={(e) => {
+                  const arr = [...(editedBlackout.target_agents || [])];
+                  if (e.target.checked) arr.push(agentId); else arr.splice(arr.indexOf(agentId), 1);
+                  editedBlackout.target_agents = arr;
+                }} />
+                {agent.title || agentId}
+              </label>
+            {/each}
+          </div>
+        {/if}
       </div>
     </div>
     <div class="dialog-footer">
