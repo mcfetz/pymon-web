@@ -489,15 +489,21 @@
   {#if loading}
     <div class="text-center py-16 text-sm" style="color: var(--text-secondary)">loading configuration...</div>
   {:else}
-    <div class="flex flex-wrap gap-1 justify-center my-4">
-      <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'agents' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'agents' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'agents' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'agents'}>Agents</button>
-      <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'rules' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'rules' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'rules' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'rules'}>Rules</button>
-      <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'executors' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'executors' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'executors' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'executors'}>Executors</button>
-      <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'notify' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'notify' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'notify' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'notify'}>Notifications</button>
-      <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'groups' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'groups' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'groups' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'groups'}>Groups</button>
-      <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'blackouts' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'blackouts' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'blackouts' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'blackouts'}>Blackouts</button>
-      <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'plugins' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'plugins' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'plugins' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'plugins'}>Plugins</button>
-      <button class="px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium transition-all duration-150 border" style="background: {view === 'account' ? 'rgba(var(--color-primary-rgb),0.1)' : 'transparent'}; color: {view === 'account' ? 'var(--color-primary)' : 'var(--text-secondary)'}; border-color: {view === 'account' ? 'rgba(var(--color-primary-rgb),0.2)' : 'var(--border-default)'}" onclick={() => view = 'account'}>Account</button>
+    <div class="flex gap-0 mb-6 border-b overflow-x-auto" style="border-color: var(--border-default)">
+      {#each ['Agents','Rules','Executors','Notifications','Groups','Blackouts','Plugins','Account'] as label}
+        {@const id = label === 'Notifications' ? 'notify' : label.toLowerCase()}
+        <button
+          onclick={() => view = id}
+          class="relative px-3 py-2 text-xs font-medium transition-colors duration-150 whitespace-nowrap"
+          class:font-semibold={view === id}
+          style="color: {view === id ? 'var(--color-primary)' : 'var(--text-secondary)'}"
+        >
+          {label}
+          {#if view === id}
+            <span class="absolute bottom-0 left-2 right-2 h-[2px] rounded-full" style="background: var(--color-primary)"></span>
+          {/if}
+        </button>
+      {/each}
     </div>
 
     {#if view === 'agents'}
