@@ -48,6 +48,14 @@
           oninput={(e) => setVal(field.key, parseFloat(e.target.value) || 0)}
         />
 
+      {:else if field.type === 'password'}
+        <input
+          type="password"
+          value={val(field.key)}
+          autocomplete="new-password"
+          oninput={(e) => setVal(field.key, e.target.value)}
+        />
+
       {:else if field.type === 'string'}
         <input
           type="text"
@@ -110,7 +118,8 @@
   .field { display: flex; flex-direction: column; gap: 0.25rem; }
   .field label { font-size: 0.8rem; font-weight: 600; color: #555; }
   .field input[type="text"],
-  .field input[type="number"] {
+  .field input[type="number"],
+  .field input[type="password"] {
     padding: 0.4rem 0.6rem; border: 1px solid #cbd5e0; border-radius: 5px;
     font-size: 0.85rem; width: 100%; box-sizing: border-box;
   }
