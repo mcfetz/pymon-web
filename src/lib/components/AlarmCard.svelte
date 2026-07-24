@@ -45,9 +45,9 @@
     </div>
 
     <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] mb-3" style="color: var(--text-secondary)">
-      <span>{agent_label}</span>
-      <span>{plugin_label}</span>
-      <span>{metric}</span>
+      <span>Agent: {agent_label}</span>
+      <span>Plugin: {plugin_label}</span>
+      <span>Metric: {metric}</span>
     </div>
 
     <div class="flex flex-wrap items-center gap-1.5">
