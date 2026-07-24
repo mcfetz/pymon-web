@@ -272,7 +272,7 @@
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding-top: max(1.5rem, env(safe-area-inset-top, 0px) + 0.5rem);
+    padding-top: max(1.5rem, env(safe-area-inset-top, 0px) + 1.5rem);
   }
   .dialog {
     position: relative;
