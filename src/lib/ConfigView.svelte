@@ -573,21 +573,33 @@
   {#if loading}
     <div class="text-center py-16 text-sm" style="color: var(--text-secondary)">loading configuration...</div>
   {:else}
-    <div class="flex gap-0 mb-6 border-b overflow-x-auto" style="border-color: var(--border-default)">
-      {#each ['Agents','Rules','Executors','Notifications','Groups','Blackouts','Variables','Plugins'] as label}
-        {@const id = label === 'Notifications' ? 'notify' : label.toLowerCase()}
-        <button
-          onclick={() => view = id}
-          class="relative px-3 py-2 text-xs font-medium transition-colors duration-150 whitespace-nowrap"
-          class:font-semibold={view === id}
-          style="color: {view === id ? 'var(--color-primary)' : 'var(--text-secondary)'}"
-        >
-          {label}
-          {#if view === id}
-            <span class="absolute bottom-0 left-2 right-2 h-[2px] rounded-full" style="background: var(--color-primary)"></span>
-          {/if}
-        </button>
-      {/each}
+    <div class="tab-nav-wrapper mb-6">
+      <button
+        class="tab-nav-chevron"
+        aria-label="scroll left"
+        onclick={() => { const el = document.getElementById('cfg-tabs'); if(el) el.scrollBy({left:-120,behavior:'smooth'}); }}
+      >&#8249;</button>
+      <div id="cfg-tabs" class="tab-nav-scroll" style="border-color: var(--border-default)">
+        {#each ['Agents','Rules','Executors','Notifications','Groups','Blackouts','Variables','Plugins'] as label}
+          {@const id = label === 'Notifications' ? 'notify' : label.toLowerCase()}
+          <button
+            onclick={() => view = id}
+            class="relative px-3 py-2 text-xs font-medium transition-colors duration-150 whitespace-nowrap flex-shrink-0"
+            class:font-semibold={view === id}
+            style="color: {view === id ? 'var(--color-primary)' : 'var(--text-secondary)'}"
+          >
+            {label}
+            {#if view === id}
+              <span class="absolute bottom-0 left-2 right-2 h-[2px] rounded-full" style="background: var(--color-primary)"></span>
+            {/if}
+          </button>
+        {/each}
+      </div>
+      <button
+        class="tab-nav-chevron"
+        aria-label="scroll right"
+        onclick={() => { const el = document.getElementById('cfg-tabs'); if(el) el.scrollBy({left:120,behavior:'smooth'}); }}
+      >&#8250;</button>
     </div>
 
     {#if view === 'agents'}
@@ -2046,4 +2058,35 @@ if __name__ == "__main__":
   .rules-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
   .rules-header h3 { margin: 0; font-size: 1rem; color: var(--text-primary); flex-shrink: 0; }
   .filter-input { max-width: 180px; min-width: 100px; margin: 0 auto; padding: 0.3rem 0.5rem; border: 1px solid var(--border-default); border-radius: 5px; font-size: 0.8rem; background: var(--bg-surface); color: var(--text-primary); }
+
+  /* ── Tab bar with chevron scroll ── */
+  .tab-nav-wrapper {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border-default);
+  }
+  .tab-nav-scroll {
+    display: flex;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;       /* Firefox */
+    -ms-overflow-style: none;    /* IE/Edge */
+  }
+  .tab-nav-scroll::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+  .tab-nav-chevron {
+    flex-shrink: 0;
+    width: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s, opacity 0.15s;
+    opacity: 0.6;
+  }
+  .tab-nav-chevron:hover { opacity: 1; color: var(--color-primary); }
 </style>
