@@ -263,8 +263,22 @@
     const vals = Object.values(rules);
     if (!filterText) return vals.sort(compareNamed);
     const q = filterText.toLowerCase();
-    return vals.filter(r => r.id.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q))
+    return vals.filter(r => [
+      r.id, r.title, r.description, r.pluginid, r.metric,
+      r.severity, r.scope, r.fire,
+    ].some(value => String(value ?? '').toLowerCase().includes(q)))
       .sort(compareNamed);
+  });
+
+  let filteredVariables = $derived.by(() => {
+    const entries = Object.entries(variables);
+    if (!filterText) return entries.sort((a, b) => alphaCompare(a[1].name, b[1].name) || alphaCompare(a[0], b[0]));
+    const q = filterText.toLowerCase();
+    return entries.filter(([id, variable]) => [
+      id, variable.name, variable.description, variable.value,
+      ...(variable.exceptions || []).flatMap(exception => [exception.type, exception.id, exception.value]),
+    ].some(value => String(value ?? '').toLowerCase().includes(q)))
+      .sort((a, b) => alphaCompare(a[1].name, b[1].name) || alphaCompare(a[0], b[0]));
   });
 
   let filteredExecutors = $derived.by(() => {
@@ -800,6 +814,9 @@
         </div>
       </div>
     {/each}
+    {#if filteredRules.length === 0}
+      <div class="empty">No rules match</div>
+    {/if}
   </div>
 {/if}
 {#if view === 'executors'}
@@ -928,12 +945,13 @@
   <div class="rules-view">
     <div class="rules-header">
       <h3>Variables</h3>
+      <input type="text" class="filter-input" placeholder="Filter variables..." bind:value={filterText} />
       <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewVariable}><Plus size={14} strokeWidth={2} /></button>
     </div>
     {#if Object.keys(variables).length === 0}
       <div class="text-sm text-center py-8" style="color:var(--text-secondary)">No variables yet. Create one to use dynamic thresholds in rules.</div>
     {/if}
-    {#each Object.entries(variables).sort((a, b) => alphaCompare(a[1].name, b[1].name) || alphaCompare(a[0], b[0])) as [vid, v]}
+    {#each filteredVariables as [vid, v]}
       <div class="rule-card">
         <div class="rule-head">
           <span class="rule-id font-mono" style="color:var(--color-primary)">{v.name}</span>
@@ -957,6 +975,9 @@
         </div>
       </div>
     {/each}
+    {#if Object.keys(variables).length > 0 && filteredVariables.length === 0}
+      <div class="empty">No variables match</div>
+    {/if}
   </div>
 {/if}
 
