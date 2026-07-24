@@ -3,9 +3,19 @@
   import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
   import AlertCircle from 'lucide-svelte/icons/alert-circle';
   import Info from 'lucide-svelte/icons/info';
-  import Plus from 'lucide-svelte/icons/plus';
+import Plus from 'lucide-svelte/icons/plus';
+  import Users from 'lucide-svelte/icons/users';
+  import ListChecks from 'lucide-svelte/icons/list-checks';
+  import Bell from 'lucide-svelte/icons/bell';
+  import FolderTree from 'lucide-svelte/icons/folder-tree';
+  import SlidersHorizontal from 'lucide-svelte/icons/sliders-horizontal';
+  import CalendarOff from 'lucide-svelte/icons/calendar-off';
+  import Terminal from 'lucide-svelte/icons/terminal';
+  import Plug from 'lucide-svelte/icons/plug';
+  import SearchX from 'lucide-svelte/icons/search-x';
   import PluginForm from './PluginForm.svelte';
   import CodeEditor from './CodeEditor.svelte';
+  import EmptyState from './components/EmptyState.svelte';
   import Tooltip from './components/Tooltip.svelte';
   import {
     fetchPluginSchemas, fetchAdminAgents, fetchAdminGroups,
@@ -381,6 +391,7 @@
   }
 
   async function selectView(nextView) {
+    if (view !== nextView) filterText = '';
     view = nextView;
     const resources = VIEW_DATA[nextView] || [];
     if (!resources.some(name => !loadedData.has(name))) return;
@@ -753,7 +764,11 @@
       }}><Plus size={14} strokeWidth={2} /></button>
     </div>
     {#if filteredAgents.length === 0}
-      <div class="empty">No agents</div>
+      <EmptyState
+        icon={filterText ? SearchX : Users}
+        message={filterText ? 'No agents match' : 'No agents'}
+        sub={filterText ? 'Try another search' : 'Create an agent to get started'}
+      />
     {:else}
       {#each filteredAgents as id}
         {@const a = agents[id]}
@@ -815,7 +830,7 @@
       </div>
     {/each}
     {#if filteredRules.length === 0}
-      <div class="empty">No rules match</div>
+      <EmptyState icon={filterText ? SearchX : ListChecks} message={filterText ? 'No rules match' : 'No rules'} sub={filterText ? 'Try another search' : 'Create a rule to get started'} />
     {/if}
   </div>
 {/if}
@@ -846,6 +861,9 @@
         </div>
       </div>
     {/each}
+    {#if filteredExecutors.length === 0}
+      <EmptyState icon={filterText ? SearchX : Terminal} message={filterText ? 'No executors match' : 'No executors'} sub={filterText ? 'Try another search' : 'Create an executor to get started'} />
+    {/if}
   </div>
 {/if}
 {#if view === 'notify'}
@@ -875,6 +893,9 @@
         </div>
       </div>
     {/each}
+    {#if filteredNotifications.length === 0}
+      <EmptyState icon={filterText ? SearchX : Bell} message={filterText ? 'No notifications match' : 'No notifications'} sub={filterText ? 'Try another search' : 'Create a notification to get started'} />
+    {/if}
   </div>
 {/if}
 {#if view === 'groups'}
@@ -885,7 +906,7 @@
       <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewGroup}><Plus size={14} strokeWidth={2} /></button>
     </div>
     {#if filteredGroups.length === 0}
-      <div class="empty">No groups</div>
+      <EmptyState icon={filterText ? SearchX : FolderTree} message={filterText ? 'No groups match' : 'No groups'} sub={filterText ? 'Try another search' : 'Create a group to get started'} />
     {:else}
       {#each filteredGroups as gid}
         {@const g = groups[gid]}
@@ -936,7 +957,7 @@
       </div>
     {/each}
     {#if filteredBlackouts.length === 0}
-      <div class="empty">No blackouts</div>
+      <EmptyState icon={filterText ? SearchX : CalendarOff} message={filterText ? 'No blackouts match' : 'No blackouts'} sub={filterText ? 'Try another search' : 'Create a blackout to get started'} />
     {/if}
   </div>
 {/if}
@@ -949,9 +970,9 @@
       <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewVariable}><Plus size={14} strokeWidth={2} /></button>
     </div>
     {#if Object.keys(variables).length === 0}
-      <div class="text-sm text-center py-8" style="color:var(--text-secondary)">No variables yet. Create one to use dynamic thresholds in rules.</div>
-    {/if}
-    {#each filteredVariables as [vid, v]}
+      <EmptyState icon={SlidersHorizontal} message="No variables" sub="Create a variable to use dynamic thresholds in rules" />
+    {:else}
+      {#each filteredVariables as [vid, v]}
       <div class="rule-card">
         <div class="rule-head">
           <span class="rule-id font-mono" style="color:var(--color-primary)">{v.name}</span>
@@ -973,10 +994,11 @@
           <button class="btn-edit" onclick={() => editVariable(vid)}>Edit</button>
           <button class="btn-del" onclick={() => handleDeleteVariable(vid)}>Delete</button>
         </div>
-      </div>
-    {/each}
-    {#if Object.keys(variables).length > 0 && filteredVariables.length === 0}
-      <div class="empty">No variables match</div>
+        </div>
+      {/each}
+      {#if filteredVariables.length === 0}
+        <EmptyState icon={SearchX} message="No variables match" sub="Try another search" />
+      {/if}
     {/if}
   </div>
 {/if}
@@ -1106,6 +1128,9 @@ if __name__ == "__main__":
         </div>
       </div>
     {/each}
+    {#if filteredPlugins.length === 0}
+      <EmptyState icon={filterText ? SearchX : Plug} message={filterText ? 'No plugins match' : 'No plugins'} sub={filterText ? 'Try another search' : 'Create a plugin to get started'} />
+    {/if}
   </div>
   {#if selPluginName}
     <div style="margin-top:1rem;border-top:1px solid #e2e8f0;padding-top:1rem;">
