@@ -115,7 +115,7 @@
               onclick={() => onDetail(alarm.id)}
               class="px-2 py-0.5 rounded text-[10px] font-medium transition-all duration-150 hover:brightness-110"
               style="background: rgba(20,184,166,0.1); color: #14b8a6"
-            >details</button>
+            >Details</button>
             <button
               onclick={() => onAck(alarm.id)}
               disabled={acking.has(alarm.id)}
