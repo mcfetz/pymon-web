@@ -580,7 +580,7 @@
         onclick={() => { const el = document.getElementById('cfg-tabs'); if(el) el.scrollBy({left:-120,behavior:'smooth'}); }}
       >&#8249;</button>
       <div id="cfg-tabs" class="tab-nav-scroll" style="border-color: var(--border-default)">
-        {#each ['Agents','Rules','Executors','Notifications','Groups','Blackouts','Variables','Plugins'] as label}
+        {#each ['Agents','Rules','Notifications','Groups','Variables','Blackouts','Executors','Plugins'] as label}
           {@const id = label === 'Notifications' ? 'notify' : label.toLowerCase()}
           <button
             onclick={() => view = id}
