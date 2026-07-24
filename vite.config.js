@@ -14,9 +14,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /\/api\/(?!push|push\/metrics).*/,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'api-cache', expiration: { maxEntries: 50, maxAgeSeconds: 300 } },
+            urlPattern: /\/api\/.*/,
+            handler: 'NetworkOnly',
           },
         ],
       },

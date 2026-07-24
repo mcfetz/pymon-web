@@ -299,13 +299,27 @@
   async function loadFilterOptions() {
     try {
       const [g, a, adminGroups] = await Promise.all([fetchGroups(), fetchAgents(), fetchAdminGroups()]);
+      const nextGroups = Object.keys(adminGroups);
+      const nextAgentIds = new Set(a.map(agent => agent.id));
+      const groupWasRemoved = filters.group && !nextGroups.includes(filters.group);
+      const nextAgentSelection = filters.agentid.filter(agentid => nextAgentIds.has(agentid));
+      const agentsWereRemoved = nextAgentSelection.length !== filters.agentid.length;
       groupAgents = g;
-      groups = Object.keys(g);
+      groups = nextGroups;
       agents = a;
       // Build title map: group_id → title (falls back to id)
       groupTitleMap = Object.fromEntries(
         Object.entries(adminGroups).map(([id, grp]) => [id, grp?.title || id])
       );
+      if (groupWasRemoved) filters.group = '';
+      if (agentsWereRemoved) filters.agentid = nextAgentSelection;
+      if (groupWasRemoved || agentsWereRemoved) {
+        filters.pluginid = '';
+        filters.metric = '';
+        plugins = [];
+        metricNames = [];
+        if (hasSearched) await doQuery();
+      }
     } catch (e) { metricsError = e.message; }
   }
   async function onGroupChange() {

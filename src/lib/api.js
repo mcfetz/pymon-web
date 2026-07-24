@@ -30,11 +30,16 @@ async function api(path, options = {}) {
   const headers = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (options.body) headers['Content-Type'] = 'application/json';
+  const method = options.method || 'GET';
+  const requestPath = method === 'GET'
+    ? `${path}${path.includes('?') ? '&' : '?'}_fresh=${Date.now()}`
+    : path;
 
-  const res = await fetch(`/api${path}`, {
-    method: options.method || 'GET',
+  const res = await fetch(`/api${requestPath}`, {
+    method,
     headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
+    cache: 'no-store',
   });
   if (res.status === 401) {
     setToken(null);
@@ -50,11 +55,12 @@ async function api(path, options = {}) {
 
 // ── Alarms ──
 export async function fetchAlarms(acknowledged = null) {
-  const params = acknowledged !== null ? `?acknowledged=${acknowledged}` : '';
+  const params = acknowledged !== null ? `?acknowledged=${acknowledged}` : '?';
+  const freshParams = `${params}${params.endsWith('?') ? '' : '&'}_fresh=${Date.now()}`;
   const token = getToken();
   const headers = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`/api/alarms${params}`, { headers });
+  const res = await fetch(`/api/alarms${freshParams}`, { headers, cache: 'no-store' });
   if (res.status === 401) {
     setToken(null);
     window.dispatchEvent(new CustomEvent('pymon:logout'));
