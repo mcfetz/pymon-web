@@ -66,22 +66,63 @@
     return `${Math.round(sec / 86400)}d ago`;
   }
 
-  function sparklinePath(data, w = 260, h = 44) {
+  function snoozeSummary(snooze) {
+    if (!snooze?.active) return 'not snoozed';
+    if (!snooze.expires_at) return 'active (permanent)';
+    return `active until ${fmt(snooze.expires_at)}`;
+  }
+
+  function dateMs(iso) {
+    if (!iso) return NaN;
+    const s = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
+    return new Date(s).getTime();
+  }
+
+  function sparklinePath(data, alarmValue, alarmTimestamp, w = 260, h = 44) {
     if (!data || data.length < 2) return { path: '', min: 0, max: 0 };
-    const vals = data.map(d => d.value).filter(v => v != null && !isNaN(v));
-    if (vals.length < 2) return { path: '', min: 0, max: 0 };
+    const rawPoints = data
+      .map(d => ({ value: Number(d.value), timestamp: d.timestamp }))
+      .filter(point => Number.isFinite(point.value));
+    if (rawPoints.length < 2) return { path: '', min: 0, max: 0 };
+    const vals = rawPoints.map(point => point.value);
     const min = Math.min(...vals);
     const max = Math.max(...vals);
     const range = max - min || 1;
-    const pts = vals.map((v, i) => {
-      const x = (i / (vals.length - 1)) * w;
-      const y = h - ((v - min) / range) * (h - 6) - 3;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    const points = rawPoints.map((point, i) => {
+      const x = (i / (rawPoints.length - 1)) * w;
+      const y = h - ((point.value - min) / range) * (h - 6) - 3;
+      return { ...point, x, y };
     });
-    return { path: `M${pts.join('L')}`, min, max };
+    const path = `M${points.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join('L')}`;
+
+    let alarmPoint = null;
+    const numericAlarmValue = Number(alarmValue);
+    if (Number.isFinite(numericAlarmValue)) {
+      const matchingPoints = points.filter(point => Math.abs(point.value - numericAlarmValue) < 1e-9);
+      const candidates = matchingPoints.length ? matchingPoints : points;
+      const targetTime = dateMs(alarmTimestamp);
+      const timedCandidates = candidates.filter(point => Number.isFinite(dateMs(point.timestamp)));
+      if (Number.isFinite(targetTime) && timedCandidates.length) {
+        alarmPoint = timedCandidates.reduce((closest, point) => (
+          Math.abs(dateMs(point.timestamp) - targetTime) < Math.abs(dateMs(closest.timestamp) - targetTime)
+            ? point
+            : closest
+        ));
+      } else {
+        alarmPoint = candidates[candidates.length - 1];
+      }
+
+      // Keep the marker inside the chart when the alarm value is outside the visible history range.
+      alarmPoint = {
+        x: alarmPoint.x,
+        y: Math.max(3, Math.min(h - 3, h - ((numericAlarmValue - min) / range) * (h - 6) - 3)),
+      };
+    }
+
+    return { path, min, max, alarmPoint };
   }
 
-  let sparkline = $derived(sparklinePath(alarm?.metric_history));
+  let sparkline = $derived(sparklinePath(alarm?.metric_history, alarm?.value, alarm?.created_at));
   let sev = $derived(alarm?.severity || 'warning');
 
   function conditionSummary(rule) {
@@ -172,8 +213,9 @@
             ['Metric',  alarm.metric],
             ['Value',   alarm.value != null ? String(alarm.value) : '—'],
             ['Fired',   `${fmt(alarm.created_at)}  ·  ${fmtRel(alarm.created_at)}`],
+            ['Snooze',  snoozeSummary(alarm.snooze)],
           ] as [label, val], i}
-            <div class="flex text-[12px]" style="border-bottom:{i < 4 ? '1px solid var(--border-default)' : 'none'}">
+            <div class="flex text-[12px]" style="border-bottom:{i < 5 ? '1px solid var(--border-default)' : 'none'}">
               <div class="w-20 px-3 py-2 font-medium flex-shrink-0" style="color:var(--text-secondary);background:rgba(0,0,0,0.02)">{label}</div>
               <div class="px-3 py-2 font-mono" style="color:var(--text-primary);word-break:break-all">{val}</div>
             </div>
@@ -183,21 +225,26 @@
         <!-- Metric sparkline -->
         {#if alarm.metric_history?.length >= 2}
           <div class="mb-3">
-            <div class="text-[11px] font-medium mb-1.5" style="color:var(--text-secondary)">Metric history (last {alarm.metric_history.length} values)</div>
+            <div class="flex items-center justify-between gap-2 text-[11px] font-medium mb-1.5" style="color:var(--text-secondary)">
+              <span>Metric history (last {alarm.metric_history.length} values)</span>
+            </div>
             <div class="rounded-xl px-3 py-2" style="background:rgba(0,0,0,0.03);border:1px solid var(--border-default)">
               <div class="flex justify-between text-[10px] mb-1" style="color:var(--text-secondary)">
                 <span>{sparkline.max?.toFixed ? sparkline.max.toFixed(1) : sparkline.max}</span>
                 <span>{sparkline.min?.toFixed ? sparkline.min.toFixed(1) : sparkline.min}</span>
               </div>
               <svg viewBox="0 0 260 44" width="100%" height="44" preserveAspectRatio="none">
-                <!-- Alarm value line -->
-                {#if alarm.value != null && sparkline.max !== sparkline.min}
-                  {@const lineY = 44 - ((alarm.value - sparkline.min) / (sparkline.max - sparkline.min)) * (44 - 6) - 3}
-                  <line x1="0" y1={lineY} x2="260" y2={lineY} stroke={SEV_COLOR[sev]} stroke-width="0.8" stroke-dasharray="4,3" opacity="0.5" />
+                <!-- Alarm value marker and reference line -->
+                {#if alarm.value != null && sparkline.alarmPoint}
+                  <line x1="0" y1={sparkline.alarmPoint.y} x2="260" y2={sparkline.alarmPoint.y} stroke={SEV_COLOR[sev]} stroke-width="0.8" stroke-dasharray="4,3" opacity="0.5" />
                 {/if}
                 <!-- Sparkline path -->
                 {#if sparkline.path}
                   <path d={sparkline.path} fill="none" stroke="var(--color-primary)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" />
+                {/if}
+                {#if alarm.value != null && sparkline.alarmPoint}
+                  {@const marker = sparkline.alarmPoint}
+                  <circle cx={marker.x} cy={marker.y} r="3.5" fill={SEV_COLOR[sev]} stroke="var(--glass-bg)" stroke-width="2" />
                 {/if}
               </svg>
               <div class="flex justify-between text-[10px] mt-1" style="color:var(--text-secondary)">

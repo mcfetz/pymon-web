@@ -8,6 +8,23 @@
 
   let { group = null, onAck = () => {}, onAckAll = () => {}, onRule = () => {}, onHistory = () => {}, onSnooze = () => {}, onDetail = () => {}, ruleTitleMap = {}, agentTitleMap = {}, pluginLabelMap = {}, snoozed = false, acking = new Set(), expanded = false, onexpand = () => {}, history = false } = $props();
 
+  const snoozeOptions = [
+    { label: '1h', value: '1h' },
+    { label: '6h', value: '6h' },
+    { label: '1d', value: '1d' },
+    { label: '1w', value: '1w' },
+  ];
+  let snoozeMenuOpen = $state(false);
+  let snoozeControl = $state(null);
+
+  function closeSnoozeMenuOnWindow(event) {
+    if (snoozeMenuOpen && !snoozeControl?.contains(event.target)) snoozeMenuOpen = false;
+  }
+
+  function closeSnoozeMenuOnKeydown(event) {
+    if (event.key === 'Escape') snoozeMenuOpen = false;
+  }
+
   let alarms       = $derived(group?.alarms || []);
   let rule_id      = $derived(group?.rule_id || '');
   let agentid      = $derived(group?.agentid || '');
@@ -30,8 +47,10 @@
   let latest = $derived(alarms[0]);
 </script>
 
+<svelte:window onclick={closeSnoozeMenuOnWindow} onkeydown={closeSnoozeMenuOnKeydown} />
+
 <div
-  class="glass rounded-[var(--radius-card)] transition-all duration-200 overflow-hidden"
+  class="glass rounded-[var(--radius-card)] transition-all duration-200 overflow-visible"
   style="border-left: 3px solid {sevColors[severity] || '#888'}"
 >
   <div class="p-4">
@@ -79,12 +98,41 @@
         {/if}
       </div>
 
-      <button
-        onclick={() => onSnooze(group)}
-        class="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all duration-150 hover:brightness-110 active:scale-95"
-        style="background: {snoozed ? 'rgba(234,179,8,0.15)' : 'rgba(0,0,0,0.03)'}; color: {snoozed ? '#ca8a04' : 'var(--text-secondary)'}; opacity: {snoozed ? '1' : '0.5'}"
-        title={snoozed ? 'unsnooze' : 'snooze'}
-      >{snoozed ? 'Snoozed' : 'Snooze'}</button>
+      <div bind:this={snoozeControl} class="relative flex snooze-control">
+        <div class="flex rounded-lg overflow-hidden border" style="border-color: var(--border-default)">
+          <button
+            onclick={() => onSnooze(group)}
+            class="px-2.5 py-1 text-[11px] font-medium transition-all duration-150 hover:brightness-110 active:scale-95"
+            style="background: {snoozed ? 'rgba(234,179,8,0.15)' : 'rgba(0,0,0,0.03)'}; color: {snoozed ? '#ca8a04' : 'var(--text-secondary)'}; opacity: {snoozed ? '1' : '0.5'}"
+            title={snoozed ? 'unsnooze' : 'snooze'}
+          >{snoozed ? 'Snoozed' : 'Snooze'}</button>
+          <button
+            onclick={() => snoozeMenuOpen = !snoozeMenuOpen}
+            class="px-1.5 py-1 border-l transition-all duration-150 hover:brightness-110 active:scale-95"
+            style="background: {snoozed ? 'rgba(234,179,8,0.15)' : 'rgba(0,0,0,0.03)'}; border-color: var(--border-default); color: var(--text-secondary)"
+            title="set snooze duration"
+            aria-label="set snooze duration"
+            aria-haspopup="menu"
+            aria-expanded={snoozeMenuOpen}
+          ><span class="transition-transform" class:rotate-180={snoozeMenuOpen}><ChevronDown size={12} /></span></button>
+        </div>
+        {#if snoozeMenuOpen}
+          <div
+            class="absolute right-0 top-full z-30 mt-1 min-w-20 rounded-lg border p-1 shadow-lg"
+            style="background: var(--glass-bg); border-color: var(--border-default)"
+            role="menu"
+          >
+            {#each snoozeOptions as option}
+              <button
+                onclick={() => { snoozeMenuOpen = false; onSnooze(group, option.value); }}
+                class="block w-full rounded-md px-2.5 py-1.5 text-left text-[11px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style="color: var(--text-secondary)"
+                role="menuitem"
+              >{option.label}</button>
+            {/each}
+          </div>
+        {/if}
+      </div>
       {/if}
 
       {#if alarms.length > 1}

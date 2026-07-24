@@ -54,6 +54,23 @@
     return prefix + s;
   }
 
+  function alphaCompare(a, b) {
+    return String(a ?? '').localeCompare(String(b ?? ''), undefined, { sensitivity: 'base' });
+  }
+
+  function namedValue(value, fallback = '') {
+    if (!value || typeof value !== 'object') return value || fallback;
+    return value.title || value.label || value.name || value.id || fallback;
+  }
+
+  function compareNamed(a, b) {
+    return alphaCompare(namedValue(a), namedValue(b)) || alphaCompare(a?.id || a?.name || '', b?.id || b?.name || '');
+  }
+
+  function compareEntries([idA, valueA], [idB, valueB]) {
+    return alphaCompare(namedValue(valueA, idA), namedValue(valueB, idB)) || alphaCompare(idA, idB);
+  }
+
   let view = $state('agents'); // 'agents'|'rules'|'executors'|'notify'|'groups'|'blackouts'|'plugins'|'variables'|'account'
   // ── Account state ──
   let accUsername = $state('');
@@ -214,55 +231,53 @@
   let filterText = $state('');
 
   let filteredAgents = $derived.by(() => {
-    const ids = Object.keys(agents);
-    if (!filterText) return ids.sort();
+    const entries = Object.entries(agents);
+    if (!filterText) return entries.sort(compareEntries).map(([id]) => id);
     const q = filterText.toLowerCase();
-    return ids.filter(id => {
-      const a = agents[id];
+    return entries.filter(([id, a]) => {
       return (a.title || id).toLowerCase().includes(q) || id.toLowerCase().includes(q);
-    }).sort();
+    }).sort(compareEntries).map(([id]) => id);
   });
 
   let filteredRules = $derived.by(() => {
     const vals = Object.values(rules);
-    if (!filterText) return vals.sort((a, b) => a.id.localeCompare(b.id));
+    if (!filterText) return vals.sort(compareNamed);
     const q = filterText.toLowerCase();
     return vals.filter(r => r.id.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q))
-      .sort((a, b) => a.id.localeCompare(b.id));
+      .sort(compareNamed);
   });
 
   let filteredExecutors = $derived.by(() => {
     const vals = Object.values(executors);
-    if (!filterText) return vals.sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+    if (!filterText) return vals.sort(compareNamed);
     const q = filterText.toLowerCase();
     return vals.filter(ex => (ex.title || ex.id).toLowerCase().includes(q) || ex.id.toLowerCase().includes(q) || (ex.command || '').toLowerCase().includes(q) || (ex.description || '').toLowerCase().includes(q))
-      .sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+      .sort(compareNamed);
   });
 
   let filteredNotifications = $derived.by(() => {
     const vals = Object.values(notifications);
-    if (!filterText) return vals.sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+    if (!filterText) return vals.sort(compareNamed);
     const q = filterText.toLowerCase();
     return vals.filter(n => (n.title || n.id).toLowerCase().includes(q) || n.id.toLowerCase().includes(q) || (n.to || '').toLowerCase().includes(q))
-      .sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+      .sort(compareNamed);
   });
 
   let filteredGroups = $derived.by(() => {
-    const ids = Object.keys(groups);
-    if (!filterText) return ids.sort();
+    const entries = Object.entries(groups);
+    if (!filterText) return entries.sort(compareEntries).map(([id]) => id);
     const q = filterText.toLowerCase();
-    return ids.filter(gid => {
-        const g = groups[gid];
+    return entries.filter(([gid, g]) => {
         const t = g?.title || '';
         return gid.toLowerCase().includes(q) || t.toLowerCase().includes(q);
-      }).sort();
+      }).sort(compareEntries).map(([id]) => id);
   });
 
   let filteredPlugins = $derived.by(() => {
-    if (!filterText) return [...pluginList].sort((a, b) => (a.label || a.name).localeCompare(b.label || b.name));
+    if (!filterText) return [...pluginList].sort(compareNamed);
     const q = filterText.toLowerCase();
     return pluginList.filter(p => (p.label || '').toLowerCase().includes(q) || p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q))
-      .sort((a, b) => (a.label || a.name).localeCompare(b.label || b.name));
+      .sort(compareNamed);
   });
 
   async function load() {
@@ -497,7 +512,7 @@
     for (const g of Object.values(groups)) {
       for (const p of g) set.add(p);
     }
-    return [...set].sort();
+    return [...set].sort(alphaCompare);
   });
 
   let agentPlugins = $derived.by(() => {
@@ -509,7 +524,9 @@
       for (const p of plugins) fromGroups.add(p);
     }
     const direct = new Set(Object.keys(a.plugins || {}));
-    return [...new Set([...fromGroups, ...direct])].sort();
+    return [...new Set([...fromGroups, ...direct])].sort((a, b) =>
+      alphaCompare(schemas[a]?.label || a, schemas[b]?.label || b) || alphaCompare(a, b)
+    );
   });
 
   function closeFs() {
@@ -561,9 +578,9 @@
   }
   let filteredBlackouts = $derived.by(() => {
     const vals = Object.values(blackouts);
-    if (!filterText) return vals.sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+    if (!filterText) return vals.sort(compareNamed);
     const q = filterText.toLowerCase();
-    return vals.filter(b => (b.title || b.id).toLowerCase().includes(q)).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id));
+    return vals.filter(b => (b.title || b.id).toLowerCase().includes(q)).sort(compareNamed);
   });
 
   onMount(load);
@@ -813,7 +830,7 @@
     {#if Object.keys(variables).length === 0}
       <div class="text-sm text-center py-8" style="color:var(--text-secondary)">No variables yet. Create one to use dynamic thresholds in rules.</div>
     {/if}
-    {#each Object.entries(variables).sort((a,b) => a[1].name.localeCompare(b[1].name)) as [vid, v]}
+    {#each Object.entries(variables).sort((a, b) => alphaCompare(a[1].name, b[1].name) || alphaCompare(a[0], b[0])) as [vid, v]}
       <div class="rule-card">
         <div class="rule-head">
           <span class="rule-id font-mono" style="color:var(--color-primary)">{v.name}</span>
@@ -1099,7 +1116,7 @@ if __name__ == "__main__":
                     onchange={(e) => { if (e.target.value) editedRule.threshold = e.target.value; e.target.value = ''; }}
                   >
                     <option value="">— use variable —</option>
-                    {#each Object.values(variables).sort((a,b)=>a.name.localeCompare(b.name)) as v}
+                    {#each Object.values(variables).sort((a, b) => alphaCompare(a.name, b.name) || alphaCompare(a.id, b.id)) as v}
                       <option value={v.name}>{v.name} (default: {v.value})</option>
                     {/each}
                   </select>
@@ -1160,7 +1177,7 @@ if __name__ == "__main__":
               <div class="dialog-field">
                 <label>{field.label}</label>
                 <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-                  {#each Object.entries(agents).sort(([ka, a], [kb, b]) => String(a.title || ka).localeCompare(String(b.title || kb))) as [agentId, agent] (agentId)}
+                  {#each Object.entries(agents).sort(compareEntries) as [agentId, agent] (agentId)}
                     <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
                       <input type="checkbox" checked={(editedRule[field.key] || []).includes(agentId)} onchange={(e) => {
                         const arr = [...(editedRule[field.key] || [])];
@@ -1191,7 +1208,7 @@ if __name__ == "__main__":
           {#each ruleSchema.fields as field}
             {#if field.key === 'notifications'}
               <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-                {#each Object.values(notifications).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id)) as n (n.id)}
+                {#each Object.values(notifications).sort(compareNamed) as n (n.id)}
                   <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
                     <input type="checkbox" checked={(editedRule[field.key] || []).includes(n.id)} onchange={(e) => {
                       const arr = [...(editedRule[field.key] || [])];
@@ -1221,7 +1238,7 @@ if __name__ == "__main__":
           {#each ruleSchema.fields as field}
             {#if field.key === 'executors'}
               <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-                {#each Object.values(executors).sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id)) as ex (ex.id)}
+                {#each Object.values(executors).sort(compareNamed) as ex (ex.id)}
                   <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
                     <input type="checkbox" checked={(editedRule[field.key] || []).includes(ex.id)} onchange={(e) => {
                       const arr = [...(editedRule[field.key] || [])];
@@ -1558,7 +1575,7 @@ if __name__ == "__main__":
         {#if expandedGroupPlugins}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
             <div class="dialog-array" style="max-height:250px;overflow-y:auto;">
-              {#each [...allPluginNames].sort() as pn}
+              {#each [...allPluginNames].sort(alphaCompare) as pn}
                 <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
                   <input type="checkbox" checked={(editedGroup.plugins || []).includes(pn)} onchange={(e) => {
                     const arr = [...(editedGroup.plugins || [])];
@@ -1677,7 +1694,7 @@ if __name__ == "__main__":
         {#if expandedBlackoutRules}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
           <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-            {#each Object.values(rules).sort((a,b) => a.id.localeCompare(b.id)) as rule}
+              {#each Object.values(rules).sort((a, b) => alphaCompare(a.id, b.id)) as rule}
               <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
                 <input type="checkbox" checked={(editedBlackout.target_rules || []).includes(rule.id)} onchange={(e) => {
                   const arr = [...(editedBlackout.target_rules || [])];
@@ -1704,7 +1721,7 @@ if __name__ == "__main__":
         {#if expandedBlackoutAgents}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
           <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-            {#each Object.entries(agents).sort(([ka,a],[kb,b]) => String(a.title||ka).localeCompare(String(b.title||kb))) as [agentId, agent]}
+            {#each Object.entries(agents).sort(compareEntries) as [agentId, agent]}
               <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
                 <input type="checkbox" checked={(editedBlackout.target_agents || []).includes(agentId)} onchange={(e) => {
                   const arr = [...(editedBlackout.target_agents || [])];
@@ -1731,7 +1748,7 @@ if __name__ == "__main__":
         {#if expandedBlackoutGroups}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
           <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-            {#each Object.keys(groups).sort() as gid}
+            {#each Object.entries(groups).sort(compareEntries).map(([gid]) => gid) as gid}
               <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
                 <input type="checkbox" checked={(editedBlackout.target_groups || []).includes(gid)} onchange={(e) => {
                   const arr = [...(editedBlackout.target_groups || [])];
@@ -1834,7 +1851,7 @@ if __name__ == "__main__":
         {#if expandedAgentSettings}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
             <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
-              {#each Object.keys(groups).sort() as g}
+              {#each Object.entries(groups).sort(compareEntries).map(([gid]) => gid) as g}
                 <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
                   <input type="checkbox" checked={agent.groups?.includes(g)} onchange={async () => { await toggleGroup(agentId, g); editedAgentData = { ...agents[agentId], id: agentId }; }} />
                   {groups[g]?.title || g}
@@ -1961,11 +1978,11 @@ if __name__ == "__main__":
             <select bind:value={exc.id} style="flex:1;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.78rem;background:var(--bg-surface);color:var(--text-primary)">
               <option value="">— select —</option>
               {#if exc.type === 'agent'}
-                {#each Object.entries(agents).sort() as [aid, ag]}
+                {#each Object.entries(agents).sort(compareEntries) as [aid, ag]}
                   <option value={aid}>{ag.title || aid} ({aid})</option>
                 {/each}
               {:else}
-                {#each Object.entries(groups).sort() as [gid, g]}
+                {#each Object.entries(groups).sort(compareEntries) as [gid, g]}
                   <option value={gid}>{g?.title || gid} ({gid})</option>
                 {/each}
               {/if}

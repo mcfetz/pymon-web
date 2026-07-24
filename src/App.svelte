@@ -115,9 +115,11 @@
   let alarmsTruncated = $state(false);
   let historyTruncated = $state(false);
 
-  async function handleToggleSnooze(alarm) {
+  async function handleToggleSnooze(alarm, duration = null) {
     try {
-      await toggleSnooze({ rule_id: alarm.rule_id, agentid: alarm.agentid, pluginid: alarm.pluginid, metric: alarm.metric });
+      const payload = { rule_id: alarm.rule_id, agentid: alarm.agentid, pluginid: alarm.pluginid, metric: alarm.metric };
+      if (duration) payload.duration = duration;
+      await toggleSnooze(payload);
       const snoozed = await fetchSnoozed();
       snoozedSet = new Set(snoozed.map(s => `${s.rule_id}|${s.agentid}|${s.pluginid}|${s.metric}`));
     } catch (e) { error = e.message; }
@@ -323,6 +325,7 @@
         plugins = [...merged.values()].sort((a, b) => a.title.localeCompare(b.title));
       } catch { plugins = []; }
     } else { plugins = []; }
+    await doQuery();
   }
   async function onPluginChange() {
     filters.metric = '';
