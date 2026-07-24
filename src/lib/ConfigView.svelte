@@ -181,8 +181,8 @@
   async function handleSaveVariable() {
     const id = editingVariable || genId('v');
     // Enforce $UPPERCASE format
-    const name = ('$' + (editedVariable.name || '').replace(/^\$/, '').toUpperCase().replace(/[^A-Z0-9]/g, ''));
-    if (!/^\$[A-Z0-9]+$/.test(name)) { error = 'Variable name must be $UPPERCASE (letters and numbers only)'; return; }
+    const name = ('$' + (editedVariable.name || '').replace(/^\$/, '').toUpperCase().replace(/[^A-Z0-9_]/g, ''));
+    if (!/^\$[A-Z0-9_]+$/.test(name)) { error = 'Variable name must be $UPPERCASE (letters, numbers and _ only)'; return; }
     editedVariable.name = name;
     try {
       await saveVariable(id, { ...editedVariable, id });
@@ -1084,7 +1084,7 @@ if __name__ == "__main__":
                   value={editedRule.threshold ?? ''}
                   oninput={(e) => {
                     const v = e.target.value;
-                    editedRule.threshold = v.startsWith('$') ? v.toUpperCase().replace(/[^$A-Z0-9]/g,'') : v;
+                    editedRule.threshold = v.startsWith('$') ? v.toUpperCase().replace(/[^$A-Z0-9_]/g,'') : v;
                     e.target.value = editedRule.threshold;
                   }}
                   placeholder="80 or $VAR"
@@ -1920,7 +1920,7 @@ if __name__ == "__main__":
           placeholder="$MY_THRESHOLD"
           value={editedVariable.name}
           oninput={(e) => {
-            let v = e.target.value.toUpperCase().replace(/[^$A-Z0-9]/g, '');
+            let v = e.target.value.toUpperCase().replace(/[^$A-Z0-9_]/g, '');
             if (!v.startsWith('$')) v = '$' + v.replace(/\$/g, '');
             editedVariable.name = v;
             e.target.value = v;
