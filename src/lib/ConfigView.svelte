@@ -13,6 +13,7 @@ import Plus from 'lucide-svelte/icons/plus';
   import Terminal from 'lucide-svelte/icons/terminal';
   import Plug from 'lucide-svelte/icons/plug';
   import SearchX from 'lucide-svelte/icons/search-x';
+  import Database from 'lucide-svelte/icons/database';
   import PluginForm from './PluginForm.svelte';
   import CodeEditor from './CodeEditor.svelte';
   import EmptyState from './components/EmptyState.svelte';
@@ -28,6 +29,7 @@ import Plus from 'lucide-svelte/icons/plus';
     updateAccount, setToken,
     fetchBlackouts, fetchBlackoutSchema, saveBlackout, deleteBlackout,
     fetchVariables, saveVariable, deleteVariable,
+    fetchMaintenanceStats,
   } from './api.js';
 
   let { pendingRule = null, onLogout = () => {}, onClearPendingRule = () => {} } = $props();
@@ -57,6 +59,10 @@ import Plus from 'lucide-svelte/icons/plus';
     return d.toLocaleString();
   }
 
+  function fmtCount(value) {
+    return Number(value || 0).toLocaleString('de-DE');
+  }
+
   function genId(prefix) {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     let s = '';
@@ -81,7 +87,7 @@ import Plus from 'lucide-svelte/icons/plus';
     return alphaCompare(namedValue(valueA, idA), namedValue(valueB, idB)) || alphaCompare(idA, idB);
   }
 
-  let view = $state('agents'); // 'agents'|'rules'|'executors'|'notify'|'groups'|'blackouts'|'plugins'|'variables'|'account'
+  let view = $state('agents'); // 'agents'|'rules'|'executors'|'notify'|'groups'|'blackouts'|'plugins'|'variables'|'maintenance'|'account'
   // ── Account state ──
   let accUsername = $state('');
   let accCurPw = $state('');
@@ -197,6 +203,7 @@ import Plus from 'lucide-svelte/icons/plus';
   let showVariableDialog = $state(false);
   let editingVariable = $state(null);
   let editedVariable = $state(null);
+  let maintenanceStats = $state(null);
 
   const CONFIG_DATA = [
     'schemas', 'agents', 'groups', 'rules', 'ruleSchema', 'executors',
@@ -212,6 +219,7 @@ import Plus from 'lucide-svelte/icons/plus';
     variables: ['variables'],
     blackouts: ['blackouts'],
     plugins: ['plugins'],
+    maintenance: ['maintenanceStats'],
   };
 
   async function openNewVariable() {
@@ -341,6 +349,7 @@ import Plus from 'lucide-svelte/icons/plus';
       case 'blackouts': blackouts = await fetchBlackouts(); break;
       case 'blackoutSchema': blackoutSchema = await fetchBlackoutSchema(); break;
       case 'variables': variables = await fetchVariables(); break;
+      case 'maintenanceStats': maintenanceStats = await fetchMaintenanceStats(); break;
       default: throw new Error(`Unknown configuration resource: ${name}`);
     }
     loadedData = new Set([...loadedData, name]);
@@ -728,7 +737,7 @@ import Plus from 'lucide-svelte/icons/plus';
         onclick={() => { const el = document.getElementById('cfg-tabs'); if(el) el.scrollBy({left:-120,behavior:'smooth'}); }}
       >&#8249;</button>
       <div id="cfg-tabs" class="tab-nav-scroll" style="border-color: var(--border-default)">
-        {#each ['Agents','Rules','Notifications','Groups','Variables','Blackouts','Executors','Plugins'] as label}
+        {#each ['Agents','Rules','Notifications','Groups','Variables','Blackouts','Executors','Plugins','Maintenance'] as label}
           {@const id = label === 'Notifications' ? 'notify' : label.toLowerCase()}
           <button
             onclick={() => selectView(id)}
@@ -1159,6 +1168,52 @@ if __name__ == "__main__":
       {/if}
     </div>
 {/if}
+{/if}
+{#if view === 'maintenance'}
+  <div class="rules-view">
+    <div class="rules-header">
+      <h3>Maintenance</h3>
+      <button
+        class="ml-auto px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:brightness-110"
+        style="background:rgba(var(--color-primary-rgb),0.1);color:var(--color-primary)"
+        onclick={async () => { try { maintenanceStats = await fetchMaintenanceStats(); } catch (e) { error = e.message; } }}
+      >Refresh</button>
+    </div>
+    {#if maintenanceStats}
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {#each [
+          ['Agents', maintenanceStats.agents, Users],
+          ['Groups', maintenanceStats.groups, FolderTree],
+          ['Rules', maintenanceStats.rules, ListChecks],
+          ['Notifications', maintenanceStats.notifications, Bell],
+          ['Executors', maintenanceStats.executors, Terminal],
+          ['Blackouts', maintenanceStats.blackouts, CalendarOff],
+          ['Variables', maintenanceStats.variables, SlidersHorizontal],
+          ['Plugins', maintenanceStats.plugins, Plug],
+          ['Metrics', maintenanceStats.metrics, Database],
+        ] as [label, count, Icon]}
+          <div class="glass rounded-[var(--radius-card)] p-4 flex items-center gap-3">
+            <div class="p-2 rounded-xl" style="background:rgba(var(--color-primary-rgb),0.1);color:var(--color-primary)">
+              <Icon size={18} strokeWidth={1.8} />
+            </div>
+            <div class="min-w-0">
+              <div class="text-[10px] uppercase tracking-wide font-semibold" style="color:var(--text-secondary)">{label}</div>
+              <div class="text-xl font-bold tabular-nums" style="color:var(--text-primary)">{fmtCount(count)}</div>
+            </div>
+          </div>
+        {/each}
+      </div>
+      <div class="glass rounded-[var(--radius-card)] p-4 mt-4 flex items-center gap-3 opacity-60">
+        <Database size={18} style="color:var(--text-secondary)" />
+        <div>
+          <div class="text-xs font-semibold" style="color:var(--text-primary)">Metric cleanup</div>
+          <div class="text-[11px]" style="color:var(--text-secondary)">Cleanup tools will be available here later.</div>
+        </div>
+      </div>
+    {:else}
+      <div class="text-center py-8 text-sm" style="color:var(--text-secondary)">Loading statistics...</div>
+    {/if}
+  </div>
 {/if}
 {#if view === 'account'}
   <div class="account-section">
