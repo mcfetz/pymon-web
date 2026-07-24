@@ -372,19 +372,25 @@
 
   let metricsStats = $derived.by(() => {
     if (!metricsData.length) return [];
-    const groups = {};
+    const groups: Record<string, number[]> = {};
     for (const row of metricsData) {
       if (typeof row.value !== 'number') continue;
-      const key = `${row.agent_title} > ${row.plugin_title} > ${row.metric}`;
+      const key = `${row.agent_title} › ${row.plugin_title} › ${row.metric}`;
       if (!groups[key]) groups[key] = [];
       groups[key].push(row.value);
     }
     return Object.entries(groups).map(([label, vals]) => {
       let min = Infinity, max = -Infinity, sum = 0;
       for (const v of vals) { if (v < min) min = v; if (v > max) max = v; sum += v; }
-      const avg = sum / vals.length;
-      const delta = vals[vals.length - 1] - vals[0];
-      return { label, min, max, avg, delta, count: vals.length };
+      return {
+        label,
+        min,
+        max,
+        avg: sum / vals.length,
+        latest: vals[vals.length - 1],
+        delta: vals[vals.length - 1] - vals[0],
+        count: vals.length,
+      };
     }).sort((a, b) => a.label.localeCompare(b.label));
   });
 

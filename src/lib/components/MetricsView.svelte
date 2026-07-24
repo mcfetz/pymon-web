@@ -124,12 +124,20 @@
   {/if}
 
   {#if metricsStats.length > 0}
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+    <div class="flex flex-col gap-2 mb-2">
       {#each metricsStats as s}
-        <GlassCard hover={false} className="p-3">
-          <p class="text-[10px] uppercase tracking-wide font-semibold m-0 mb-1 truncate" style="color: var(--text-secondary)">{s.label}</p>
-          <p class="text-sm font-mono font-bold m-0" style="color: var(--text-primary)">{fmtVal(s.value)}</p>
-        </GlassCard>
+        <div class="glass rounded-[var(--radius-card)] p-3">
+          <p class="text-[11px] font-semibold mb-2 truncate" style="color: var(--text-primary)">{s.label}</p>
+          <div class="grid grid-cols-5 gap-1 text-center">
+            {#each [['min', s.min], ['avg', s.avg], ['max', s.max], ['latest', s.latest], ['Δ', s.delta]] as [lbl, val]}
+              <div>
+                <div class="text-[9px] uppercase tracking-wide mb-0.5" style="color: var(--text-secondary)">{lbl}</div>
+                <div class="text-xs font-mono font-bold tabular-nums" style="color:{lbl === 'Δ' ? (val >= 0 ? '#22c55e' : '#ef4444') : 'var(--text-primary)'}">{fmtVal(val)}</div>
+              </div>
+            {/each}
+          </div>
+          <div class="text-[9px] mt-1.5 text-right" style="color: var(--text-secondary)">{s.count} values</div>
+        </div>
       {/each}
     </div>
   {/if}
