@@ -102,6 +102,8 @@
   let schemas = $state({});
   let agents = $state({});
   let groups = $state({});
+  let loadedData = $state(new Set());
+  const dataRequests = new Map();
   let loading = $state(true);
   let error = $state(null);
   let selectedAgent = $state(null);
@@ -186,13 +188,31 @@
   let editingVariable = $state(null);
   let editedVariable = $state(null);
 
-  function openNewVariable() {
+  const CONFIG_DATA = [
+    'schemas', 'agents', 'groups', 'rules', 'ruleSchema', 'executors',
+    'notifications', 'notifySchema', 'plugins', 'blackouts', 'blackoutSchema', 'variables',
+  ];
+
+  const VIEW_DATA = {
+    agents: ['agents'],
+    rules: ['rules'],
+    executors: ['executors'],
+    notify: ['notifications'],
+    groups: ['groups'],
+    variables: ['variables'],
+    blackouts: ['blackouts'],
+    plugins: ['plugins'],
+  };
+
+  async function openNewVariable() {
+    if (!await ensureDialogData(['agents', 'groups'])) return;
     editingVariable = null;
     editedVariable = { name: '$', description: '', value: 0, exceptions: [] };
     showVariableDialog = true;
   }
 
-  function editVariable(id) {
+  async function editVariable(id) {
+    if (!await ensureDialogData(['agents', 'groups'])) return;
     editingVariable = id;
     editedVariable = JSON.parse(JSON.stringify(variables[id]));
     showVariableDialog = true;
@@ -280,32 +300,109 @@
       .sort(compareNamed);
   });
 
-  async function load() {
+  async function fetchData(name) {
+    switch (name) {
+      case 'schemas':
+        schemas = await fetchPluginSchemas();
+        allPluginNames = Object.keys(schemas);
+        break;
+      case 'agents': agents = await fetchAdminAgents(); break;
+      case 'groups': groups = await fetchAdminGroups(); break;
+      case 'rules': rules = await fetchRules(); break;
+      case 'ruleSchema': ruleSchema = await fetchRuleSchema(); break;
+      case 'executors': executors = await fetchExecutors(); break;
+      case 'notifications': notifications = await fetchNotifications(); break;
+      case 'notifySchema': notifySchema = await fetchNotifySchema(); break;
+      case 'plugins': pluginList = await fetchAdminPlugins(); break;
+      case 'blackouts': blackouts = await fetchBlackouts(); break;
+      case 'blackoutSchema': blackoutSchema = await fetchBlackoutSchema(); break;
+      case 'variables': variables = await fetchVariables(); break;
+      default: throw new Error(`Unknown configuration resource: ${name}`);
+    }
+    loadedData = new Set([...loadedData, name]);
+  }
+
+  async function ensureData(names) {
+    const requests = names
+      .filter(name => !loadedData.has(name))
+      .map(name => {
+        if (!dataRequests.has(name)) {
+          const request = fetchData(name).finally(() => dataRequests.delete(name));
+          dataRequests.set(name, request);
+        }
+        return dataRequests.get(name);
+      });
+    await Promise.all(requests);
+  }
+
+  async function ensureDialogData(names) {
+    try {
+      await ensureData(names);
+      return true;
+    } catch (e) {
+      error = e.message;
+      return false;
+    }
+  }
+
+  async function refreshData(names) {
+    await Promise.all(names.map(name => fetchData(name)));
+  }
+
+  async function loadInitial() {
     loading = true; error = null;
     try {
-      const [s, a, g, rs, rsc, ex, nt, ns, pl, bs, bsc, vs] = await Promise.all([
-        fetchPluginSchemas(), fetchAdminAgents(), fetchAdminGroups(),
-        fetchRules(), fetchRuleSchema(), fetchExecutors(),
-        fetchNotifications(), fetchNotifySchema(),
-        fetchAdminPlugins(),
-        fetchBlackouts(), fetchBlackoutSchema(),
-        fetchVariables(),
-      ]);
-      schemas = s; agents = a; groups = g; rules = rs; ruleSchema = rsc;
-      executors = ex; notifications = nt; notifySchema = ns; pluginList = pl;
-      blackouts = bs; blackoutSchema = bsc; variables = vs;
-      allPluginNames = Object.keys(s);
+      await refreshData(pendingRule?.id ? ['agents', 'rules'] : ['agents']);
     } catch (e) { error = e.message; }
     finally { loading = false; }
   }
 
-  function openAgentDialog(id) {
+  async function load() {
+    loading = true; error = null;
+    try {
+      const names = CONFIG_DATA.filter(name => loadedData.has(name));
+      await refreshData(names.length ? names : ['agents']);
+    } catch (e) { error = e.message; }
+    finally { loading = false; }
+  }
+
+  async function selectView(nextView) {
+    view = nextView;
+    const resources = VIEW_DATA[nextView] || [];
+    if (!resources.some(name => !loadedData.has(name))) return;
+    loading = true; error = null;
+    try {
+      await ensureData(resources);
+    } catch (e) { error = e.message; }
+    finally { loading = false; }
+  }
+
+  async function openAgentDialog(id) {
+    if (!await ensureDialogData(['groups', 'schemas'])) return;
     editingAgent = id;
     selectedAgent = id;
     editedAgentData = { ...agents[id], id };
     selectedPlugin = null;
     editedPluginConfig = null;
     showAgentDialog = true;
+  }
+
+  async function openNewGroup() {
+    if (!await ensureDialogData(['schemas'])) return;
+    editedGroup = { id: '', title: '', description: '', plugins: [] };
+    showGroupDialog = true;
+  }
+
+  async function editGroup(id) {
+    if (!await ensureDialogData(['schemas'])) return;
+    const group = groups[id] || {};
+    editedGroup = {
+      id,
+      title: group.title || id,
+      description: group.description || '',
+      plugins: [...(group.plugins || group || [])],
+    };
+    showGroupDialog = true;
   }
 
   function closeAgentDialog() {
@@ -383,7 +480,8 @@
   }
 
   // ── Rules ──
-  function openNewRule() {
+  async function openNewRule() {
+    if (!await ensureDialogData(['rules', 'ruleSchema', 'schemas', 'plugins', 'variables', 'agents', 'notifications', 'executors'])) return;
     const def = {};
     for (const f of ruleSchema.fields) {
       if ('default' in f) def[f.key] = f.default;
@@ -395,7 +493,8 @@
     showRuleDialog = true;
   }
 
-  function editRule(id) {
+  async function editRule(id) {
+    if (!await ensureDialogData(['rules', 'ruleSchema', 'schemas', 'plugins', 'variables', 'agents', 'notifications', 'executors'])) return;
     editingRule = id;
     editedRule = { ...rules[id], id };
     showRuleDialog = true;
@@ -464,7 +563,8 @@
   }
 
   // ── Notifications ──
-  function openNewNotify() {
+  async function openNewNotify() {
+    if (!await ensureDialogData(['notifySchema'])) return;
     const def = {};
     for (const f of notifySchema.fields) {
       if ('default' in f) def[f.key] = f.default;
@@ -475,7 +575,8 @@
     showNotifyDialog = true;
   }
 
-  function editNotify(id) {
+  async function editNotify(id) {
+    if (!await ensureDialogData(['notifySchema'])) return;
     editingNotify = id;
     editedNotify = { ...notifications[id] };
     showNotifyDialog = true;
@@ -540,7 +641,8 @@
     if (e.key === 'Escape' && fsEditor !== null) closeFs();
   }
 
-  function openNewBlackout() {
+  async function openNewBlackout() {
+    if (!await ensureDialogData(['blackoutSchema', 'rules', 'agents', 'groups'])) return;
     const def = {};
     for (const f of blackoutSchema.fields) {
       if ('default' in f) def[f.key] = Array.isArray(f.default) ? [...f.default] : f.default;
@@ -551,7 +653,8 @@
     editedBlackout = { ...def };
     showBlackoutDialog = true;
   }
-  function editBlackout(id) {
+  async function editBlackout(id) {
+    if (!await ensureDialogData(['blackoutSchema', 'rules', 'agents', 'groups'])) return;
     editingBlackout = id;
     editedBlackout = { ...blackouts[id], id };
     showBlackoutDialog = true;
@@ -583,7 +686,7 @@
     return vals.filter(b => (b.title || b.id).toLowerCase().includes(q)).sort(compareNamed);
   });
 
-  onMount(load);
+  onMount(loadInitial);
 </script>
 
 {#if error}
@@ -603,7 +706,7 @@
         {#each ['Agents','Rules','Notifications','Groups','Variables','Blackouts','Executors','Plugins'] as label}
           {@const id = label === 'Notifications' ? 'notify' : label.toLowerCase()}
           <button
-            onclick={() => view = id}
+            onclick={() => selectView(id)}
             class="relative px-3 py-2 text-xs font-medium transition-colors duration-150 whitespace-nowrap flex-shrink-0"
             class:font-semibold={view === id}
             style="color: {view === id ? 'var(--color-primary)' : 'var(--text-secondary)'}"
@@ -762,7 +865,7 @@
     <div class="rules-header">
       <h3>Groups</h3>
       <input type="text" class="filter-input" placeholder="Filter groups..." bind:value={filterText} />
-      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={() => { editedGroup = { id: '', title: '', description: '', plugins: [] }; showGroupDialog = true; }}><Plus size={14} strokeWidth={2} /></button>
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewGroup}><Plus size={14} strokeWidth={2} /></button>
     </div>
     {#if filteredGroups.length === 0}
       <div class="empty">No groups</div>
@@ -777,7 +880,7 @@
             <div class="rule-desc">{g.description}</div>
           {/if}
           <div class="rule-actions">
-            <button class="btn-edit" onclick={() => { const g = groups[gid] || {}; editedGroup = { id: gid, title: g.title || gid, description: g.description || '', plugins: [...(g.plugins || g || [])] }; showGroupDialog = true; }}>Edit</button>
+            <button class="btn-edit" onclick={() => editGroup(gid)}>Edit</button>
             <button class="btn-dup" onclick={async () => {
               const ng = genId('g');
               const g = groups[gid] || {};

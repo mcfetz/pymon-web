@@ -409,7 +409,10 @@
     }
   }
 
-  function handleNavigate(v) { tab = v; }
+  async function handleNavigate(v) {
+    tab = v;
+    if (v === 'metrics') await loadFilterOptions();
+  }
 
   onMount(() => {
     if (!loggedIn) return;
