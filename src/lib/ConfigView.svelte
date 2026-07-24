@@ -1190,7 +1190,7 @@ if __name__ == "__main__":
             <div style="display:flex;gap:0.5rem;">
               <div class="dialog-field" style="flex:1">
                 <label>Metric</label>
-                <input type="text" bind:value={editedRule.metric} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+                <input type="text" bind:value={editedRule.metric} placeholder="name, regex, or *" style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
               </div>
               <div class="dialog-field" style="width:100px">
                 <label>Condition</label>
