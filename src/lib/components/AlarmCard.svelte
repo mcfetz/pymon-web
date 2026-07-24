@@ -2,10 +2,17 @@
   import { ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Info } from 'lucide-svelte';
   import { fade, slide } from 'svelte/transition';
 
-  let { group = null, onAck = () => {}, onAckAll = () => {}, onRule = () => {}, onHistory = () => {}, onSnooze = () => {}, onDetail = () => {}, snoozed = false, acking = new Set(), expanded = false, onexpand = () => {}, history = false } = $props();
+  let { group = null, onAck = () => {}, onAckAll = () => {}, onRule = () => {}, onHistory = () => {}, onSnooze = () => {}, onDetail = () => {}, ruleTitleMap = {}, agentTitleMap = {}, pluginLabelMap = {}, snoozed = false, acking = new Set(), expanded = false, onexpand = () => {}, history = false } = $props();
 
-  let alarms = $derived(group?.alarms || []);
-  let rule_id = $derived(group?.rule_id || '');
+  let alarms     = $derived(group?.alarms || []);
+  let rule_id    = $derived(group?.rule_id || '');
+  let agentid    = $derived(group?.agentid || '');
+  let pluginid   = $derived(group?.pluginid || '');
+  let metric     = $derived(group?.metric || '');
+  let severity   = $derived(group?.alarms?.[0]?.severity || 'warning');
+  let rule_label  = $derived(ruleTitleMap[rule_id] || rule_id);
+  let agent_label = $derived(agentTitleMap[agentid] || agentid);
+  let plugin_label = $derived(pluginLabelMap[pluginid] || pluginid);
   let agentid = $derived(group?.agentid || '');
   let pluginid = $derived(group?.pluginid || '');
   let metric = $derived(group?.metric || '');
@@ -31,7 +38,7 @@
     <div class="flex items-center justify-between mb-2">
       <div class="flex items-center gap-2 flex-1 min-w-0">
         <svelte:component this={sevIcons[severity] || Info} size={14} strokeWidth={2} style="color: {sevColors[severity]}" />
-        <span class="text-xs font-medium truncate font-mono" style="color: var(--text-primary)">{rule_id}</span>
+        <span class="text-xs font-medium truncate" style="color: var(--text-primary)">{rule_label}</span>
         {#if alarms.length > 1}
           <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style="background: var(--color-primary">{alarms.length}×</span>
         {/if}
@@ -42,9 +49,9 @@
     </div>
 
     <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] mb-3" style="color: var(--text-secondary)">
-      <span>Agent: {agentid}</span>
-      <span>Plugin: {pluginid}</span>
-      <span>Metric: {metric}</span>
+      <span>{agent_label}</span>
+      <span>{plugin_label}</span>
+      <span>{metric}</span>
     </div>
 
     <div class="flex flex-wrap items-center gap-1.5">

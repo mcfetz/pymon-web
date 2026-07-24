@@ -15,6 +15,9 @@
     onHistory = () => {},
     onSnooze = () => {},
     onDetail = () => {},
+    ruleTitleMap = {},
+    agentTitleMap = {},
+    pluginLabelMap = {},
     snoozedSet = new Set(),
     acking = new Set(),
     expandedStacks = new Set(),
@@ -56,6 +59,9 @@
         {onHistory}
         {onSnooze}
         {onDetail}
+        {ruleTitleMap}
+        {agentTitleMap}
+        {pluginLabelMap}
         snoozed={snoozedSet.has(g.key)}
         {acking}
         expanded={expandedStacks.has(g.key)}
@@ -75,6 +81,9 @@
         {onHistory}
         {onSnooze}
         {onDetail}
+        {ruleTitleMap}
+        {agentTitleMap}
+        {pluginLabelMap}
         snoozed={snoozedSet.has(`${alarm.rule_id}|${alarm.agentid}|${alarm.pluginid}|${alarm.metric}`)}
         {acking}
         {history}

@@ -9,6 +9,7 @@
     fetchGroups, fetchAgents, fetchAgentPlugins,
     fetchAgentPluginMetrics, queryMetrics,
     fetchSnoozed, toggleSnooze,
+    fetchRules, fetchAdminPlugins,
     login, setToken, isLoggedIn,
   } from './lib/api.js';
   import { initTheme } from './lib/theme.svelte.js';
@@ -245,6 +246,15 @@
   let pendingRule = $state(null);
   let alarmDetailId = $state(null);
 
+  // Rule title map for alarm cards
+  let rules = $state({});
+  let ruleTitleMap = $derived(
+    Object.fromEntries(Object.entries(rules).map(([id, r]) => [id, r.title || id]))
+  );
+
+  // Plugin label map for alarm cards (label from admin plugins metadata)
+  let pluginLabelMap = $state({});
+
   function openAlarmDetail(id) {
     if (id == null) return;
     alarmDetailId = id;
@@ -385,6 +395,10 @@
   onMount(() => {
     if (!loggedIn) return;
     loadAlarms(); checkPush(); loadFilterOptions(); loadSnoozed();
+    fetchRules().then(r => { rules = r; }).catch(() => {});
+    fetchAdminPlugins().then(list => {
+      pluginLabelMap = Object.fromEntries(list.map(p => [p.name, p.label || p.name]));
+    }).catch(() => {});
 
     // Hash routing — open alarm detail modal on #alarm/<id>
     function parseHash() {
@@ -429,6 +443,9 @@
           onHistory={jumpToHistory}
           onSnooze={handleToggleSnooze}
           onDetail={openAlarmDetail}
+          {ruleTitleMap}
+          {agentTitleMap}
+          {pluginLabelMap}
           {snoozedSet}
           {acking}
           {expandedStacks}
@@ -452,6 +469,9 @@
             onHistory={jumpToHistory}
             onSnooze={() => {}}
             onDetail={openAlarmDetail}
+            {ruleTitleMap}
+            {agentTitleMap}
+            {pluginLabelMap}
             snoozedSet={new Set()}
             acking={new Set()}
             expandedStacks={expandedHistoryStacks}
