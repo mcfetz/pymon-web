@@ -216,3 +216,12 @@ export function saveBlackout(id, data) {
 export function deleteBlackout(id) {
   return api(`/admin/blackouts/${id}`, { method: 'DELETE' });
 }
+
+// ── Variables ──
+export function fetchVariables() { return api('/admin/variables'); }
+export function saveVariable(id, data) {
+  return api(`/admin/variables/${id}`, { method: 'PUT', body: data });
+}
+export function deleteVariable(id) {
+  return api(`/admin/variables/${id}`, { method: 'DELETE' });
+}

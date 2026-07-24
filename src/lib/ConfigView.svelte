@@ -14,13 +14,14 @@
     fetchAdminPlugins, fetchPluginSource, fetchPluginTemplate, savePluginSource, checkPluginSource, deletePlugin, togglePluginEnabled, savePluginMeta,
     updateAccount, setToken,
     fetchBlackouts, fetchBlackoutSchema, saveBlackout, deleteBlackout,
+    fetchVariables, saveVariable, deleteVariable,
   } from './api.js';
 
   let { pendingRule = null, onLogout = () => {}, onClearPendingRule = () => {} } = $props();
 
   let anyDialogOpen = $derived(
     showRuleDialog || showExecDialog || showNotifyDialog || showPluginDialog ||
-    showGroupDialog || showBlackoutDialog || showAgentDialog
+    showGroupDialog || showBlackoutDialog || showAgentDialog || showVariableDialog
   );
 
   $effect(() => {
@@ -50,7 +51,7 @@
     return prefix + s;
   }
 
-  let view = $state('agents'); // 'agents' | 'rules' | 'executors' | 'notify' | 'groups' | 'plugins' | 'account'
+  let view = $state('agents'); // 'agents'|'rules'|'executors'|'notify'|'groups'|'blackouts'|'plugins'|'variables'|'account'
   // ── Account state ──
   let accUsername = $state('');
   let accCurPw = $state('');
@@ -157,7 +158,54 @@
   let editingBlackout = $state(null);
   let editedBlackout = $state(null);
   let blackouts = $state({});
-  let blackoutSchema = $state({ fields: [] }); // fullscreen editor content
+  let blackoutSchema = $state({ fields: [] });
+
+  // Variables state
+  let variables = $state({});
+  let showVariableDialog = $state(false);
+  let editingVariable = $state(null);
+  let editedVariable = $state(null);
+
+  function openNewVariable() {
+    editingVariable = null;
+    editedVariable = { name: '$', description: '', value: 0, exceptions: [] };
+    showVariableDialog = true;
+  }
+
+  function editVariable(id) {
+    editingVariable = id;
+    editedVariable = JSON.parse(JSON.stringify(variables[id]));
+    showVariableDialog = true;
+  }
+
+  async function handleSaveVariable() {
+    const id = editingVariable || genId('v');
+    // Enforce $UPPERCASE format
+    const name = ('$' + (editedVariable.name || '').replace(/^\$/, '').toUpperCase().replace(/[^A-Z0-9]/g, ''));
+    if (!/^\$[A-Z0-9]+$/.test(name)) { error = 'Variable name must be $UPPERCASE (letters and numbers only)'; return; }
+    editedVariable.name = name;
+    try {
+      await saveVariable(id, { ...editedVariable, id });
+      variables = await fetchVariables();
+      showVariableDialog = false;
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleDeleteVariable(id) {
+    if (!confirm(`Delete variable ${variables[id]?.name}?`)) return;
+    try {
+      await deleteVariable(id);
+      variables = await fetchVariables();
+    } catch (e) { error = e.message; }
+  }
+
+  function addVarException() {
+    editedVariable.exceptions = [...(editedVariable.exceptions || []), { type: 'agent', id: '', value: 0 }];
+  }
+
+  function removeVarException(i) {
+    editedVariable.exceptions = editedVariable.exceptions.filter((_, j) => j !== i);
+  }
 
   // ── Filters ──
   let filterText = $state('');
@@ -217,16 +265,17 @@
   async function load() {
     loading = true; error = null;
     try {
-      const [s, a, g, rs, rsc, ex, nt, ns, pl, bs, bsc] = await Promise.all([
+      const [s, a, g, rs, rsc, ex, nt, ns, pl, bs, bsc, vs] = await Promise.all([
         fetchPluginSchemas(), fetchAdminAgents(), fetchAdminGroups(),
         fetchRules(), fetchRuleSchema(), fetchExecutors(),
         fetchNotifications(), fetchNotifySchema(),
         fetchAdminPlugins(),
         fetchBlackouts(), fetchBlackoutSchema(),
+        fetchVariables(),
       ]);
       schemas = s; agents = a; groups = g; rules = rs; ruleSchema = rsc;
       executors = ex; notifications = nt; notifySchema = ns; pluginList = pl;
-      blackouts = bs; blackoutSchema = bsc;
+      blackouts = bs; blackoutSchema = bsc; variables = vs;
       allPluginNames = Object.keys(s);
     } catch (e) { error = e.message; }
     finally { loading = false; }
@@ -525,7 +574,7 @@
     <div class="text-center py-16 text-sm" style="color: var(--text-secondary)">loading configuration...</div>
   {:else}
     <div class="flex gap-0 mb-6 border-b overflow-x-auto" style="border-color: var(--border-default)">
-      {#each ['Agents','Rules','Executors','Notifications','Groups','Blackouts','Plugins'] as label}
+      {#each ['Agents','Rules','Executors','Notifications','Groups','Blackouts','Variables','Plugins'] as label}
         {@const id = label === 'Notifications' ? 'notify' : label.toLowerCase()}
         <button
           onclick={() => view = id}
@@ -739,6 +788,43 @@
     {/if}
   </div>
 {/if}
+
+{#if view === 'variables'}
+  <div class="rules-view">
+    <div class="rules-header">
+      <h3>Variables</h3>
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewVariable}><Plus size={14} strokeWidth={2} /></button>
+    </div>
+    {#if Object.keys(variables).length === 0}
+      <div class="text-sm text-center py-8" style="color:var(--text-secondary)">No variables yet. Create one to use dynamic thresholds in rules.</div>
+    {/if}
+    {#each Object.entries(variables).sort((a,b) => a[1].name.localeCompare(b[1].name)) as [vid, v]}
+      <div class="rule-card">
+        <div class="rule-head">
+          <span class="rule-id font-mono" style="color:var(--color-primary)">{v.name}</span>
+          <span class="rule-status active">default: {v.value}</span>
+        </div>
+        {#if v.description}
+          <div class="rule-desc">{v.description}</div>
+        {/if}
+        {#if v.exceptions?.length}
+          <div class="text-[11px] mt-1 flex flex-wrap gap-1" style="color:var(--text-secondary)">
+            {#each v.exceptions as exc}
+              <span class="px-1.5 py-0.5 rounded" style="background:rgba(var(--color-primary-rgb),0.08)">
+                {exc.type === 'agent' ? '👤' : '🔷'} {exc.id}: {exc.value}
+              </span>
+            {/each}
+          </div>
+        {/if}
+        <div class="rule-actions">
+          <button class="btn-edit" onclick={() => editVariable(vid)}>Edit</button>
+          <button class="btn-del" onclick={() => handleDeleteVariable(vid)}>Delete</button>
+        </div>
+      </div>
+    {/each}
+  </div>
+{/if}
+
 {#if view === 'plugins'}
   <div class="rules-view">
     <div class="rules-header">
@@ -979,9 +1065,30 @@ if __name__ == "__main__":
                   {/each}
                 </select>
               </div>
-              <div class="dialog-field" style="width:100px">
+              <div class="dialog-field" style="width:140px">
                 <label>Threshold</label>
-                <input type="number" bind:value={editedRule.threshold} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+                <input
+                  type="text"
+                  value={editedRule.threshold ?? ''}
+                  oninput={(e) => {
+                    const v = e.target.value;
+                    editedRule.threshold = v.startsWith('$') ? v.toUpperCase().replace(/[^$A-Z0-9]/g,'') : v;
+                    e.target.value = editedRule.threshold;
+                  }}
+                  placeholder="80 or $VAR"
+                  style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:{String(editedRule.threshold).startsWith('$') ? 'var(--color-primary)' : 'var(--text-primary)'}; font-family: {String(editedRule.threshold).startsWith('$') ? 'monospace' : 'inherit'}"
+                />
+                {#if Object.keys(variables).length > 0}
+                  <select
+                    style="width:100%;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.75rem;background:var(--bg-surface);color:var(--text-secondary);margin-top:2px"
+                    onchange={(e) => { if (e.target.value) editedRule.threshold = e.target.value; e.target.value = ''; }}
+                  >
+                    <option value="">— use variable —</option>
+                    {#each Object.values(variables).sort((a,b)=>a.name.localeCompare(b.name)) as v}
+                      <option value={v.name}>{v.name} (default: {v.value})</option>
+                    {/each}
+                  </select>
+                {/if}
               </div>
             </div>
             <div style="display:flex;gap:0.5rem;">
@@ -1780,6 +1887,84 @@ if __name__ == "__main__":
     </div>
     <div class="fs-editor-body">
       <CodeEditor value={fsEditor} onchange={(v) => { fsEditor = v; }} />
+    </div>
+  </div>
+{/if}
+
+<!-- Variable Dialog -->
+{#if showVariableDialog && editedVariable}
+  <div class="dialog-overlay" onclick={() => showVariableDialog = false}></div>
+  <div class="dialog" style="max-width:520px">
+    <div class="dialog-header">
+      <h3>{editingVariable ? 'Edit Variable' : 'New Variable'}</h3>
+      <button class="btn-close" onclick={() => showVariableDialog = false}>✕</button>
+    </div>
+    <div class="dialog-body">
+
+      <div class="dialog-field">
+        <label>Name</label>
+        <input
+          type="text"
+          placeholder="$MY_THRESHOLD"
+          value={editedVariable.name}
+          oninput={(e) => {
+            let v = e.target.value.toUpperCase().replace(/[^$A-Z0-9]/g, '');
+            if (!v.startsWith('$')) v = '$' + v.replace(/\$/g, '');
+            editedVariable.name = v;
+            e.target.value = v;
+          }}
+          style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;font-family:monospace;background:var(--bg-surface);color:var(--color-primary)"
+        />
+        <span class="text-[11px]" style="color:var(--text-secondary)">$UPPERCASE — letters and numbers only</span>
+      </div>
+
+      <div class="dialog-field">
+        <label>Description</label>
+        <input type="text" bind:value={editedVariable.description} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+      </div>
+
+      <div class="dialog-field">
+        <label>Default value</label>
+        <input type="number" bind:value={editedVariable.value} step="any" style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+      </div>
+
+      <!-- Exceptions -->
+      <div style="margin-top:0.75rem">
+        <div class="flex items-center justify-between mb-1">
+          <label style="font-size:0.78rem;font-weight:600;color:var(--text-secondary)">Exceptions</label>
+          <button class="btn-edit" style="font-size:0.72rem;padding:0.2rem 0.5rem" onclick={addVarException}>+ Add</button>
+        </div>
+        {#if (editedVariable.exceptions || []).length === 0}
+          <div class="text-[11px] py-2" style="color:var(--text-secondary)">No exceptions — all agents use the default value.</div>
+        {/if}
+        {#each (editedVariable.exceptions || []) as exc, i}
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <select bind:value={exc.type} style="padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.78rem;background:var(--bg-surface);color:var(--text-primary);width:80px">
+              <option value="agent">Agent</option>
+              <option value="group">Group</option>
+            </select>
+            <select bind:value={exc.id} style="flex:1;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.78rem;background:var(--bg-surface);color:var(--text-primary)">
+              <option value="">— select —</option>
+              {#if exc.type === 'agent'}
+                {#each Object.entries(agents).sort() as [aid, ag]}
+                  <option value={aid}>{ag.title || aid} ({aid})</option>
+                {/each}
+              {:else}
+                {#each Object.entries(groups).sort() as [gid, g]}
+                  <option value={gid}>{g?.title || gid} ({gid})</option>
+                {/each}
+              {/if}
+            </select>
+            <input type="number" bind:value={exc.value} step="any" style="width:80px;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.78rem;background:var(--bg-surface);color:var(--text-primary)" />
+            <button onclick={() => removeVarException(i)} style="color:#ef4444;font-size:1rem;background:none;border:none;cursor:pointer;padding:0 0.2rem">×</button>
+          </div>
+        {/each}
+      </div>
+
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-cancel" onclick={() => showVariableDialog = false}>Cancel</button>
+      <button class="btn-save-rule" onclick={handleSaveVariable}>Save</button>
     </div>
   </div>
 {/if}
