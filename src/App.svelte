@@ -372,7 +372,7 @@
 
   let metricsStats = $derived.by(() => {
     if (!metricsData.length) return [];
-    const groups: Record<string, number[]> = {};
+      const groups = {};
     for (const row of metricsData) {
       if (typeof row.value !== 'number') continue;
       const key = `${row.agent_title} › ${row.plugin_title} › ${row.metric}`;
