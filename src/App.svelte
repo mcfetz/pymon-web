@@ -9,7 +9,7 @@
     fetchGroups, fetchAgents, fetchAgentPlugins,
     fetchAgentPluginMetrics, queryMetrics,
     fetchSnoozed, toggleSnooze,
-    fetchRules, fetchAdminPlugins,
+    fetchRules, fetchAdminPlugins, fetchAdminGroups,
     login, setToken, isLoggedIn,
   } from './lib/api.js';
   import { initTheme } from './lib/theme.svelte.js';
@@ -254,6 +254,7 @@
 
   // Plugin label map for alarm cards (label from admin plugins metadata)
   let pluginLabelMap = $state({});
+  let groupTitleMap  = $state({});
 
   function openAlarmDetail(id) {
     if (id == null) return;
@@ -292,8 +293,14 @@
 
   async function loadFilterOptions() {
     try {
-      const [g, a] = await Promise.all([fetchGroups(), fetchAgents()]);
-      groupAgents = g; groups = Object.keys(g); agents = a;
+      const [g, a, adminGroups] = await Promise.all([fetchGroups(), fetchAgents(), fetchAdminGroups()]);
+      groupAgents = g;
+      groups = Object.keys(g);
+      agents = a;
+      // Build title map: group_id → title (falls back to id)
+      groupTitleMap = Object.fromEntries(
+        Object.entries(adminGroups).map(([id, grp]) => [id, grp?.title || id])
+      );
     } catch (e) { metricsError = e.message; }
   }
   async function onGroupChange() {
@@ -497,6 +504,7 @@
           onpluginchange={onPluginChange}
           {doQuery}
           {groups}
+          {groupTitleMap}
           {filteredAgents}
           {plugins}
           {metricNames}

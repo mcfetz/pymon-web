@@ -14,6 +14,7 @@
     onpluginchange = () => {},
     doQuery = () => {},
     groups = [],
+    groupTitleMap = {},
     filteredAgents = [],
     plugins = [],
     metricNames = [],
@@ -55,7 +56,7 @@
       <div class="flex flex-col gap-0.5">
         <span class="text-[9px] uppercase tracking-wide font-semibold" style="color: var(--text-secondary)">group</span>
         <Select
-          items={groups.map(g => ({ id: g, title: g }))}
+          items={groups.map(g => ({ id: g, title: groupTitleMap[g] || g }))}
           selected={filters.group}
           placeholder="all groups"
           onchange={(v) => { filters.group = v; onfilterchange(); ongroupchange(); }}
