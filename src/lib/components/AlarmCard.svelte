@@ -4,19 +4,15 @@
 
   let { group = null, onAck = () => {}, onAckAll = () => {}, onRule = () => {}, onHistory = () => {}, onSnooze = () => {}, onDetail = () => {}, ruleTitleMap = {}, agentTitleMap = {}, pluginLabelMap = {}, snoozed = false, acking = new Set(), expanded = false, onexpand = () => {}, history = false } = $props();
 
-  let alarms     = $derived(group?.alarms || []);
-  let rule_id    = $derived(group?.rule_id || '');
-  let agentid    = $derived(group?.agentid || '');
-  let pluginid   = $derived(group?.pluginid || '');
-  let metric     = $derived(group?.metric || '');
-  let severity   = $derived(group?.alarms?.[0]?.severity || 'warning');
-  let rule_label  = $derived(ruleTitleMap[rule_id] || rule_id);
-  let agent_label = $derived(agentTitleMap[agentid] || agentid);
+  let alarms       = $derived(group?.alarms || []);
+  let rule_id      = $derived(group?.rule_id || '');
+  let agentid      = $derived(group?.agentid || '');
+  let pluginid     = $derived(group?.pluginid || '');
+  let metric       = $derived(group?.metric || '');
+  let severity     = $derived(group?.alarms?.[0]?.severity || 'warning');
+  let rule_label   = $derived(ruleTitleMap[rule_id] || rule_id);
+  let agent_label  = $derived(agentTitleMap[agentid] || agentid);
   let plugin_label = $derived(pluginLabelMap[pluginid] || pluginid);
-  let agentid = $derived(group?.agentid || '');
-  let pluginid = $derived(group?.pluginid || '');
-  let metric = $derived(group?.metric || '');
-  let severity = $derived(group?.alarms?.[0]?.severity || 'warning');
 
   let sevIcons = { critical: AlertCircle, warning: AlertTriangle, info: Info };
   let sevColors = { critical: '#ef4444', warning: '#f59e0b', info: '#3b82f6' };
