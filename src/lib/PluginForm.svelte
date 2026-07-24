@@ -43,6 +43,7 @@
         <input
           type="number"
           min={field.min}
+          max={field.max}
           value={val(field.key)}
           oninput={(e) => setVal(field.key, parseFloat(e.target.value) || 0)}
         />
