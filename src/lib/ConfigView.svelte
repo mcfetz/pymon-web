@@ -1983,7 +1983,7 @@ if __name__ == "__main__":
 
 <style>
   .dialog-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.5); touch-action: none; overscroll-behavior: none; }
-  .dialog { position: fixed; top: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 51; background: #fff; border: 1px solid var(--border-default, #e2e8f0); border-radius: var(--radius-card); box-shadow: 0 16px 48px rgba(0,0,0,0.15); max-width: 500px; width: calc(100vw - 2rem); max-height: calc(100vh - 3rem - env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain; }
+  .dialog { position: fixed; top: max(1.5rem, env(safe-area-inset-top, 0px) + 0.5rem); left: 50%; transform: translateX(-50%); z-index: 51; background: #fff; border: 1px solid var(--border-default, #e2e8f0); border-radius: var(--radius-card); box-shadow: 0 16px 48px rgba(0,0,0,0.15); max-width: 500px; width: calc(100vw - 2rem); max-height: calc(100vh - max(3rem, env(safe-area-inset-top, 0px) + 2rem) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain; }
   :global(.dark) .dialog { background: #0f172a; box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
   .dialog-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-default); }
   .dialog-header h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary); }

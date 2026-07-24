@@ -272,7 +272,7 @@
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding-top: 1.5rem;
+    padding-top: max(1.5rem, env(safe-area-inset-top, 0px) + 0.5rem);
   }
   .dialog {
     position: relative;
@@ -282,7 +282,7 @@
     border-radius: var(--radius-card, 12px);
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
     width: calc(100vw - 2rem);
-    max-height: calc(100vh - 3rem - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100vh - max(3rem, env(safe-area-inset-top, 0px) + 2rem) - env(safe-area-inset-bottom, 0px));
     overflow: hidden;
     display: flex;
     flex-direction: column;
