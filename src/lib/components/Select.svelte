@@ -4,7 +4,7 @@
   let { items = [], selected = '', onchange = () => {}, placeholder = 'Select...' } = $props();
   let open = $state(false);
 
-  function toggle() { open = !open; }
+  let selectedLabel = $derived(items.find(i => i.id === selected)?.title || selected);
 </script>
 
 <div class="relative">
@@ -13,7 +13,7 @@
     class="flex items-center justify-between gap-1 px-3 py-2 rounded-lg border text-xs bg-transparent outline-none min-w-[100px] w-full"
     style="border-color: var(--border-default); color: {selected ? 'var(--text-primary)' : 'var(--text-secondary)'}"
   >
-    <span class="truncate">{selected || placeholder}</span>
+    <span class="truncate">{selected ? selectedLabel : placeholder}</span>
     <ChevronDown size={12} style="color: var(--text-secondary); transform: {open ? 'rotate(180deg)' : 'rotate(0)'}; transition: transform 0.2s" />
   </button>
 
