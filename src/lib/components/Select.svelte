@@ -3,8 +3,9 @@
 
   let { items = [], selected = '', onchange = () => {}, placeholder = 'Select...' } = $props();
   let open = $state(false);
-
   let selectedLabel = $derived(items.find(i => i.id === selected)?.title || selected);
+
+  function toggle() { open = !open; }
 </script>
 
 <div class="relative">
