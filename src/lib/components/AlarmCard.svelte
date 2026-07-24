@@ -1,5 +1,9 @@
 <script>
-  import { ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Info } from 'lucide-svelte';
+  import ChevronDown from 'lucide-svelte/icons/chevron-down';
+  import ChevronUp from 'lucide-svelte/icons/chevron-up';
+  import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
+  import AlertCircle from 'lucide-svelte/icons/alert-circle';
+  import Info from 'lucide-svelte/icons/info';
   import { fade, slide } from 'svelte/transition';
 
   let { group = null, onAck = () => {}, onAckAll = () => {}, onRule = () => {}, onHistory = () => {}, onSnooze = () => {}, onDetail = () => {}, ruleTitleMap = {}, agentTitleMap = {}, pluginLabelMap = {}, snoozed = false, acking = new Set(), expanded = false, onexpand = () => {}, history = false } = $props();

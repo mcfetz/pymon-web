@@ -1,5 +1,5 @@
 <script>
-  import { FileSearch } from 'lucide-svelte';
+  import FileSearch from 'lucide-svelte/icons/file-search';
 
   let { icon = FileSearch, message = 'No data', sub = '' } = $props();
 </script>

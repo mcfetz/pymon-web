@@ -1,5 +1,6 @@
 <script>
-  import { LogOut, User } from 'lucide-svelte';
+  import LogOut from 'lucide-svelte/icons/log-out';
+  import User from 'lucide-svelte/icons/user';
   import GlassCard from './GlassCard.svelte';
 
   let { onlogout = () => {}, onsave = () => {} } = $props();

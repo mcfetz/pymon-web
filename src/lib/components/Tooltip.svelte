@@ -1,5 +1,5 @@
 <script>
-  import { Info } from 'lucide-svelte';
+  import Info from 'lucide-svelte/icons/info';
   let { text = '' } = $props();
   let show = $state(false);
 </script>

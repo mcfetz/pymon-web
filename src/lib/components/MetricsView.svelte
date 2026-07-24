@@ -4,7 +4,7 @@
   import MultiSelect from './MultiSelect.svelte';
   import Select from './Select.svelte';
   import MetricsChart from '../MetricsChart.svelte';
-  import { ChartArea } from 'lucide-svelte';
+  import ChartArea from 'lucide-svelte/icons/chart-area';
 
   let {
     filters,

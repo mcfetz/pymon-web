@@ -1,5 +1,8 @@
 <script>
-  import { ShieldCheck, AlertTriangle, AlertCircle, Info } from 'lucide-svelte';
+  import ShieldCheck from 'lucide-svelte/icons/shield-check';
+  import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
+  import AlertCircle from 'lucide-svelte/icons/alert-circle';
+  import Info from 'lucide-svelte/icons/info';
   import FilterPills from './FilterPills.svelte';
   import AlarmCard from './AlarmCard.svelte';
   import EmptyState from './EmptyState.svelte';

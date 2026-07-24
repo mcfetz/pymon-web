@@ -21,7 +21,10 @@
   import MetricsView from './lib/components/MetricsView.svelte';
   import AccountPage from './lib/components/AccountPage.svelte';
   import PageHeader from './lib/components/PageHeader.svelte';
-  import { Bell, Clock, ChartArea, Cog } from 'lucide-svelte';
+  import Bell from 'lucide-svelte/icons/bell';
+  import Clock from 'lucide-svelte/icons/clock';
+  import ChartArea from 'lucide-svelte/icons/chart-area';
+  import Cog from 'lucide-svelte/icons/cog';
   import { updateAccount } from './lib/api.js';
 
   initTheme();

@@ -1,5 +1,5 @@
 <script>
-  import { ChevronDown } from 'lucide-svelte';
+  import ChevronDown from 'lucide-svelte/icons/chevron-down';
 
   let { items = [], selected = '', onchange = () => {}, placeholder = 'Select...' } = $props();
   let open = $state(false);

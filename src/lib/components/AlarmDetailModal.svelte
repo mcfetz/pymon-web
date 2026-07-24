@@ -1,5 +1,11 @@
 <script>
-  import { AlertTriangle, AlertCircle, Info, X, Copy, Check, ExternalLink } from 'lucide-svelte';
+  import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
+  import AlertCircle from 'lucide-svelte/icons/alert-circle';
+  import Info from 'lucide-svelte/icons/info';
+  import X from 'lucide-svelte/icons/x';
+  import Copy from 'lucide-svelte/icons/copy';
+  import Check from 'lucide-svelte/icons/check';
+  import ExternalLink from 'lucide-svelte/icons/external-link';
   import { fetchAlarm, acknowledgeAlarm } from '../api.js';
 
   let { alarmId = null, onClose = () => {}, onAcked = () => {} } = $props();

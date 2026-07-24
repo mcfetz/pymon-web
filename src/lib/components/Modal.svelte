@@ -1,5 +1,5 @@
 <script>
-  import { X } from 'lucide-svelte';
+  import X from 'lucide-svelte/icons/x';
   import { fly, fade } from 'svelte/transition';
 
   let { open = false, title = '', onclose = () => {}, children } = $props();

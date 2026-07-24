@@ -1,6 +1,9 @@
 <script>
   import { onMount } from 'svelte';
-  import { AlertTriangle, AlertCircle, Info, Plus } from 'lucide-svelte';
+  import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
+  import AlertCircle from 'lucide-svelte/icons/alert-circle';
+  import Info from 'lucide-svelte/icons/info';
+  import Plus from 'lucide-svelte/icons/plus';
   import PluginForm from './PluginForm.svelte';
   import CodeEditor from './CodeEditor.svelte';
   import Tooltip from './components/Tooltip.svelte';

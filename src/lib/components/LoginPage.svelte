@@ -1,5 +1,5 @@
 <script>
-  import { Shield } from 'lucide-svelte';
+  import Shield from 'lucide-svelte/icons/shield';
 
   let { error = '', loading = false, onsubmit = () => {} } = $props();
   let username = $state('');

@@ -1,5 +1,8 @@
 <script>
-  import { Bell, Clock, ChartArea, Cog } from 'lucide-svelte';
+  import Bell from 'lucide-svelte/icons/bell';
+  import Clock from 'lucide-svelte/icons/clock';
+  import ChartArea from 'lucide-svelte/icons/chart-area';
+  import Cog from 'lucide-svelte/icons/cog';
 
   let { tab = 'alarms', onNavigate, alarmCount = 0 } = $props();
 

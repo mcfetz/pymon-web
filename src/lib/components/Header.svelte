@@ -1,5 +1,6 @@
 <script>
-  import { Bell, User } from 'lucide-svelte';
+  import Bell from 'lucide-svelte/icons/bell';
+  import User from 'lucide-svelte/icons/user';
 
   let { onAccount = () => {} } = $props();
 </script>
