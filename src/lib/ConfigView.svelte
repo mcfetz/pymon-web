@@ -784,7 +784,7 @@ import Plus from 'lucide-svelte/icons/plus';
         <div class="rule-card">
           <div class="rule-head">
             <span class="status-dot" class:online={a.online} style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:0.3rem;"></span>
-            <span class="rule-id">{a.title || id}</span>
+            <span class="rule-id" onclick={() => openAgentDialog(id)} style="cursor:pointer">{a.title || id}</span>
             <span style="margin-left:auto;font-size:0.75rem;color:#888;">
               {#if a.last_seen}{fmtTime(a.last_seen)}{:else}never{/if}
             </span>
@@ -794,7 +794,6 @@ import Plus from 'lucide-svelte/icons/plus';
           {/if}
           <div class="rule-actions">
             <span class="rule-status" class:active={a.enabled !== false}>{a.enabled !== false ? 'Enabled' : 'Disabled'}</span>
-            <button class="btn-edit" onclick={() => openAgentDialog(id)}>Edit</button>
             <button class="btn-dup" onclick={async () => {
               const newId = genId('a');
               await createAgent(newId, a.groups || [], (a.title || '') + ' Copy');
@@ -823,12 +822,11 @@ import Plus from 'lucide-svelte/icons/plus';
       <div class="rule-card" style="border-left: 3px solid {rule.severity === 'critical' ? '#ef4444' : rule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}">
         <div class="rule-head">
           <svelte:component this={rule.severity === 'critical' ? AlertCircle : rule.severity === 'warning' ? AlertTriangle : Info} size={14} strokeWidth={2} style="color: {rule.severity === 'critical' ? '#ef4444' : rule.severity === 'warning' ? '#f59e0b' : '#3b82f6'}" />
-          <span class="rule-id">{rule.title || rule.id}</span>
+          <span class="rule-id" onclick={() => editRule(rule.id)} style="cursor:pointer">{rule.title || rule.id}</span>
         </div>
         <div class="rule-desc">{rule.description || '—'}</div>
         <div class="rule-actions">
           <span class="rule-status" class:active={rule.enabled}>{rule.enabled ? 'Enabled' : 'Disabled'}</span>
-          <button class="btn-edit" onclick={() => editRule(rule.id)}>Edit</button>
           <button class="btn-dup" onclick={async () => {
             const copy = { ...rule, id: genId('r'), title: (rule.title || '') + ' Copy' };
             await saveRule(copy.id, copy);
@@ -853,14 +851,13 @@ import Plus from 'lucide-svelte/icons/plus';
     {#each filteredExecutors as exec (exec.id)}
       <div class="rule-card">
         <div class="rule-head">
-          <span class="rule-id">{exec.title || exec.id}</span>
+          <span class="rule-id" onclick={() => editExec(exec.id)} style="cursor:pointer">{exec.title || exec.id}</span>
         </div>
         {#if exec.description}
           <div class="rule-desc">{exec.description}</div>
         {/if}
         <div class="rule-actions">
           <span class="rule-status" class:active={exec.enabled ?? true}>{exec.enabled ?? true ? 'Enabled' : 'Disabled'}</span>
-          <button class="btn-edit" onclick={() => editExec(exec.id)}>Edit</button>
           <button class="btn-dup" onclick={async () => {
             const copy = { ...exec, id: genId('e'), title: (exec.title || '') + ' Copy' };
             await saveExecutor(copy.id, copy);
@@ -885,14 +882,13 @@ import Plus from 'lucide-svelte/icons/plus';
     {#each filteredNotifications as n (n.id)}
       <div class="rule-card">
         <div class="rule-head">
-          <span class="rule-id">{n.title || n.id}</span>
+          <span class="rule-id" onclick={() => editNotify(n.id)} style="cursor:pointer">{n.title || n.id}</span>
         </div>
         {#if n.description}
           <div class="rule-desc">{n.description}</div>
         {/if}
         <div class="rule-actions">
           <span class="rule-status" class:active={n.enabled ?? true}>{n.enabled ?? true ? 'Enabled' : 'Disabled'}</span>
-          <button class="btn-edit" onclick={() => editNotify(n.id)}>Edit</button>
           <button class="btn-dup" onclick={async () => {
             const copy = { ...n, id: genId('n'), title: (n.title || '') + ' Copy' };
             await saveNotification(copy.id, copy);
@@ -921,13 +917,12 @@ import Plus from 'lucide-svelte/icons/plus';
         {@const g = groups[gid]}
         <div class="rule-card">
           <div class="rule-head">
-            <span class="rule-id">{g?.title || gid}</span>
+            <span class="rule-id" onclick={() => editGroup(gid)} style="cursor:pointer">{g?.title || gid}</span>
           </div>
           {#if g?.description}
             <div class="rule-desc">{g.description}</div>
           {/if}
           <div class="rule-actions">
-            <button class="btn-edit" onclick={() => editGroup(gid)}>Edit</button>
             <button class="btn-dup" onclick={async () => {
               const ng = genId('g');
               const g = groups[gid] || {};
@@ -952,14 +947,13 @@ import Plus from 'lucide-svelte/icons/plus';
     {#each filteredBlackouts as b}
       <div class="rule-card">
 <div class="rule-head">
-            <span class="rule-id">{b.title || b.id}</span>
+            <span class="rule-id" onclick={() => editBlackout(b.id)} style="cursor:pointer">{b.title || b.id}</span>
           </div>
 {#if b.description}
             <div class="rule-desc">{b.description}</div>
           {/if}
           <div class="rule-actions">
           <span class="rule-status" class:active={b.enabled !== false}>{b.enabled !== false ? 'Enabled' : 'Disabled'}</span>
-          <button class="btn-edit" onclick={() => editBlackout(b.id)}>Edit</button>
           <button class="btn-dup" onclick={async () => { const copy = { ...b, id: genId('b'), title: (b.title || '') + ' Copy' }; await saveBlackout(copy.id, copy); blackouts = await fetchBlackouts(); }}>Duplicate</button>
           <button class="btn-del" onclick={() => handleDeleteBlackout(b.id)}>Delete</button>
         </div>
@@ -984,7 +978,7 @@ import Plus from 'lucide-svelte/icons/plus';
       {#each filteredVariables as [vid, v]}
       <div class="rule-card">
         <div class="rule-head">
-          <span class="rule-id font-mono" style="color:var(--color-primary)">{v.name}</span>
+          <span class="rule-id font-mono" style="color:var(--color-primary);cursor:pointer" onclick={() => editVariable(vid)}>{v.name}</span>
           <span class="rule-status active">default: {v.value}</span>
         </div>
         {#if v.description}
@@ -1000,7 +994,6 @@ import Plus from 'lucide-svelte/icons/plus';
           </div>
         {/if}
         <div class="rule-actions">
-          <button class="btn-edit" onclick={() => editVariable(vid)}>Edit</button>
           <button class="btn-del" onclick={() => handleDeleteVariable(vid)}>Delete</button>
         </div>
         </div>
