@@ -1327,6 +1327,7 @@ if __name__ == "__main__":
                   <option value="single">single</option>
                   <option value="moving_avg">moving_avg</option>
                   <option value="count_ratio">count_ratio</option>
+                  <option value="change">change</option>
                 </select>
               </div>
               <div class="dialog-field" style="width:100px">
