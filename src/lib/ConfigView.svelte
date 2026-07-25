@@ -1353,6 +1353,10 @@ if __name__ == "__main__":
                 <option value="replace">replace</option>
               </select>
             </div>
+            <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:0.5rem">
+              <input type="checkbox" checked={editedRule.auto_close ?? false} onchange={(e) => editedRule.auto_close = e.target.checked} />
+              <label style="margin:0;cursor:pointer">Auto-close alarms when rule recovers</label>
+            </div>
           </div>
         {/if}
       </div>

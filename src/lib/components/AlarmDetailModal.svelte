@@ -155,7 +155,10 @@
           {sev}
         </span>
         {#if alarm.acknowledged}
-          <span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(34,197,94,0.1);color:#22c55e">acknowledged</span>
+          <span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(34,197,94,0.1);color:#22c55e">
+            acknowledged
+            {#if alarm.ack_method === 'auto_close'}(auto-close){/if}
+          </span>
         {:else}
           <span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(245,158,11,0.1);color:#f59e0b">open</span>
         {/if}
@@ -201,6 +204,7 @@
             <span class="px-1.5 py-0.5 rounded" style="background:var(--bg-app)">{conditionSummary(alarm.rule)}</span>
             {#if alarm.rule?.scope}<span class="px-1.5 py-0.5 rounded" style="background:var(--bg-app)">scope: {alarm.rule.scope}</span>{/if}
             {#if alarm.rule?.fire}<span class="px-1.5 py-0.5 rounded" style="background:var(--bg-app)">fire: {alarm.rule.fire}</span>{/if}
+            {#if alarm.rule?.auto_close}<span class="px-1.5 py-0.5 rounded" style="background:rgba(34,197,94,0.1);color:#22c55e">auto-close</span>{/if}
             {#if alarm.rule?.window_size}<span class="px-1.5 py-0.5 rounded" style="background:var(--bg-app)">window: {alarm.rule.window_size}</span>{/if}
           </div>
         </div>
@@ -213,6 +217,9 @@
             ['Metric',  alarm.metric],
             ['Value',   alarm.value != null ? String(alarm.value) : '—'],
             ['Fired',   `${fmt(alarm.created_at)}  ·  ${fmtRel(alarm.created_at)}`],
+            ...(alarm.acknowledged ? [
+              ['Acked',   `${fmt(alarm.acknowledged_at)}${alarm.ack_method ? '  ·  ' + alarm.ack_method : ''}`],
+            ] : []),
             ['Snooze',  snoozeSummary(alarm.snooze)],
           ] as [label, val], i}
             <div class="flex text-[12px]" style="border-bottom:{i < 5 ? '1px solid var(--border-default)' : 'none'}">
