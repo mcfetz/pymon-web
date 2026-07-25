@@ -11,6 +11,7 @@
   let {
     stacks = [],
     singles = [],
+    merged = null,
     onAck = () => {},
     onAckAll = () => {},
     onAckRule = () => {},
@@ -52,6 +53,51 @@
     <div class="text-xs px-3 py-1.5 rounded-lg" style="background:rgba(var(--color-primary-rgb),0.08);color:var(--color-primary)">Showing 500 alarms — there may be more.</div>
   {/if}
 
+  {#if merged}
+    {#each merged as g (g.key)}
+      <div transition:fly|local={{ y: 12, duration: 200 }}>
+        {#if g.alarms?.length > 1}
+          <AlarmCard
+            group={g}
+            {onAck}
+            onAckAll={onAckRule}
+            {onRule}
+            {onHistory}
+            {onSnooze}
+            {onDetail}
+            {ruleTitleMap}
+            {agentTitleMap}
+            {pluginLabelMap}
+            snoozed={snoozedSet.has(g.key)}
+            {acking}
+            expanded={expandedStacks.has(g.key)}
+            onexpand={() => onexpand(g.key)}
+            {history}
+          />
+        {:else}
+          {@const alarm = g.alarms[0]}
+          <AlarmCard
+            group={{ alarms: [alarm], rule_id: alarm.rule_id, agentid: alarm.agentid, pluginid: alarm.pluginid, metric: alarm.metric, key: `${alarm.rule_id}|${alarm.agentid}|${alarm.pluginid}|${alarm.metric}`, severity: alarm.severity }}
+            {onAck}
+            onAckAll={onAckRule}
+            {onRule}
+            {onHistory}
+            {onSnooze}
+            {onDetail}
+            {ruleTitleMap}
+            {agentTitleMap}
+            {pluginLabelMap}
+            snoozed={snoozedSet.has(`${alarm.rule_id}|${alarm.agentid}|${alarm.pluginid}|${alarm.metric}`)}
+            {acking}
+            {history}
+          />
+        {/if}
+      </div>
+    {/each}
+    {#if merged.length === 0}
+      <EmptyState icon={ShieldCheck} message="no alarms" sub="all clear" />
+    {/if}
+  {:else}
   {#each stacks as g (g.key)}
     <div transition:fly|local={{ y: 12, duration: 200 }}>
       <AlarmCard
@@ -96,5 +142,6 @@
 
   {#if stacks.length === 0 && singles.length === 0}
     <EmptyState icon={ShieldCheck} message="no alarms" sub="all clear" />
+  {/if}
   {/if}
 </div>

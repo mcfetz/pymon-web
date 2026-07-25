@@ -86,14 +86,21 @@
     }
     const stacks = [];
     const singles = [];
+    const merged = [];
     for (const g of Object.values(groups)) {
       g.alarms.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       if (g.alarms.length > 1) stacks.push(g);
       else singles.push(g.alarms[0]);
+      merged.push(g);
     }
     stacks.sort((a, b) => new Date(b.alarms[0].created_at) - new Date(a.alarms[0].created_at));
     singles.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    return { stacks, singles };
+    merged.sort((a, b) => {
+      const aLatest = a.alarms ? a.alarms[0].created_at : a.created_at;
+      const bLatest = b.alarms ? b.alarms[0].created_at : b.created_at;
+      return new Date(bLatest) - new Date(aLatest);
+    });
+    return { stacks, singles, merged };
   }
 
   let alarmGroups = $derived(groupAlarms(openAlarms));
@@ -513,6 +520,7 @@
         <AlarmList
           stacks={filteredStacks}
           singles={filteredSingles}
+          merged={alarmGroups.merged}
           onAck={ack}
           onAckRule={ackRule}
           onRule={openRule}
@@ -561,6 +569,7 @@
           <AlarmList
             stacks={histFilteredStacks}
             singles={histFilteredSingles}
+            merged={filteredHistoryGroups.merged}
             onAck={() => {}}
             onAckRule={() => {}}
             onRule={openRule}
