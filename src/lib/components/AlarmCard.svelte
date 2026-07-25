@@ -41,7 +41,15 @@
   function fmt(iso) {
     if (!iso) return '';
     const s = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
-    return new Date(s).toLocaleString();
+    const d = new Date(s);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today.getTime() - 86400000);
+    const alarmDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (alarmDate.getTime() === today.getTime()) return time;
+    if (alarmDate.getTime() === yesterday.getTime()) return `yesterday ${time}`;
+    return d.toLocaleString();
   }
 
   let latest = $derived(alarms[0]);

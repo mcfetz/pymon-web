@@ -53,7 +53,15 @@
   function fmt(iso) {
     if (!iso) return '—';
     const s = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
-    return new Date(s).toLocaleString();
+    const d = new Date(s);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today.getTime() - 86400000);
+    const alarmDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (alarmDate.getTime() === today.getTime()) return time;
+    if (alarmDate.getTime() === yesterday.getTime()) return `yesterday ${time}`;
+    return d.toLocaleString();
   }
 
   function fmtRel(iso) {
@@ -147,41 +155,41 @@
 >
   <div class="dialog" style="max-width:540px">
     <!-- Header -->
-    <div class="dialog-header" style="border-bottom:1px solid var(--border-default);display:flex;align-items:center;gap:0.5rem;padding:0.85rem 1rem 0.75rem">
+    <div class="dialog-header" style="border-bottom:1px solid var(--border-default);padding:0.85rem 1rem 0.75rem">
       {#if alarm}
-        <svelte:component this={SEV_ICON[sev] || Info} size={16} strokeWidth={2} style="color:{SEV_COLOR[sev]};flex-shrink:0" />
-        <span class="font-semibold text-sm" style="color:var(--text-primary)">Alarm #{alarm.id}</span>
-        <span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:rgba({sev==='critical'?'239,68,68':sev==='warning'?'245,158,11':'59,130,246'},0.12);color:{SEV_COLOR[sev]}">
-          {sev}
-        </span>
-        {#if alarm.acknowledged}
-          <span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(34,197,94,0.1);color:#22c55e">
-            acknowledged
-            {#if alarm.ack_method === 'auto_close'}(auto-close){/if}
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+          <svelte:component this={SEV_ICON[sev] || Info} size={16} strokeWidth={2} style="color:{SEV_COLOR[sev]};flex-shrink:0" />
+          <span class="font-semibold text-sm truncate" style="color:var(--text-primary);flex:1;min-width:0">
+            {alarm.rule?.title || alarm.rule_id}
           </span>
-        {:else}
-          <span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(245,158,11,0.1);color:#f59e0b">open</span>
-        {/if}
+        </div>
+        <div style="display:flex;align-items:center;gap:0.4rem">
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:rgba({sev==='critical'?'239,68,68':sev==='warning'?'245,158,11':'59,130,246'},0.12);color:{SEV_COLOR[sev]}">
+            {sev}
+          </span>
+          {#if alarm.acknowledged}
+            <span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(34,197,94,0.1);color:#22c55e">
+              acknowledged
+              {#if alarm.ack_method === 'auto_close'}(auto-close){/if}
+            </span>
+          {:else}
+            <span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(245,158,11,0.1);color:#f59e0b">open</span>
+          {/if}
+          <button
+            onclick={copyLink}
+            class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all hover:brightness-110"
+            style="margin-left:auto;background:rgba(var(--color-primary-rgb),0.1);color:var(--color-primary)"
+          >
+            {#if copied}
+              <Check size={12} /><span>Copied</span>
+            {:else}
+              <Copy size={12} /><span>Copy link</span>
+            {/if}
+          </button>
+        </div>
       {:else}
         <span class="font-semibold text-sm" style="color:var(--text-primary)">Alarm #{alarmId}</span>
       {/if}
-      <div style="margin-left:auto;display:flex;gap:0.4rem;align-items:center">
-        <button
-          onclick={copyLink}
-          class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all hover:brightness-110"
-          style="background:rgba(var(--color-primary-rgb),0.1);color:var(--color-primary)"
-          title="Copy direct link"
-        >
-          {#if copied}
-            <Check size={12} /><span>Copied</span>
-          {:else}
-            <Copy size={12} /><span>Copy link</span>
-          {/if}
-        </button>
-        <button onclick={onClose} class="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5" title="Close">
-          <X size={16} style="color:var(--text-secondary)" />
-        </button>
-      </div>
     </div>
 
     <!-- Body -->

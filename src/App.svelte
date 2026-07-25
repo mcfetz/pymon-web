@@ -109,11 +109,50 @@
   let filteredSingles = $derived(alarmGroups.singles.filter(a => severityFilter.has(a.severity)));
   // History severity filter
   let histSeverityFilter = $state(new Set(['warning', 'critical', 'info']));
-  let histFilteredStacks = $derived(historyGroups.stacks.filter(g => histSeverityFilter.has(g.alarms[0].severity)));
-  let histFilteredSingles = $derived(historyGroups.singles.filter(a => histSeverityFilter.has(a.severity)));
+  let histFilteredStacks = $derived(filteredHistoryGroups.stacks.filter(g => histSeverityFilter.has(g.alarms[0].severity)));
+  let histFilteredSingles = $derived(filteredHistoryGroups.singles.filter(a => histSeverityFilter.has(a.severity)));
   let snoozedSet = $state(new Set());
   let alarmsTruncated = $state(false);
   let historyTruncated = $state(false);
+
+  // ── History date range ──
+  let historyDateLabels = $state([]);
+  let historyDateStart = $state('');
+  let historyDateEnd = $state('');
+  let historyRangeInitialized = false;
+
+  function dateYMD(iso) {
+    const s = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
+    return new Date(s).toISOString().slice(0, 10);
+  }
+
+  function buildDateRange(alarms) {
+    if (!alarms.length) { historyDateLabels = []; return; }
+    const dates = [...new Set(alarms.map(a => dateYMD(a.created_at)))].sort();
+    historyDateLabels = dates;
+    if (!historyRangeInitialized) {
+      historyRangeInitialized = true;
+      const today = new Date().toISOString().slice(0, 10);
+      const todayIdx = dates.indexOf(today);
+      if (todayIdx >= 0) {
+        historyDateStart = dates[Math.max(0, todayIdx - 1)];
+        historyDateEnd = dates[todayIdx];
+      } else {
+        historyDateStart = dates[Math.max(0, dates.length - 2)];
+        historyDateEnd = dates[dates.length - 1];
+      }
+    }
+  }
+
+  let filteredHistoryAlarms = $derived.by(() => {
+    if (!historyDateLabels.length || !historyDateStart || !historyDateEnd) return historyAlarms;
+    return historyAlarms.filter(a => {
+      const d = dateYMD(a.created_at);
+      return d >= historyDateStart && d <= historyDateEnd;
+    });
+  });
+
+  let filteredHistoryGroups = $derived(groupAlarms(filteredHistoryAlarms));
 
   async function handleToggleSnooze(alarm, duration = null) {
     try {
@@ -142,6 +181,7 @@
       historyAlarms = histRes.alarms;
       alarmsTruncated = openRes.truncated;
       historyTruncated = histRes.truncated;
+      buildDateRange(historyAlarms);
     } catch (e) { error = e.message; }
     finally { loading = false; }
   }
@@ -496,6 +536,28 @@
         <div class="animate-slide-up">
         <PageHeader icon={Clock} title="History" />
         {#if historyAlarms.length > 0}
+          {#if historyDateLabels.length > 1}
+            <div class="glass rounded-[var(--radius-card)] p-3 mb-3 flex items-center gap-2">
+              <input
+                type="date"
+                bind:value={historyDateStart}
+                min={historyDateLabels[0]}
+                max={historyDateEnd}
+                class="flex-1 px-2 py-1.5 rounded-lg border text-xs bg-transparent outline-none"
+                style="border-color:var(--border-default);color:var(--text-primary)"
+              />
+              <span class="text-xs" style="color:var(--text-secondary)">–</span>
+              <input
+                type="date"
+                bind:value={historyDateEnd}
+                min={historyDateStart}
+                max={historyDateLabels[historyDateLabels.length - 1]}
+                class="flex-1 px-2 py-1.5 rounded-lg border text-xs bg-transparent outline-none"
+                style="border-color:var(--border-default);color:var(--text-primary)"
+              />
+              <span class="text-xs font-medium ml-1 whitespace-nowrap" style="color:var(--color-primary)">{filteredHistoryAlarms.length} alarms</span>
+            </div>
+          {/if}
           <AlarmList
             stacks={histFilteredStacks}
             singles={histFilteredSingles}
