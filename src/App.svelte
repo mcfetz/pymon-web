@@ -28,6 +28,7 @@
   import { updateAccount } from './lib/api.js';
 
   initTheme();
+  const AGENT_STATUS_PLUGIN = { id: 'agent', title: 'Agent status' };
 
   // ── Tab state ──
   let tab = $state('alarms');
@@ -266,7 +267,7 @@
   let groups = $state([]);
   let groupAgents = $state({});
   let agents = $state([]);
-  let plugins = $state([]);
+  let plugins = $state([AGENT_STATUS_PLUGIN]);
   let metricNames = $state([]);
   let metricsData = $state([]);
   let metricsLoading = $state(false);
@@ -363,7 +364,7 @@
       if (groupWasRemoved || agentsWereRemoved) {
         filters.pluginid = '';
         filters.metric = '';
-        plugins = [];
+        plugins = [AGENT_STATUS_PLUGIN];
         metricNames = [];
         if (hasSearched) await doQuery();
       }
@@ -371,21 +372,21 @@
   }
   async function onGroupChange() {
     filters.agentid = []; filters.pluginid = ''; filters.metric = '';
-    plugins = []; metricNames = [];
+    plugins = [AGENT_STATUS_PLUGIN]; metricNames = [];
   }
   async function onAgentChange() {
     filters.pluginid = ''; filters.metric = ''; metricNames = [];
     if (filters.agentid.length > 0) {
       try {
         const results = await Promise.all(filters.agentid.map(a => fetchAgentPlugins(a)));
-        const merged = new Map();
+        const merged = new Map([[AGENT_STATUS_PLUGIN.id, AGENT_STATUS_PLUGIN]]);
         for (const list of results) for (const p of list) {
           const pid = p.id || p;
           if (!merged.has(pid)) merged.set(pid, { id: pid, title: p.title || pid });
         }
         plugins = [...merged.values()].sort((a, b) => a.title.localeCompare(b.title));
-      } catch { plugins = []; }
-    } else { plugins = []; }
+      } catch { plugins = [AGENT_STATUS_PLUGIN]; }
+    } else { plugins = [AGENT_STATUS_PLUGIN]; }
     await doQuery();
   }
   async function onPluginChange() {

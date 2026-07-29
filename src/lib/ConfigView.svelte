@@ -332,6 +332,11 @@ import Plus from 'lucide-svelte/icons/plus';
       .sort(compareNamed);
   });
 
+  let rulePlugins = $derived([
+    { name: 'agent', label: 'Agent status' },
+    ...filteredPlugins.filter(p => p.name !== 'agent'),
+  ]);
+
   async function fetchData(name) {
     switch (name) {
       case 'schemas':
@@ -1276,7 +1281,7 @@ if __name__ == "__main__":
               <label>Plugin</label>
               <select bind:value={editedRule.pluginid} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
                 <option value="">—</option>
-                {#each filteredPlugins as p}
+                {#each rulePlugins as p}
                   <option value={p.name}>{p.label} ({p.name})</option>
                 {/each}
               </select>
