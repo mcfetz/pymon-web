@@ -539,6 +539,20 @@ import Plus from 'lucide-svelte/icons/plus';
     showRuleDialog = true;
   }
 
+  function isRangeCondition(condition) {
+    return condition === 'between' || condition === 'outside';
+  }
+
+  function normalizeThreshold(value) {
+    const text = String(value ?? '');
+    return text.startsWith('$') ? text.toUpperCase().replace(/[^$A-Z0-9_]/g, '') : text;
+  }
+
+  function setRuleThreshold(key, value, input) {
+    editedRule[key] = normalizeThreshold(value);
+    input.value = editedRule[key];
+  }
+
   async function handleSaveRule() {
     if (!editedRule) return;
     if (!editedRule.id?.trim()) editedRule.id = genId('r');
@@ -1297,33 +1311,76 @@ if __name__ == "__main__":
                   {#each ['gt','ge','lt','le','eq','ne'] as c}
                     <option value={c}>{c}</option>
                   {/each}
+                  <option value="between">between</option>
+                  <option value="outside">outside</option>
                 </select>
               </div>
-              <div class="dialog-field" style="width:140px">
-                <label>Threshold</label>
-                <input
-                  type="text"
-                  value={editedRule.threshold ?? ''}
-                  oninput={(e) => {
-                    const v = e.target.value;
-                    editedRule.threshold = v.startsWith('$') ? v.toUpperCase().replace(/[^$A-Z0-9_]/g,'') : v;
-                    e.target.value = editedRule.threshold;
-                  }}
-                  placeholder="80 or $VAR"
-                  style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:{String(editedRule.threshold).startsWith('$') ? 'var(--color-primary)' : 'var(--text-primary)'}; font-family: {String(editedRule.threshold).startsWith('$') ? 'monospace' : 'inherit'}"
-                />
-                {#if Object.keys(variables).length > 0}
-                  <select
-                    style="width:100%;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.75rem;background:var(--bg-surface);color:var(--text-secondary);margin-top:2px"
-                    onchange={(e) => { if (e.target.value) editedRule.threshold = e.target.value; e.target.value = ''; }}
-                  >
-                    <option value="">— use variable —</option>
-                    {#each Object.values(variables).sort((a, b) => alphaCompare(a.name, b.name) || alphaCompare(a.id, b.id)) as v}
-                      <option value={v.name}>{v.name} (default: {v.value})</option>
-                    {/each}
-                  </select>
-                {/if}
-              </div>
+              {#if isRangeCondition(editedRule.condition)}
+                <div class="dialog-field" style="width:110px">
+                  <label>Min</label>
+                  <input
+                    type="text"
+                    value={editedRule.threshold_min ?? ''}
+                    oninput={(e) => setRuleThreshold('threshold_min', e.target.value, e.target)}
+                    placeholder="10 or $VAR"
+                    style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:{String(editedRule.threshold_min ?? '').startsWith('$') ? 'var(--color-primary)' : 'var(--text-primary)'}; font-family: {String(editedRule.threshold_min ?? '').startsWith('$') ? 'monospace' : 'inherit'}"
+                  />
+                  {#if Object.keys(variables).length > 0}
+                    <select
+                      style="width:100%;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.75rem;background:var(--bg-surface);color:var(--text-secondary);margin-top:2px"
+                      onchange={(e) => { if (e.target.value) editedRule.threshold_min = e.target.value; e.target.value = ''; }}
+                    >
+                      <option value="">— use variable —</option>
+                      {#each Object.values(variables).sort((a, b) => alphaCompare(a.name, b.name) || alphaCompare(a.id, b.id)) as v}
+                        <option value={v.name}>{v.name} (default: {v.value})</option>
+                      {/each}
+                    </select>
+                  {/if}
+                </div>
+                <div class="dialog-field" style="width:110px">
+                  <label>Max</label>
+                  <input
+                    type="text"
+                    value={editedRule.threshold_max ?? ''}
+                    oninput={(e) => setRuleThreshold('threshold_max', e.target.value, e.target)}
+                    placeholder="20 or $VAR"
+                    style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:{String(editedRule.threshold_max ?? '').startsWith('$') ? 'var(--color-primary)' : 'var(--text-primary)'}; font-family: {String(editedRule.threshold_max ?? '').startsWith('$') ? 'monospace' : 'inherit'}"
+                  />
+                  {#if Object.keys(variables).length > 0}
+                    <select
+                      style="width:100%;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.75rem;background:var(--bg-surface);color:var(--text-secondary);margin-top:2px"
+                      onchange={(e) => { if (e.target.value) editedRule.threshold_max = e.target.value; e.target.value = ''; }}
+                    >
+                      <option value="">— use variable —</option>
+                      {#each Object.values(variables).sort((a, b) => alphaCompare(a.name, b.name) || alphaCompare(a.id, b.id)) as v}
+                        <option value={v.name}>{v.name} (default: {v.value})</option>
+                      {/each}
+                    </select>
+                  {/if}
+                </div>
+              {:else}
+                <div class="dialog-field" style="width:140px">
+                  <label>Threshold</label>
+                  <input
+                    type="text"
+                    value={editedRule.threshold ?? ''}
+                    oninput={(e) => setRuleThreshold('threshold', e.target.value, e.target)}
+                    placeholder="80 or $VAR"
+                    style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:{String(editedRule.threshold ?? '').startsWith('$') ? 'var(--color-primary)' : 'var(--text-primary)'}; font-family: {String(editedRule.threshold ?? '').startsWith('$') ? 'monospace' : 'inherit'}"
+                  />
+                  {#if Object.keys(variables).length > 0}
+                    <select
+                      style="width:100%;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.75rem;background:var(--bg-surface);color:var(--text-secondary);margin-top:2px"
+                      onchange={(e) => { if (e.target.value) editedRule.threshold = e.target.value; e.target.value = ''; }}
+                    >
+                      <option value="">— use variable —</option>
+                      {#each Object.values(variables).sort((a, b) => alphaCompare(a.name, b.name) || alphaCompare(a.id, b.id)) as v}
+                        <option value={v.name}>{v.name} (default: {v.value})</option>
+                      {/each}
+                    </select>
+                  {/if}
+                </div>
+              {/if}
             </div>
             <div style="display:flex;gap:0.5rem;">
               <div class="dialog-field" style="flex:1">
@@ -1979,13 +2036,13 @@ if __name__ == "__main__":
 
 <!-- Source editor when opened inline from plugin dialog -->
 {#if selPluginName && !showPluginDialog}
-  <div style="margin-top:1rem;border-top:1px solid #e2e8f0;padding-top:1rem;">
+  <div style="margin-top:1rem;border-top:1px solid var(--border-default);padding-top:1rem;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
       <h4 style="margin:0;font-size:0.9rem;">{selPluginName}.py</h4>
       <button class="btn-cancel" onclick={() => { selPluginName = null; pluginSource = ''; checkResult = null; }}>Close</button>
     </div>
     {#key selPluginName}
-      <div style="height:400px;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;">
+      <div style="height:400px;border:1px solid var(--border-default);border-radius:6px;overflow:hidden;">
         <CodeEditor value={pluginSource} onchange={(v) => { pluginSource = v; pluginSourceDirty = true; }} />
       </div>
     {/key}
@@ -2025,24 +2082,24 @@ if __name__ == "__main__":
             </div>
           </div>
           <div style="margin-bottom:0.5rem;">
-            <label style="font-size:0.82rem;font-weight:600;color:#555;">Title</label>
+            <label style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);">Title</label>
             <input type="text" bind:value={agent.title} onblur={async () => {
               try { await updateAgent(agentId, { title: agent.title }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
               catch (err) { error = err.message; }
-            }} style="width:100%;padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;margin-top:0.2rem;" />
+            }} style="width:100%;padding:0.35rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;margin-top:0.2rem;background:var(--bg-surface);color:var(--text-primary);" />
           </div>
           <div style="margin-bottom:0.5rem;">
-            <label style="font-size:0.82rem;font-weight:600;color:#555;">Description</label>
+            <label style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);">Description</label>
             <input type="text" bind:value={agent.description} onblur={async () => {
               try { await updateAgent(agentId, { description: agent.description }); await load(); editedAgentData = { ...agents[agentId], id: agentId }; }
               catch (err) { error = err.message; }
-            }} style="width:100%;padding:0.35rem;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;margin-top:0.2rem;" />
+            }} style="width:100%;padding:0.35rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;margin-top:0.2rem;background:var(--bg-surface);color:var(--text-primary);" />
           </div>
           <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
             <span class="status-dot" class:online={agent.online} style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;"></span>
             <span style="font-size:0.85rem;">{agent.online ? 'Online' : 'Offline'}</span>
             {#if agent.last_seen}
-              <span style="font-size:0.75rem;color:#888;">last seen: {fmtTime(agent.last_seen)}</span>
+              <span style="font-size:0.75rem;color:var(--text-secondary);">last seen: {fmtTime(agent.last_seen)}</span>
             {/if}
           </div>
           <button class="btn-install" style="width:auto;padding:0.35rem 0.8rem;font-size:0.78rem;" onclick={() => navigator.clipboard.writeText(`curl -s '${window.location.origin}/api/agent/install.sh?agentid=${agentId}&apikey=${agent.apikey}' | sh`)}>
@@ -2092,7 +2149,7 @@ if __name__ == "__main__":
               {/each}
             </div>
             {#if selectedPlugin}
-              <div style="margin-top:0.75rem;border-top:1px solid #e2e8f0;padding-top:0.75rem;">
+              <div style="margin-top:0.75rem;border-top:1px solid var(--border-default);padding-top:0.75rem;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
                   <strong style="font-size:0.85rem;">{schemas[selectedPlugin]?.label || selectedPlugin}</strong>
                   <button class="btn-close" onclick={() => { selectedPlugin = null; editedPluginConfig = null; }}>✕</button>
@@ -2210,8 +2267,8 @@ if __name__ == "__main__":
 
 <style>
   .dialog-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.5); touch-action: none; overscroll-behavior: none; }
-  .dialog { position: fixed; top: max(1.5rem, env(safe-area-inset-top, 0px) + 1.5rem); left: 50%; transform: translateX(-50%); z-index: 51; background: #fff; border: 1px solid var(--border-default, #e2e8f0); border-radius: var(--radius-card); box-shadow: 0 16px 48px rgba(0,0,0,0.15); max-width: 500px; width: calc(100vw - 2rem); max-height: calc(100vh - max(3rem, env(safe-area-inset-top, 0px) + 3rem) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain; }
-  :global(.dark) .dialog { background: #0f172a; box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
+  .dialog { position: fixed; top: max(1.5rem, env(safe-area-inset-top, 0px) + 1.5rem); left: 50%; transform: translateX(-50%); z-index: 51; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-default, #e2e8f0); border-radius: var(--radius-card); box-shadow: 0 16px 48px rgba(0,0,0,0.15); max-width: 500px; width: calc(100vw - 2rem); max-height: calc(100vh - max(3rem, env(safe-area-inset-top, 0px) + 3rem) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain; }
+  :global(.dark) .dialog { box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
   .dialog-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-default); }
   .dialog-header h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary); }
   .dialog-body { padding: 1rem 1.25rem; }

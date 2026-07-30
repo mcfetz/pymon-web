@@ -114,32 +114,33 @@
 </div>
 
 <style>
-  .plugin-form { display: flex; flex-direction: column; gap: 0.75rem; }
+  .plugin-form { display: flex; flex-direction: column; gap: 0.75rem; color: var(--text-primary); }
   .field { display: flex; flex-direction: column; gap: 0.25rem; }
-  .field label { font-size: 0.8rem; font-weight: 600; color: #555; }
+  .field label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
   .field input[type="text"],
   .field input[type="number"],
   .field input[type="password"] {
-    padding: 0.4rem 0.6rem; border: 1px solid #cbd5e0; border-radius: 5px;
+    padding: 0.4rem 0.6rem; border: 1px solid var(--border-default); border-radius: 5px;
     font-size: 0.85rem; width: 100%; box-sizing: border-box;
+    background: var(--bg-surface); color: var(--text-primary);
   }
   .array-field, .object-array { display: flex; flex-direction: column; gap: 0.4rem; }
   .array-row { display: flex; gap: 0.4rem; align-items: center; }
   .array-row input { flex: 1; }
   .object-card {
-    border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.6rem;
-    background: #fafafa;
+    border: 1px solid var(--border-default); border-radius: 6px; padding: 0.6rem;
+    background: var(--bg-app);
   }
   .obj-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
-  .obj-header strong { font-size: 0.85rem; }
+  .obj-header strong { font-size: 0.85rem; color: var(--text-primary); }
   .btn-remove {
-    background: none; border: 1px solid #e2e8f0; border-radius: 4px;
+    background: transparent; border: 1px solid var(--border-default); border-radius: 4px;
     cursor: pointer; font-size: 0.75rem; padding: 0.15rem 0.4rem; color: #e53e3e;
   }
   .btn-add {
-    background: #edf2f7; border: 1px dashed #cbd5e0; border-radius: 5px;
-    padding: 0.3rem 0.8rem; cursor: pointer; font-size: 0.8rem; color: #555;
+    background: rgba(var(--color-primary-rgb), 0.1); border: 1px dashed var(--border-default); border-radius: 5px;
+    padding: 0.3rem 0.8rem; cursor: pointer; font-size: 0.8rem; color: var(--color-primary);
     width: fit-content;
   }
-  .btn-add:hover { background: #e2e8f0; }
+  .btn-add:hover { background: rgba(var(--color-primary-rgb), 0.18); }
 </style>

@@ -135,6 +135,12 @@
 
   function conditionSummary(rule) {
     if (!rule) return '';
+    if (rule.condition === 'between') {
+      return `${rule.metric} ≥ ${rule.threshold_min} and ≤ ${rule.threshold_max}`;
+    }
+    if (rule.condition === 'outside') {
+      return `${rule.metric} < ${rule.threshold_min} or > ${rule.threshold_max}`;
+    }
     const cond = COND_LABEL[rule.condition] || rule.condition;
     return `${rule.metric} ${cond} ${rule.threshold}`;
   }
