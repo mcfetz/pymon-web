@@ -23,6 +23,7 @@ import Plus from 'lucide-svelte/icons/plus';
     createAgent, deleteAgent, setAgentGroups, setAgentPluginConfig,
     removeAgentPlugin, setGroupPlugins, deleteGroup, setAgentEnabled, updateAgent,
     fetchRuleSchema, fetchRules, saveRule, deleteRule,
+    fetchMetricNames,
     fetchExecutors, saveExecutor, deleteExecutor,
     fetchNotifications, saveNotification, deleteNotification, fetchNotifySchema, testNotification,
     fetchAdminPlugins, fetchPluginSource, fetchPluginTemplate, savePluginSource, checkPluginSource, deletePlugin, togglePluginEnabled, savePluginMeta,
@@ -134,6 +135,7 @@ import Plus from 'lucide-svelte/icons/plus';
   // Rules state
   let rules = $state({});
   let ruleSchema = $state({ fields: [] });
+  let ruleMetricNames = $state([]);
   let editingRule = $state(null);
   let editedRule = $state(null);
   let showRuleDialog = $state(false);
@@ -529,6 +531,7 @@ import Plus from 'lucide-svelte/icons/plus';
     def.id = '';
     editingRule = def;
     editedRule = { ...def };
+    ruleMetricNames = [];
     showRuleDialog = true;
   }
 
@@ -536,6 +539,7 @@ import Plus from 'lucide-svelte/icons/plus';
     if (!await ensureDialogData(['rules', 'ruleSchema', 'schemas', 'plugins', 'variables', 'agents', 'notifications', 'executors'])) return;
     editingRule = id;
     editedRule = { ...rules[id], id };
+    await loadRuleMetricNames(editedRule.pluginid);
     showRuleDialog = true;
   }
 
@@ -551,6 +555,16 @@ import Plus from 'lucide-svelte/icons/plus';
   function setRuleThreshold(key, value, input) {
     editedRule[key] = normalizeThreshold(value);
     input.value = editedRule[key];
+  }
+
+  async function loadRuleMetricNames(pluginid) {
+    ruleMetricNames = [];
+    if (!pluginid) return;
+    try {
+      ruleMetricNames = await fetchMetricNames(pluginid);
+    } catch {
+      ruleMetricNames = [];
+    }
   }
 
   async function handleSaveRule() {
@@ -1293,7 +1307,7 @@ if __name__ == "__main__":
             </div>
             <div class="dialog-field">
               <label>Plugin</label>
-              <select bind:value={editedRule.pluginid} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+              <select bind:value={editedRule.pluginid} onchange={() => { editedRule.metric = ''; loadRuleMetricNames(editedRule.pluginid); }} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
                 <option value="">—</option>
                 {#each rulePlugins as p}
                   <option value={p.name}>{p.label} ({p.name})</option>
@@ -1304,6 +1318,17 @@ if __name__ == "__main__":
               <div class="dialog-field" style="flex:1">
                 <label>Metric</label>
                 <input type="text" bind:value={editedRule.metric} placeholder="name, regex, or *" style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+                {#if ruleMetricNames.length > 0}
+                  <select
+                    style="width:100%;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.75rem;background:var(--bg-surface);color:var(--text-secondary);margin-top:2px"
+                    onchange={(e) => { if (e.target.value) editedRule.metric = e.target.value; e.target.value = ''; }}
+                  >
+                    <option value="">— choose stored metric —</option>
+                    {#each ruleMetricNames as metricName}
+                      <option value={metricName}>{metricName}</option>
+                    {/each}
+                  </select>
+                {/if}
               </div>
               <div class="dialog-field" style="width:100px">
                 <label>Condition</label>

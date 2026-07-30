@@ -96,6 +96,9 @@ export function queryMetrics(params = {}) {
     .join('&');
   return api(`/metrics/query${qs ? '?' + qs : ''}`);
 }
+export function fetchMetricNames(plugin) {
+  return api(`/metrics/names/${encodeURIComponent(plugin)}`);
+}
 
 // ── Push ──
 export function fetchVapidPublicKey() { return api('/vapid-public-key'); }
