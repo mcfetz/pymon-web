@@ -18,6 +18,7 @@ import Plus from 'lucide-svelte/icons/plus';
   import CodeEditor from './CodeEditor.svelte';
   import EmptyState from './components/EmptyState.svelte';
   import Tooltip from './components/Tooltip.svelte';
+  import Combobox from './components/Combobox.svelte';
   import {
     fetchPluginSchemas, fetchAdminAgents, fetchAdminGroups,
     createAgent, deleteAgent, setAgentGroups, setAgentPluginConfig,
@@ -547,14 +548,64 @@ import Plus from 'lucide-svelte/icons/plus';
     return condition === 'between' || condition === 'outside';
   }
 
+  function usesWindow(scope) {
+    return scope === 'moving_avg' || scope === 'count_ratio';
+  }
+
+  const conditionOptions = [
+    { value: 'gt', label: 'greater than (>)' },
+    { value: 'ge', label: 'greater or equal (≥)' },
+    { value: 'lt', label: 'less than (<)' },
+    { value: 'le', label: 'less or equal (≤)' },
+    { value: 'eq', label: 'equal (=)' },
+    { value: 'ne', label: 'not equal (≠)' },
+    { value: 'between', label: 'between (min ≤ value ≤ max)' },
+    { value: 'outside', label: 'outside (value < min or > max)' },
+  ];
+
   function normalizeThreshold(value) {
     const text = String(value ?? '');
     return text.startsWith('$') ? text.toUpperCase().replace(/[^$A-Z0-9_]/g, '') : text;
   }
 
-  function setRuleThreshold(key, value, input) {
+  function setRuleThreshold(key, value) {
     editedRule[key] = normalizeThreshold(value);
-    input.value = editedRule[key];
+  }
+
+  function variableSuggestions() {
+    return Object.values(variables)
+      .sort((a, b) => alphaCompare(a.name, b.name) || alphaCompare(a.id, b.id))
+      .map((variable) => ({
+        value: variable.name,
+        label: `${variable.name} (default: ${variable.value})`,
+      }));
+  }
+
+  function validateRuleForm() {
+    if (!editedRule.pluginid) return 'Plugin is required';
+    if (!editedRule.metric?.trim()) return 'Metric is required';
+    if (!editedRule.condition) return 'Condition is required';
+    if (!editedRule.scope) return 'Scope is required';
+    if (isRangeCondition(editedRule.condition)) {
+      if (!String(editedRule.threshold_min ?? '').trim()) return 'Minimum threshold is required';
+      if (!String(editedRule.threshold_max ?? '').trim()) return 'Maximum threshold is required';
+    } else if (!String(editedRule.threshold ?? '').trim()) {
+      return 'Threshold is required';
+    }
+    if (usesWindow(editedRule.scope)) {
+      if (!Number.isInteger(Number(editedRule.window_size)) || Number(editedRule.window_size) < 1) {
+        return 'Window must be at least 1';
+      }
+    }
+    if (editedRule.scope === 'count_ratio') {
+      if (!Number.isInteger(Number(editedRule.min_violations)) || Number(editedRule.min_violations) < 1) {
+        return 'Violations must be at least 1';
+      }
+      if (Number(editedRule.min_violations) > Number(editedRule.window_size)) {
+        return 'Violations cannot exceed window size';
+      }
+    }
+    return null;
   }
 
   async function loadRuleMetricNames(pluginid) {
@@ -569,13 +620,27 @@ import Plus from 'lucide-svelte/icons/plus';
 
   async function handleSaveRule() {
     if (!editedRule) return;
+    const validationError = validateRuleForm();
+    if (validationError) { error = validationError; return; }
     if (!editedRule.id?.trim()) editedRule.id = genId('r');
     saving = true;
     try {
+      const ruleToSave = { ...editedRule };
+      if (isRangeCondition(ruleToSave.condition)) delete ruleToSave.threshold;
+      else {
+        delete ruleToSave.threshold_min;
+        delete ruleToSave.threshold_max;
+      }
+      if (!usesWindow(ruleToSave.scope)) {
+        delete ruleToSave.window_size;
+        delete ruleToSave.min_violations;
+      } else if (ruleToSave.scope !== 'count_ratio') {
+        delete ruleToSave.min_violations;
+      }
       if (editingRule && typeof editingRule === 'string' && editingRule !== editedRule.id) {
         await deleteRule(editingRule);
       }
-      await saveRule(editedRule.id, editedRule);
+      await saveRule(ruleToSave.id, ruleToSave);
       showRuleDialog = false;
       editingRule = null;
       editedRule = null;
@@ -1298,137 +1363,101 @@ if __name__ == "__main__":
         {#if expandedRuleSettings}
           <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
             <div class="dialog-field">
-              <label>Severity</label>
-              <select bind:value={editedRule.severity} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+              <label>Severity <span class="required-mark">*</span></label>
+              <select required bind:value={editedRule.severity} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
                 <option value="warning">warning</option>
                 <option value="critical">critical</option>
                 <option value="info">info</option>
               </select>
             </div>
             <div class="dialog-field">
-              <label>Plugin</label>
-              <select bind:value={editedRule.pluginid} onchange={() => { editedRule.metric = ''; loadRuleMetricNames(editedRule.pluginid); }} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+              <label>Plugin <span class="required-mark">*</span></label>
+              <select required bind:value={editedRule.pluginid} onchange={() => { editedRule.metric = ''; loadRuleMetricNames(editedRule.pluginid); }} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
                 <option value="">—</option>
                 {#each rulePlugins as p}
                   <option value={p.name}>{p.label} ({p.name})</option>
                 {/each}
               </select>
             </div>
-            <div style="display:flex;gap:0.5rem;">
-              <div class="dialog-field" style="flex:1">
-                <label>Metric</label>
-                <input type="text" bind:value={editedRule.metric} placeholder="name, regex, or *" style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
-                {#if ruleMetricNames.length > 0}
-                  <select
-                    style="width:100%;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.75rem;background:var(--bg-surface);color:var(--text-secondary);margin-top:2px"
-                    onchange={(e) => { if (e.target.value) editedRule.metric = e.target.value; e.target.value = ''; }}
-                  >
-                    <option value="">— choose stored metric —</option>
-                    {#each ruleMetricNames as metricName}
-                      <option value={metricName}>{metricName}</option>
-                    {/each}
-                  </select>
-                {/if}
-              </div>
-              <div class="dialog-field" style="width:100px">
-                <label>Condition</label>
-                <select bind:value={editedRule.condition} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
-                  {#each ['gt','ge','lt','le','eq','ne'] as c}
-                    <option value={c}>{c}</option>
+            <div class="dialog-field">
+              <label>Metric <span class="required-mark">*</span></label>
+              <Combobox
+                value={editedRule.metric}
+                items={ruleMetricNames}
+                placeholder="name, regex, or *"
+                required={true}
+                onchange={(value) => editedRule.metric = value}
+              />
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:flex-start;">
+              <div class="dialog-field" style="width:130px">
+                <label>Condition <Tooltip text="greater than: value > threshold; greater or equal: value ≥ threshold; less than: value < threshold; less or equal: value ≤ threshold; equal: value = threshold; not equal: value ≠ threshold; between: min ≤ value ≤ max; outside: value < min or value > max." /> <span class="required-mark">*</span></label>
+                <select required bind:value={editedRule.condition} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+                  {#each conditionOptions as condition}
+                    <option value={condition.value}>{condition.label}</option>
                   {/each}
-                  <option value="between">between</option>
-                  <option value="outside">outside</option>
                 </select>
               </div>
               {#if isRangeCondition(editedRule.condition)}
                 <div class="dialog-field" style="width:110px">
-                  <label>Min</label>
-                  <input
-                    type="text"
+                  <label>Min <span class="required-mark">*</span></label>
+                  <Combobox
                     value={editedRule.threshold_min ?? ''}
-                    oninput={(e) => setRuleThreshold('threshold_min', e.target.value, e.target)}
+                    items={variableSuggestions()}
                     placeholder="10 or $VAR"
-                    style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:{String(editedRule.threshold_min ?? '').startsWith('$') ? 'var(--color-primary)' : 'var(--text-primary)'}; font-family: {String(editedRule.threshold_min ?? '').startsWith('$') ? 'monospace' : 'inherit'}"
+                    required={true}
+                    onchange={(value) => setRuleThreshold('threshold_min', value)}
                   />
-                  {#if Object.keys(variables).length > 0}
-                    <select
-                      style="width:100%;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.75rem;background:var(--bg-surface);color:var(--text-secondary);margin-top:2px"
-                      onchange={(e) => { if (e.target.value) editedRule.threshold_min = e.target.value; e.target.value = ''; }}
-                    >
-                      <option value="">— use variable —</option>
-                      {#each Object.values(variables).sort((a, b) => alphaCompare(a.name, b.name) || alphaCompare(a.id, b.id)) as v}
-                        <option value={v.name}>{v.name} (default: {v.value})</option>
-                      {/each}
-                    </select>
-                  {/if}
                 </div>
                 <div class="dialog-field" style="width:110px">
-                  <label>Max</label>
-                  <input
-                    type="text"
+                  <label>Max <span class="required-mark">*</span></label>
+                  <Combobox
                     value={editedRule.threshold_max ?? ''}
-                    oninput={(e) => setRuleThreshold('threshold_max', e.target.value, e.target)}
+                    items={variableSuggestions()}
                     placeholder="20 or $VAR"
-                    style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:{String(editedRule.threshold_max ?? '').startsWith('$') ? 'var(--color-primary)' : 'var(--text-primary)'}; font-family: {String(editedRule.threshold_max ?? '').startsWith('$') ? 'monospace' : 'inherit'}"
+                    required={true}
+                    onchange={(value) => setRuleThreshold('threshold_max', value)}
                   />
-                  {#if Object.keys(variables).length > 0}
-                    <select
-                      style="width:100%;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.75rem;background:var(--bg-surface);color:var(--text-secondary);margin-top:2px"
-                      onchange={(e) => { if (e.target.value) editedRule.threshold_max = e.target.value; e.target.value = ''; }}
-                    >
-                      <option value="">— use variable —</option>
-                      {#each Object.values(variables).sort((a, b) => alphaCompare(a.name, b.name) || alphaCompare(a.id, b.id)) as v}
-                        <option value={v.name}>{v.name} (default: {v.value})</option>
-                      {/each}
-                    </select>
-                  {/if}
                 </div>
               {:else}
                 <div class="dialog-field" style="width:140px">
-                  <label>Threshold</label>
-                  <input
-                    type="text"
+                  <label>Threshold <span class="required-mark">*</span></label>
+                  <Combobox
                     value={editedRule.threshold ?? ''}
-                    oninput={(e) => setRuleThreshold('threshold', e.target.value, e.target)}
+                    items={variableSuggestions()}
                     placeholder="80 or $VAR"
-                    style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:{String(editedRule.threshold ?? '').startsWith('$') ? 'var(--color-primary)' : 'var(--text-primary)'}; font-family: {String(editedRule.threshold ?? '').startsWith('$') ? 'monospace' : 'inherit'}"
+                    required={true}
+                    onchange={(value) => setRuleThreshold('threshold', value)}
                   />
-                  {#if Object.keys(variables).length > 0}
-                    <select
-                      style="width:100%;padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.75rem;background:var(--bg-surface);color:var(--text-secondary);margin-top:2px"
-                      onchange={(e) => { if (e.target.value) editedRule.threshold = e.target.value; e.target.value = ''; }}
-                    >
-                      <option value="">— use variable —</option>
-                      {#each Object.values(variables).sort((a, b) => alphaCompare(a.name, b.name) || alphaCompare(a.id, b.id)) as v}
-                        <option value={v.name}>{v.name} (default: {v.value})</option>
-                      {/each}
-                    </select>
-                  {/if}
                 </div>
               {/if}
             </div>
             <div style="display:flex;gap:0.5rem;">
               <div class="dialog-field" style="flex:1">
-                <label>Scope <Tooltip text="Single — evaluate each individual measurement. Moving avg — evaluate average of last N values. Count ratio — evaluate how many of last N values violate the threshold." /></label>
-                <select bind:value={editedRule.scope} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+                <label>Scope <Tooltip text="Single — evaluate each measurement. Moving avg — evaluate the average of the last N measurements. Count ratio — count threshold violations in the last N measurements and trigger when the minimum is reached. Change — compare the current value with the previous value; the rule evaluates the delta (current minus previous)." /> <span class="required-mark">*</span></label>
+                <select required bind:value={editedRule.scope} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
                   <option value="single">single</option>
                   <option value="moving_avg">moving_avg</option>
                   <option value="count_ratio">count_ratio</option>
                   <option value="change">change</option>
                 </select>
               </div>
-              <div class="dialog-field" style="width:100px">
-                <label>Window <Tooltip text="Number of recent measurements to consider for moving_avg and count_ratio scopes." /></label>
-                <input type="number" bind:value={editedRule.window_size} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
-              </div>
-              <div class="dialog-field" style="width:100px">
-                <label>Violations <Tooltip text="Minimum number of threshold violations needed within the window for count_ratio to trigger." /></label>
-                <input type="number" bind:value={editedRule.min_violations} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
-              </div>
+              {#if usesWindow(editedRule.scope)}
+                <div class="dialog-field" style="width:100px">
+                  <label>Window <Tooltip text="Number of recent measurements to consider for moving_avg and count_ratio scopes." /> <span class="required-mark">*</span></label>
+                  <input type="number" min="1" required bind:value={editedRule.window_size} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+                </div>
+              {/if}
+              {#if editedRule.scope === 'count_ratio'}
+                <div class="dialog-field" style="width:100px">
+                  <label>Violations <Tooltip text="Minimum number of threshold violations needed within the window for count_ratio to trigger." /> <span class="required-mark">*</span></label>
+                  <input type="number" min="1" required bind:value={editedRule.min_violations} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+                </div>
+              {/if}
             </div>
             <div class="dialog-field">
-              <label>Fire mode <Tooltip text="Single — only one open alarm per agent+rule until ack'd. Multi — new alarm for every violation. Replace — ack existing open alarm and create a new one." /></label>
-              <select bind:value={editedRule.fire} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+              <label>Fire mode <Tooltip text="Single — only one open alarm per agent+rule until ack'd. Multi — new alarm for every violation. Replace — ack existing open alarm and create a new one." /> <span class="required-mark">*</span></label>
+              <select required bind:value={editedRule.fire} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
                 <option value="single">single</option>
                 <option value="multi">multi</option>
                 <option value="replace">replace</option>
@@ -2299,7 +2328,8 @@ if __name__ == "__main__":
   .dialog-body { padding: 1rem 1.25rem; }
   .dialog-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border-default); }
   .dialog-field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.5rem; }
-  .dialog-field label { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
+   .dialog-field label { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
+   .required-mark { color: #ef4444; }
   .dialog-field select, .dialog-field input[type="text"], .dialog-field input[type="number"] { padding: 0.35rem 0.5rem; border: 1px solid var(--border-default); border-radius: 5px; font-size: 0.82rem; background: var(--bg-surface); color: var(--text-primary); }
   .dialog-field select:focus, .dialog-field input:focus { border-color: var(--color-primary); outline: none; }
   .dialog-field input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: var(--color-primary); }
