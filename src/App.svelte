@@ -115,10 +115,12 @@
   });
   let filteredStacks = $derived(alarmGroups.stacks.filter(g => severityFilter.has(g.alarms[0].severity)));
   let filteredSingles = $derived(alarmGroups.singles.filter(a => severityFilter.has(a.severity)));
+  let filteredMerged = $derived(alarmGroups.merged.filter(g => severityFilter.has(g.alarms[0].severity)));
   // History severity filter
   let histSeverityFilter = $state(new Set(['warning', 'critical', 'info']));
   let histFilteredStacks = $derived(filteredHistoryGroups.stacks.filter(g => histSeverityFilter.has(g.alarms[0].severity)));
   let histFilteredSingles = $derived(filteredHistoryGroups.singles.filter(a => histSeverityFilter.has(a.severity)));
+  let histFilteredMerged = $derived(filteredHistoryGroups.merged.filter(g => histSeverityFilter.has(g.alarms[0].severity)));
   let snoozedSet = $state(new Set());
   let alarmsTruncated = $state(false);
   let historyTruncated = $state(false);
@@ -518,7 +520,7 @@
         <AlarmList
           stacks={filteredStacks}
           singles={filteredSingles}
-          merged={alarmGroups.merged}
+          merged={filteredMerged}
           onAck={ack}
           onAckRule={ackRule}
           onRule={openRule}
@@ -567,7 +569,7 @@
           <AlarmList
             stacks={histFilteredStacks}
             singles={histFilteredSingles}
-            merged={filteredHistoryGroups.merged}
+            merged={histFilteredMerged}
             onAck={() => {}}
             onAckRule={() => {}}
             onRule={openRule}
