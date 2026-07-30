@@ -141,6 +141,9 @@
     if (rule.condition === 'outside') {
       return `${rule.metric} < ${rule.threshold_min} or > ${rule.threshold_max}`;
     }
+    if (rule.condition === 'no_data') {
+      return `${rule.metric} has no data for ${rule.threshold}s`;
+    }
     const cond = COND_LABEL[rule.condition] || rule.condition;
     return `${rule.metric} ${cond} ${rule.threshold}`;
   }

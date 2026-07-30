@@ -539,7 +539,19 @@ import Plus from 'lucide-svelte/icons/plus';
   async function editRule(id) {
     if (!await ensureDialogData(['rules', 'ruleSchema', 'schemas', 'plugins', 'variables', 'agents', 'notifications', 'executors'])) return;
     editingRule = id;
-    editedRule = { ...rules[id], id };
+    editedRule = {
+      enabled: true,
+      condition: 'gt',
+      scope: 'single',
+      severity: 'warning',
+      fire: 'single',
+      notifications: [],
+      executors: [],
+      agents: [],
+      agents_mode: 'exclude',
+      ...rules[id],
+      id,
+    };
     await loadRuleMetricNames(editedRule.pluginid);
     showRuleDialog = true;
   }
@@ -549,7 +561,15 @@ import Plus from 'lucide-svelte/icons/plus';
   }
 
   function usesWindow(scope) {
-    return scope === 'moving_avg' || scope === 'count_ratio';
+    return editedRule?.condition !== 'no_data' && (scope === 'moving_avg' || scope === 'count_ratio');
+  }
+
+  function handleConditionChange() {
+    if (editedRule.condition === 'no_data') {
+      editedRule.scope = 'single';
+      delete editedRule.window_size;
+      delete editedRule.min_violations;
+    }
   }
 
   const conditionOptions = [
@@ -561,6 +581,7 @@ import Plus from 'lucide-svelte/icons/plus';
     { value: 'ne', label: 'not equal (≠)' },
     { value: 'between', label: 'between (min ≤ value ≤ max)' },
     { value: 'outside', label: 'outside (value < min or > max)' },
+    { value: 'no_data', label: 'no data (timeout)' },
   ];
 
   function normalizeThreshold(value) {
@@ -586,11 +607,20 @@ import Plus from 'lucide-svelte/icons/plus';
     if (!editedRule.metric?.trim()) return 'Metric is required';
     if (!editedRule.condition) return 'Condition is required';
     if (!editedRule.scope) return 'Scope is required';
+    if (editedRule.condition === 'no_data' && editedRule.scope !== 'single') {
+      return 'No-data rules must use the single scope';
+    }
     if (isRangeCondition(editedRule.condition)) {
       if (!String(editedRule.threshold_min ?? '').trim()) return 'Minimum threshold is required';
       if (!String(editedRule.threshold_max ?? '').trim()) return 'Maximum threshold is required';
     } else if (!String(editedRule.threshold ?? '').trim()) {
       return 'Threshold is required';
+    }
+    if (editedRule.condition === 'no_data') {
+      const threshold = String(editedRule.threshold ?? '').trim();
+      if (!threshold.startsWith('$') && (!Number.isFinite(Number(threshold)) || Number(threshold) <= 0)) {
+        return 'No-data threshold must be greater than 0 seconds';
+      }
     }
     if (usesWindow(editedRule.scope)) {
       if (!Number.isInteger(Number(editedRule.window_size)) || Number(editedRule.window_size) < 1) {
@@ -1391,8 +1421,8 @@ if __name__ == "__main__":
             </div>
             <div style="display:flex;gap:0.5rem;align-items:flex-start;">
               <div class="dialog-field" style="width:130px">
-                <label>Condition <Tooltip text="greater than: value > threshold; greater or equal: value ≥ threshold; less than: value < threshold; less or equal: value ≤ threshold; equal: value = threshold; not equal: value ≠ threshold; between: min ≤ value ≤ max; outside: value < min or value > max." /> <span class="required-mark">*</span></label>
-                <select required bind:value={editedRule.condition} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
+                <label>Condition <Tooltip text="greater than: value > threshold; greater or equal: value ≥ threshold; less than: value < threshold; less or equal: value ≤ threshold; equal: value = threshold; not equal: value ≠ threshold; between: min ≤ value ≤ max; outside: value < min or value > max; no data: no metric received within threshold seconds." /> <span class="required-mark">*</span></label>
+                <select required bind:value={editedRule.condition} onchange={handleConditionChange} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
                   {#each conditionOptions as condition}
                     <option value={condition.value}>{condition.label}</option>
                   {/each}
@@ -1421,11 +1451,11 @@ if __name__ == "__main__":
                 </div>
               {:else}
                 <div class="dialog-field" style="width:140px">
-                  <label>Threshold <span class="required-mark">*</span></label>
+                  <label>{editedRule.condition === 'no_data' ? 'No data after (seconds)' : 'Threshold'} <span class="required-mark">*</span></label>
                   <Combobox
                     value={editedRule.threshold ?? ''}
                     items={variableSuggestions()}
-                    placeholder="80 or $VAR"
+                    placeholder={editedRule.condition === 'no_data' ? '300 or $VAR' : '80 or $VAR'}
                     required={true}
                     onchange={(value) => setRuleThreshold('threshold', value)}
                   />
