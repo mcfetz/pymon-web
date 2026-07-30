@@ -97,7 +97,7 @@
       <div class="flex gap-1">
         {#each timePresets as p}
           <button
-            onclick={() => { filters.timePreset = p.value; doQuery(); }}
+            onclick={() => { filters.timePreset = p.value; }}
             class="px-2.5 py-2 rounded-lg text-[10px] font-medium transition-all duration-150 hover:brightness-110 active:scale-95"
             style={filters.timePreset === p.value ? 'background: rgba(var(--color-primary-rgb), 0.15); color: var(--color-primary)' : 'color: var(--text-secondary)'}
           >{p.label}</button>

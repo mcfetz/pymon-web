@@ -331,7 +331,6 @@
     filters.pluginid = pluginid;
     await onPluginChange();
     filters.metric = metric;
-    await doQuery();
     tab = 'metrics';
   }
 
@@ -366,7 +365,6 @@
         filters.metric = '';
         plugins = [AGENT_STATUS_PLUGIN];
         metricNames = [];
-        if (hasSearched) await doQuery();
       }
     } catch (e) { metricsError = e.message; }
   }
@@ -387,7 +385,6 @@
         plugins = [...merged.values()].sort((a, b) => a.title.localeCompare(b.title));
       } catch { plugins = [AGENT_STATUS_PLUGIN]; }
     } else { plugins = [AGENT_STATUS_PLUGIN]; }
-    await doQuery();
   }
   async function onPluginChange() {
     filters.metric = '';
