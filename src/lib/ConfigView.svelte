@@ -648,7 +648,7 @@ import Plus from 'lucide-svelte/icons/plus';
 
   async function loadRuleMetricNames(pluginid) {
     ruleMetricNames = [];
-    if (!pluginid) return;
+    if (!pluginid || pluginid === '*') return;
     try {
       ruleMetricNames = await fetchMetricNames(pluginid);
     } catch {
@@ -1437,10 +1437,14 @@ if __name__ == "__main__":
               <label>Plugin <span class="required-mark">*</span></label>
               <select required bind:value={editedRule.pluginid} onchange={() => { editedRule.metric = ''; loadRuleMetricNames(editedRule.pluginid); }} style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)">
                 <option value="">—</option>
+                <option value="*">* — all plugins</option>
                 {#each rulePlugins as p}
                   <option value={p.name}>{p.label} ({p.name})</option>
                 {/each}
               </select>
+              {#if editedRule.pluginid === '*'}
+                <div style="font-size:0.72rem;color:#888;margin-top:0.2rem;">Applies to all plugins; use a shared metric name such as agent:runtime or agent:error (regex allowed).</div>
+              {/if}
             </div>
             <div class="dialog-field">
               <label>Metric <span class="required-mark">*</span></label>
