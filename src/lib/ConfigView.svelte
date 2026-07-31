@@ -282,14 +282,21 @@ import Plus from 'lucide-svelte/icons/plus';
 
   let filteredRules = $derived.by(() => {
     const vals = Object.values(rules);
-    if (!filterText) return vals.sort(compareNamed);
-    const q = filterText.toLowerCase();
-    return vals.filter(r => [
-      r.id, r.title, r.description, r.pluginid, r.metric,
-      r.severity, r.scope, r.fire,
-    ].some(value => String(value ?? '').toLowerCase().includes(q)))
-      .sort(compareNamed);
+    const q = (filterText || '').toLowerCase();
+    return vals.filter(r => {
+      if (ruleSeverityFilter && r.severity !== ruleSeverityFilter) return false;
+      if (rulePluginFilter && r.pluginid !== rulePluginFilter) return false;
+      if (!filterText) return true;
+      return [
+        r.id, r.title, r.description, r.pluginid, r.metric,
+        r.severity, r.scope, r.fire,
+      ].some(value => String(value ?? '').toLowerCase().includes(q));
+    }).sort(compareNamed);
   });
+
+  let ruleSeverityFilter = $state('');
+  let rulePluginFilter = $state('');
+  let ruleListPlugins = $derived([...new Set(Object.values(rules).map(r => r.pluginid).filter(Boolean))].sort());
 
   let filteredVariables = $derived.by(() => {
     const entries = Object.entries(variables);
@@ -949,6 +956,18 @@ import Plus from 'lucide-svelte/icons/plus';
   <div class="rules-view">
     <div class="rules-header">
       <h3>Alarm Rules</h3>
+      <select class="filter-input select-filter" bind:value={ruleSeverityFilter}>
+        <option value="">All severities</option>
+        <option value="info">Info</option>
+        <option value="warning">Warning</option>
+        <option value="critical">Critical</option>
+      </select>
+      <select class="filter-input select-filter" bind:value={rulePluginFilter}>
+        <option value="">All plugins</option>
+        {#each ruleListPlugins as p}
+          <option value={p}>{p}</option>
+        {/each}
+      </select>
       <input type="text" class="filter-input" placeholder="Filter rules..." bind:value={filterText} />
       <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewRule}><Plus size={14} strokeWidth={2} /></button>
     </div>
@@ -960,6 +979,9 @@ import Plus from 'lucide-svelte/icons/plus';
           <span class="rule-id" onclick={() => editRule(rule.id)} style="cursor:pointer">{rule.title || rule.id}</span>
         </div>
         <div class="rule-desc">{rule.description || '—'}</div>
+        {#if rule.pluginid}
+          <div class="rule-plugin">{rule.pluginid}</div>
+        {/if}
         <div class="rule-actions">
           <span class="rule-status" class:active={rule.enabled}>{rule.enabled ? 'Enabled' : 'Disabled'}</span>
           <button class="btn-dup" onclick={async () => {
@@ -972,7 +994,7 @@ import Plus from 'lucide-svelte/icons/plus';
       </div>
     {/each}
     {#if filteredRules.length === 0}
-      <EmptyState icon={filterText ? SearchX : ListChecks} message={filterText ? 'No rules match' : 'No rules'} sub={filterText ? 'Try another search' : 'Create a rule to get started'} />
+      <EmptyState icon={(filterText || ruleSeverityFilter || rulePluginFilter) ? SearchX : ListChecks} message={(filterText || ruleSeverityFilter || rulePluginFilter) ? 'No rules match' : 'No rules'} sub={(filterText || ruleSeverityFilter || rulePluginFilter) ? 'Try another search' : 'Create a rule to get started'} />
     {/if}
   </div>
 {/if}
@@ -2443,6 +2465,8 @@ if __name__ == "__main__":
   .rules-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
   .rules-header h3 { margin: 0; font-size: 1rem; color: var(--text-primary); flex-shrink: 0; }
   .filter-input { max-width: 180px; min-width: 100px; margin: 0 auto; padding: 0.3rem 0.5rem; border: 1px solid var(--border-default); border-radius: 5px; font-size: 0.8rem; background: var(--bg-surface); color: var(--text-primary); }
+  .filter-input.select-filter { margin: 0; max-width: 140px; }
+  .rule-plugin { font-family: var(--font-mono, monospace); font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.3rem; display: inline-block; padding: 0.05rem 0.35rem; border: 1px solid var(--border-default); border-radius: 999px; }
 
   /* ── Tab bar with chevron scroll ── */
   .tab-nav-wrapper {
