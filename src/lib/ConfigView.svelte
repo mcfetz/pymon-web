@@ -921,6 +921,12 @@ import Plus from 'lucide-svelte/icons/plus';
           {#if a.description}
             <div class="rule-desc">{a.description}</div>
           {/if}
+          {#if a.agent_version}
+            <div class="agent-version" title="{a.agent_version}" class:outdated={a.agent_version !== a.server_agent_hash}>
+              <span class="dot" class:up={a.agent_version === a.server_agent_hash}></span>
+              {a.agent_version.slice(0, 8)}...{a.agent_version !== a.server_agent_hash ? ' (update pending)' : ''}
+            </div>
+          {/if}
           <div class="rule-actions">
             <span class="rule-status" class:active={a.enabled !== false}>{a.enabled !== false ? 'Enabled' : 'Disabled'}</span>
             <button class="btn-dup" onclick={async () => {
@@ -2409,6 +2415,10 @@ if __name__ == "__main__":
   .rule-status { font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 999px; font-weight: 600; }
   .rule-status:not(.active) { background: rgba(239,68,68,0.1); color: #ef4444; }
   .rule-status.active { background: rgba(34,197,94,0.1); color: #22c55e; }
+  .agent-version { font-family: var(--font-mono, monospace); font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.3rem; }
+  .agent-version .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+  .agent-version .dot.up { background: #22c55e; }
+  .agent-version.outdated { color: #f59e0b; }
   .btn-edit { font-size: 0.7rem; color: var(--color-primary); cursor: pointer; background: none; border: none; padding: 0.1rem 0.3rem; }
   .btn-dup { font-size: 0.7rem; color: #8b5cf6; cursor: pointer; background: none; border: none; padding: 0.1rem 0.3rem; }
   .btn-del { font-size: 0.7rem; color: #ef4444; cursor: pointer; background: none; border: none; padding: 0.1rem 0.3rem; margin-left: auto; }
