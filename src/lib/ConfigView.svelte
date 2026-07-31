@@ -954,6 +954,9 @@ import Plus from 'lucide-svelte/icons/plus';
           <span class="rule-id" onclick={() => editRule(rule.id)} style="cursor:pointer">{rule.title || rule.id}</span>
         </div>
         <div class="rule-desc">{rule.description || '—'}</div>
+        {#if rule.notes}
+          <div class="rule-notes">{rule.notes}</div>
+        {/if}
         <div class="rule-actions">
           <span class="rule-status" class:active={rule.enabled}>{rule.enabled ? 'Enabled' : 'Disabled'}</span>
           <button class="btn-dup" onclick={async () => {
@@ -1384,6 +1387,10 @@ if __name__ == "__main__":
           </div>
           <div class="dialog-field"><label>Title</label><input type="text" bind:value={editedRule.title} /></div>
           <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedRule.description} /></div>
+          <div class="dialog-field">
+            <label>Notes</label>
+            <textarea bind:value={editedRule.notes} rows="4" placeholder="Additional notes..." style="width:100%;padding:0.4rem 0.6rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary);resize:vertical;font-family:inherit;box-sizing:border-box;" />
+          </div>
         </div>
       {/if}
 
@@ -2401,6 +2408,7 @@ if __name__ == "__main__":
   .rule-sev.critical { background: rgba(239,68,68,0.15); color: #ef4444; }
   .rule-sev.info { background: rgba(59,130,246,0.15); color: #3b82f6; }
   .rule-desc { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
+  .rule-notes { font-size: 0.72rem; color: var(--text-tertiary, var(--text-secondary)); margin-bottom: 0.3rem; white-space: pre-wrap; border-left: 2px solid var(--border-default); padding-left: 0.5rem; }
   .rule-actions { display: flex; gap: 0.25rem; }
   .rule-status { font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 999px; font-weight: 600; }
   .rule-status:not(.active) { background: rgba(239,68,68,0.1); color: #ef4444; }
