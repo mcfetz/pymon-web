@@ -22,7 +22,7 @@ import Plus from 'lucide-svelte/icons/plus';
   import {
     fetchPluginSchemas, fetchAdminAgents, fetchAdminGroups,
     createAgent, deleteAgent, setAgentGroups, setAgentPluginConfig,
-    removeAgentPlugin, setGroupPlugins, deleteGroup, setAgentEnabled, updateAgent,
+    setGroupPlugins, deleteGroup, setAgentEnabled, updateAgent,
     fetchRuleSchema, fetchRules, saveRule, deleteRule,
     fetchMetricNames,
     fetchExecutors, saveExecutor, deleteExecutor,
@@ -487,17 +487,18 @@ import Plus from 'lucide-svelte/icons/plus';
 
   async function togglePlugin(agentId, plugin) {
     const a = agents[agentId];
-    const hasPlugin = plugin in (a.plugins || {});
+    const cfg = a?.plugins?.[plugin] || {};
+    const currentlyEnabled = cfg.enabled !== false;
     try {
-      if (hasPlugin) {
-        await removeAgentPlugin(agentId, plugin);
+      if (currentlyEnabled) {
+        await setAgentPluginConfig(agentId, plugin, { ...cfg, enabled: false });
       } else {
         const schema = schemas[plugin];
         const defaults = {};
         for (const f of (schema?.fields || [])) {
           if ('default' in f) defaults[f.key] = f.default;
         }
-        await setAgentPluginConfig(agentId, plugin, defaults);
+        await setAgentPluginConfig(agentId, plugin, { ...defaults, ...cfg, enabled: true });
       }
       await load();
     } catch (e) { error = e.message; }
@@ -2220,10 +2221,11 @@ if __name__ == "__main__":
               {#each agentPlugins as p}
                 {@const schema = schemas[p]}
                 {@const hasConfig = p in (agent.plugins || {})}
+                {@const isEnabled = (agent.plugins?.[p]?.enabled ?? true) !== false}
                 <div class="plugin-card" class:active={selectedPlugin === p} class:configured={hasConfig}>
                   <div class="plugin-header">
                     <span class="plugin-name">{schema?.label || p}</span>
-                    <button class="toggle-btn" class:active={hasConfig} onclick={async () => { await togglePlugin(agentId, p); editedAgentData = { ...agents[agentId], id: agentId }; selectedPlugin = null; editedPluginConfig = null; }}>{hasConfig ? 'On' : 'Off'}</button>
+                    <button class="toggle-btn" class:active={isEnabled} onclick={async () => { await togglePlugin(agentId, p); editedAgentData = { ...agents[agentId], id: agentId }; selectedPlugin = null; editedPluginConfig = null; }}>{isEnabled ? 'On' : 'Off'}</button>
                   </div>
                   <div class="plugin-desc">{schema?.description || ''}</div>
                   {#if hasConfig}
