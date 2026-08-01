@@ -31,7 +31,7 @@ import Plus from 'lucide-svelte/icons/plus';
     updateAccount, setToken,
     fetchBlackouts, fetchBlackoutSchema, saveBlackout, deleteBlackout,
     fetchVariables, saveVariable, deleteVariable,
-    fetchMaintenanceStats, cleanupMetrics, fetchAgentPluginMetrics,
+    fetchMaintenanceStats, cleanupMetrics, fetchAgentPluginMetrics, vacuumDatabase,
   } from './api.js';
 
   let { pendingRule = null, onLogout = () => {}, onClearPendingRule = () => {} } = $props();
@@ -63,6 +63,17 @@ import Plus from 'lucide-svelte/icons/plus';
 
   function fmtCount(value) {
     return Number(value || 0).toLocaleString('de-DE');
+  }
+
+  function fmtBytes(value) {
+    const n = Number(value || 0);
+    if (!Number.isFinite(n)) return String(value ?? '');
+    if (n < 1024) return `${n} B`;
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let u = -1;
+    let v = n;
+    while (v >= 1024 && u < units.length - 1) { v /= 1024; u++; }
+    return `${v.toFixed(1)} ${units[u]}`;
   }
 
   function genId(prefix) {
@@ -214,6 +225,8 @@ import Plus from 'lucide-svelte/icons/plus';
   let maintMetricNames = $state([]);
   let maintRunning = $state(false);
   let maintResult = $state(null);
+  let vacuumRunning = $state(false);
+  let vacuumResult = $state(null);
 
   const CONFIG_DATA = [
     'schemas', 'agents', 'groups', 'rules', 'ruleSchema', 'executors',
@@ -470,6 +483,18 @@ import Plus from 'lucide-svelte/icons/plus';
       maintenanceStats = await fetchMaintenanceStats();
     } catch (e) { error = e.message; }
     finally { maintRunning = false; }
+  }
+
+  async function handleVacuum() {
+    if (!confirm('Run VACUUM on the metrics database? This rebuilds the file to reclaim space freed by deletes and may briefly pause the service.')) return;
+    vacuumRunning = true;
+    vacuumResult = null;
+    error = null;
+    try {
+      vacuumResult = await vacuumDatabase();
+      maintenanceStats = await fetchMaintenanceStats();
+    } catch (e) { error = e.message; }
+    finally { vacuumRunning = false; }
   }
 
   async function openAgentDialog(id) {
@@ -1447,6 +1472,26 @@ if __name__ == "__main__":
             {/if}
           </div>
         </div>
+      </div>
+      <div class="glass rounded-[var(--radius-card)] p-4 mt-4">
+        <div class="flex items-center gap-2 mb-3">
+          <Database size={18} style="color:var(--text-primary)" />
+          <div class="text-xs font-semibold" style="color:var(--text-primary)">Database</div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-[11px]" style="color:var(--text-secondary)">Size: <strong style="color:var(--text-primary)">{fmtBytes(maintenanceStats.db_size)}</strong></span>
+          <button class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:brightness-110 disabled:opacity-50"
+            style="background:rgba(220,38,38,0.12);color:#ef4444"
+            disabled={vacuumRunning}
+            onclick={handleVacuum}
+          >{vacuumRunning ? 'Vacuuming...' : 'Vacuum database'}</button>
+          {#if vacuumResult}
+            <span class="text-[11px]" style="color:var(--text-secondary)">
+              Reclaimed {fmtBytes(vacuumResult.before - vacuumResult.after)} ({fmtBytes(vacuumResult.before)} → {fmtBytes(vacuumResult.after)}).
+            </span>
+          {/if}
+        </div>
+        <div class="text-[10px] mt-2" style="color:var(--text-secondary)">Deleting metrics does not shrink the database file — VACUUM rebuilds it to reclaim the freed space.</div>
       </div>
     {:else}
       <div class="text-center py-8 text-sm" style="color:var(--text-secondary)">Loading statistics...</div>
