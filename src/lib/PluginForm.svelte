@@ -111,6 +111,30 @@
       {/if}
     </div>
   {/each}
+
+  <div class="field">
+    <label>Post-processing</label>
+    <label class="checkbox">
+      <input
+        type="checkbox"
+        checked={!!val('discard_with_heartbeat')}
+        onchange={(e) => setVal('discard_with_heartbeat', e.target.checked)}
+      />
+      Discard values equal to the previous one
+    </label>
+    <label class="subfield">
+      <span>Heartbeat (minutes)</span>
+      <input
+        type="number"
+        min="0"
+        step="1"
+        disabled={!val('discard_with_heartbeat')}
+        value={val('heartbeat')}
+        oninput={(e) => setVal('heartbeat', parseFloat(e.target.value) || 0)}
+      />
+    </label>
+    <span class="hint">0 = store only when the value changes. &gt;0 = additionally keep at least one value per heartbeat interval even if unchanged.</span>
+  </div>
 </div>
 
 <style>
@@ -143,4 +167,10 @@
     width: fit-content;
   }
   .btn-add:hover { background: rgba(var(--color-primary-rgb), 0.18); }
+  .checkbox { display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; cursor: pointer; }
+  .checkbox input { width: auto; }
+  .subfield { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.75rem; color: var(--text-secondary); }
+  .subfield input { padding: 0.4rem 0.6rem; border: 1px solid var(--border-default); border-radius: 5px; font-size: 0.85rem; width: 100%; box-sizing: border-box; background: var(--bg-surface); color: var(--text-primary); }
+  .subfield input:disabled { opacity: 0.5; }
+  .hint { font-size: 0.72rem; color: var(--text-secondary); }
 </style>
