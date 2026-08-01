@@ -590,7 +590,7 @@ import Plus from 'lucide-svelte/icons/plus';
         selectedPlugin = null;
         editedPluginConfig = null;
       }
-      await updateAgent(agentId, { title: agent.title, description: agent.description });
+      await updateAgent(agentId, { title: editedAgentData.title, description: editedAgentData.description });
       await load();
       editedAgentData = { ...agents[agentId], id: agentId };
     } catch (e) { error = e.message; }
