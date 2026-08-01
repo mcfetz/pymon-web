@@ -523,13 +523,17 @@ import Plus from 'lucide-svelte/icons/plus';
     } catch (e) { error = e.message; }
   }
 
-  async function savePluginConfig(agentId, plugin) {
+  async function saveAgentSettings(agentId) {
     saving = true;
     try {
-      await setAgentPluginConfig(agentId, plugin, editedPluginConfig);
-      selectedPlugin = null;
-      editedPluginConfig = null;
+      if (selectedPlugin && editedPluginConfig) {
+        await setAgentPluginConfig(agentId, selectedPlugin, editedPluginConfig);
+        selectedPlugin = null;
+        editedPluginConfig = null;
+      }
+      await updateAgent(agentId, { title: agent.title, description: agent.description });
       await load();
+      editedAgentData = { ...agents[agentId], id: agentId };
     } catch (e) { error = e.message; }
     finally { saving = false; }
   }
@@ -2297,12 +2301,7 @@ if __name__ == "__main__":
     </div>
     <div class="dialog-footer">
       <button class="btn-cancel" onclick={closeAgentDialog}>Close</button>
-      <button class="btn-save-rule" onclick={async () => {
-        if (selectedPlugin && editedPluginConfig) {
-          await savePluginConfig(agentId, selectedPlugin);
-        }
-        closeAgentDialog();
-      }}>Save</button>
+      <button class="btn-save-rule" onclick={() => saveAgentSettings(agentId)}>Save</button>
     </div>
   </div>
 {/if}
