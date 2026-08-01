@@ -31,7 +31,7 @@ import Plus from 'lucide-svelte/icons/plus';
     updateAccount, setToken,
     fetchBlackouts, fetchBlackoutSchema, saveBlackout, deleteBlackout,
     fetchVariables, saveVariable, deleteVariable,
-    fetchMaintenanceStats,
+    fetchMaintenanceStats, cleanupMetrics, fetchAgentPluginMetrics,
   } from './api.js';
 
   let { pendingRule = null, onLogout = () => {}, onClearPendingRule = () => {} } = $props();
@@ -207,6 +207,13 @@ import Plus from 'lucide-svelte/icons/plus';
   let editingVariable = $state(null);
   let editedVariable = $state(null);
   let maintenanceStats = $state(null);
+  let maintDays = $state(30);
+  let maintAgent = $state('');
+  let maintPlugin = $state('');
+  let maintMetric = $state('');
+  let maintMetricNames = $state([]);
+  let maintRunning = $state(false);
+  let maintResult = $state(null);
 
   const CONFIG_DATA = [
     'schemas', 'agents', 'groups', 'rules', 'ruleSchema', 'executors',
@@ -222,7 +229,7 @@ import Plus from 'lucide-svelte/icons/plus';
     variables: ['variables'],
     blackouts: ['blackouts'],
     plugins: ['plugins'],
-    maintenance: ['maintenanceStats'],
+    maintenance: ['maintenanceStats', 'agents', 'plugins'],
   };
 
   async function openNewVariable() {
@@ -436,6 +443,33 @@ import Plus from 'lucide-svelte/icons/plus';
       await ensureData(resources);
     } catch (e) { error = e.message; }
     finally { loading = false; }
+  }
+
+  // ── Maintenance: metric cleanup ──
+  async function loadMaintMetricNames() {
+    maintMetricNames = [];
+    maintMetric = '';
+    if (!maintAgent || !maintPlugin) return;
+    try {
+      maintMetricNames = await fetchAgentPluginMetrics(maintAgent, maintPlugin);
+    } catch (e) { /* metric list is optional */ }
+  }
+
+  async function handleCleanupMetrics() {
+    const days = parseInt(maintDays, 10);
+    if (!(days >= 0)) { error = 'Please enter a valid number of days'; return; }
+    const scope = [maintAgent && `agent ${maintAgent}`, maintPlugin && `plugin ${maintPlugin}`, maintMetric && `metric ${maintMetric}`]
+      .filter(Boolean).join(', ') || 'all agents & plugins';
+    if (!confirm(`Delete all metrics older than ${days} day${days === 1 ? '' : 's'} (${scope})? This cannot be undone.`)) return;
+    maintRunning = true;
+    maintResult = null;
+    error = null;
+    try {
+      const res = await cleanupMetrics({ days, agent: maintAgent || undefined, plugin: maintPlugin || undefined, metric: maintMetric || undefined });
+      maintResult = res;
+      maintenanceStats = await fetchMaintenanceStats();
+    } catch (e) { error = e.message; }
+    finally { maintRunning = false; }
   }
 
   async function openAgentDialog(id) {
@@ -1369,11 +1403,49 @@ if __name__ == "__main__":
           </div>
         {/each}
       </div>
-      <div class="glass rounded-[var(--radius-card)] p-4 mt-4 flex items-center gap-3 opacity-60">
-        <Database size={18} style="color:var(--text-secondary)" />
-        <div>
+      <div class="glass rounded-[var(--radius-card)] p-4 mt-4">
+        <div class="flex items-center gap-2 mb-3">
+          <Database size={18} style="color:var(--text-primary)" />
           <div class="text-xs font-semibold" style="color:var(--text-primary)">Metric cleanup</div>
-          <div class="text-[11px]" style="color:var(--text-secondary)">Cleanup tools will be available here later.</div>
+        </div>
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            <span class="text-[11px]" style="color:var(--text-secondary)">Delete metrics older than</span>
+            <input type="number" min="0" step="1" bind:value={maintDays} style="width:80px;padding:0.35rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary);" />
+            <span class="text-[11px]" style="color:var(--text-secondary)">day(s)</span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <select bind:value={maintAgent} onchange={loadMaintMetricNames} style="max-width:220px;padding:0.35rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary);">
+              <option value="">All agents</option>
+              {#each Object.entries(agents).sort(compareEntries) as [id, a]}
+                <option value={id}>{a.title || id} ({id})</option>
+              {/each}
+            </select>
+            <select bind:value={maintPlugin} onchange={loadMaintMetricNames} style="max-width:220px;padding:0.35rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary);">
+              <option value="">All plugins</option>
+              {#each filteredPlugins as p}
+                <option value={p.name}>{p.label} ({p.name})</option>
+              {/each}
+            </select>
+            <select bind:value={maintMetric} style="max-width:220px;padding:0.35rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary);">
+              <option value="">All metrics</option>
+              {#each maintMetricNames as m}
+                <option value={m}>{m}</option>
+              {/each}
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:brightness-110 disabled:opacity-50"
+              style="background:rgba(220,38,38,0.12);color:#ef4444"
+              disabled={maintRunning}
+              onclick={handleCleanupMetrics}
+            >{maintRunning ? 'Deleting...' : 'Delete old metrics'}</button>
+            {#if maintResult}
+              <span class="text-[11px]" style="color:var(--text-secondary)">
+                Deleted {fmtCount(maintResult.metrics)} metric(s){maintResult.alarms ? ` and ${maintResult.alarms} alarm(s)` : ''}.
+              </span>
+            {/if}
+          </div>
         </div>
       </div>
     {:else}

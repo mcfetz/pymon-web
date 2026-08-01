@@ -117,6 +117,7 @@ export function fetchPluginSchemas() { return api('/admin/plugins/schemas'); }
 export function fetchAdminAgents() { return api('/admin/agents'); }
 export function fetchAdminGroups() { return api('/admin/groups'); }
 export function fetchMaintenanceStats() { return api('/admin/maintenance/stats'); }
+export function cleanupMetrics(data) { return api('/admin/maintenance/metrics', { method: 'DELETE', body: data }); }
 export function createAgent(id, groups = [], title = '') {
   return api('/admin/agents', { method: 'POST', body: { id, groups, title } });
 }
