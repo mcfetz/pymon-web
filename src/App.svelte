@@ -333,6 +333,7 @@
     filters.pluginid = pluginid;
     await onPluginChange();
     filters.metric = metric;
+    await doQuery();
     tab = 'metrics';
   }
 
