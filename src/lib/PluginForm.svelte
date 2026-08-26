@@ -37,77 +37,89 @@
 <div class="plugin-form">
   {#each schema.fields as field}
     <div class="field">
-      <label>{field.label}</label>
+      {#if field.type === 'boolean'}
+        <label class="checkbox">
+          <input
+            type="checkbox"
+            checked={!!val(field.key)}
+            onchange={(e) => setVal(field.key, e.target.checked)}
+          />
+          <span>{field.label}</span>
+        </label>
 
-      {#if field.type === 'number'}
-        <input
-          type="number"
-          min={field.min}
-          max={field.max}
-          value={val(field.key)}
-          oninput={(e) => setVal(field.key, parseFloat(e.target.value) || 0)}
-        />
+      {:else}
+        <label>{field.label}</label>
 
-      {:else if field.type === 'password'}
-        <input
-          type="password"
-          value={val(field.key)}
-          autocomplete="new-password"
-          oninput={(e) => setVal(field.key, e.target.value)}
-        />
+        {#if field.type === 'number'}
+          <input
+            type="number"
+            min={field.min}
+            max={field.max}
+            value={val(field.key)}
+            oninput={(e) => setVal(field.key, parseFloat(e.target.value) || 0)}
+          />
 
-      {:else if field.type === 'string'}
-        <input
-          type="text"
-          value={val(field.key)}
-          oninput={(e) => setVal(field.key, e.target.value)}
-        />
+        {:else if field.type === 'password'}
+          <input
+            type="password"
+            value={val(field.key)}
+            autocomplete="new-password"
+            oninput={(e) => setVal(field.key, e.target.value)}
+          />
 
-      {:else if field.type === 'array:string'}
-        <div class="array-field">
-          {#each val(field.key) || [] as item, i}
-            <div class="array-row">
-              <input type="text" value={item} oninput={(e) => setArrayItem(field.key, i, e.target.value)} />
-              <button class="btn-remove" onclick={() => removeArrayItem(field.key, i)}>✕</button>
-            </div>
-          {/each}
-          <button class="btn-add" onclick={() => addArrayItem(field.key)}>+ Add</button>
-        </div>
+        {:else if field.type === 'string'}
+          <input
+            type="text"
+            value={val(field.key)}
+            oninput={(e) => setVal(field.key, e.target.value)}
+          />
 
-      {:else if field.type === 'array:object'}
-        <div class="object-array">
-          {#each val(field.key) || [] as item, idx}
-            <div class="object-card">
-              <div class="obj-header">
-                <strong>{item[field.fields?.[0]?.key] || 'Entry ' + (idx + 1)}</strong>
-                <button class="btn-remove" onclick={() => { const a = [...val(field.key)]; a.splice(idx, 1); setVal(field.key, a); }}>✕</button>
+        {:else if field.type === 'array:string'}
+          <div class="array-field">
+            {#each val(field.key) || [] as item, i}
+              <div class="array-row">
+                <input type="text" value={item} oninput={(e) => setArrayItem(field.key, i, e.target.value)} />
+                <button class="btn-remove" onclick={() => removeArrayItem(field.key, i)}>✕</button>
               </div>
-              {#each field.fields || [] as sub}
-                <div class="field">
-                  <label>{sub.label}</label>
-                  <input
-                    type="text"
-                    value={item[sub.key] || ''}
-                    oninput={(e) => {
-                      const a = [...val(field.key)];
-                      a[idx] = { ...a[idx], [sub.key]: e.target.value };
-                      setVal(field.key, a);
-                    }}
-                  />
+            {/each}
+            <button class="btn-add" onclick={() => addArrayItem(field.key)}>+ Add</button>
+          </div>
+
+        {:else if field.type === 'array:object'}
+          <div class="object-array">
+            {#each val(field.key) || [] as item, idx}
+              <div class="object-card">
+                <div class="obj-header">
+                  <strong>{item[field.fields?.[0]?.key] || 'Entry ' + (idx + 1)}</strong>
+                  <button class="btn-remove" onclick={() => { const a = [...val(field.key)]; a.splice(idx, 1); setVal(field.key, a); }}>✕</button>
                 </div>
-              {/each}
-            </div>
-          {/each}
-          <button class="btn-add" onclick={() => {
-            const a = [...(val(field.key) || [])];
-            const obj = {};
-            for (const f of (field.fields || [])) {
-              if (!f.optional) obj[f.key] = '';
-            }
-            a.push(obj);
-            setVal(field.key, a);
-          }}>+ Add Entry</button>
-        </div>
+                {#each field.fields || [] as sub}
+                  <div class="field">
+                    <label>{sub.label}</label>
+                    <input
+                      type="text"
+                      value={item[sub.key] || ''}
+                      oninput={(e) => {
+                        const a = [...val(field.key)];
+                        a[idx] = { ...a[idx], [sub.key]: e.target.value };
+                        setVal(field.key, a);
+                      }}
+                    />
+                  </div>
+                {/each}
+              </div>
+            {/each}
+            <button class="btn-add" onclick={() => {
+              const a = [...(val(field.key) || [])];
+              const obj = {};
+              for (const f of (field.fields || [])) {
+                if (!f.optional) obj[f.key] = '';
+              }
+              a.push(obj);
+              setVal(field.key, a);
+            }}>+ Add Entry</button>
+          </div>
+        {/if}
       {/if}
     </div>
   {/each}
