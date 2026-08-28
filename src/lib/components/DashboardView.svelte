@@ -114,26 +114,14 @@
     <div>
       <div class="glass-pill px-2 py-1.5 overflow-x-auto whitespace-nowrap flex items-center gap-1" style="scrollbar-width:none">
         {#each dashboards as db}
-          <div class="flex items-center gap-0.5 flex-shrink-0">
-            <button
-              type="button"
-              onclick={() => selectDashboard(db.id)}
-              class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer whitespace-nowrap"
-              style={activeId === db.id
-                ? 'background: rgba(var(--color-primary-rgb), 0.18); color: var(--color-primary); font-weight: 600;'
-                : 'color: var(--text-secondary);'}
-            >{db.name}</button>
-            <button
-              type="button"
-              onclick={() => onEdit(db.id)}
-              title="Edit dashboard in config"
-              aria-label={`edit ${db.name}`}
-              class="p-1 rounded-md transition-colors cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
-              style="color: var(--text-secondary)"
-            >
-              <Pencil size={12} strokeWidth={2} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onclick={() => selectDashboard(db.id)}
+            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer whitespace-nowrap"
+            style={activeId === db.id
+              ? 'background: rgba(var(--color-primary-rgb), 0.18); color: var(--color-primary); font-weight: 600;'
+              : 'color: var(--text-secondary);'}
+          >{db.name}</button>
         {/each}
       </div>
     </div>
@@ -167,6 +155,21 @@
           error={panelErrors[panel.id]}
         />
       {/each}
+
+      <!-- Edit in config -->
+      <div class="flex justify-center pt-1">
+        <button
+          type="button"
+          onclick={() => onEdit(active.id)}
+          title="Edit dashboard in config"
+          aria-label="edit dashboard in config"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-150 cursor-pointer hover:brightness-110 active:scale-95"
+          style="background: rgba(var(--color-primary-rgb), 0.08); color: var(--color-primary);"
+        >
+          <Pencil size={12} strokeWidth={2} />
+          edit in config
+        </button>
+      </div>
     {/if}
   {/if}
 </div>
