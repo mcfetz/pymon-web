@@ -5,16 +5,11 @@
   import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
   import AlertCircle from 'lucide-svelte/icons/alert-circle';
   import BellOff from 'lucide-svelte/icons/bell-off';
-  import RefreshCw from 'lucide-svelte/icons/refresh-cw';
 
   let {
     onAccount = () => {},
     onSeverityClick = () => {},
     severityCounts = {},
-    appVersion = '',
-    updateAvailable = false,
-    onReload = () => {},
-    reloading = false,
     lastActivityMs = 0,
   } = $props();
 
@@ -24,15 +19,15 @@
   onMount(() => { timer = setInterval(() => { now = Date.now(); }, 1000); });
   onDestroy(() => { if (timer) clearInterval(timer); });
 
-  let liveState = $derived.by(() => {
-    if (!lastActivityMs) return { label: 'offline', color: '#ef4444' };
+  let liveColor = $derived.by(() => {
+    if (!lastActivityMs) return '#ef4444';
     const secs = Math.floor((now - lastActivityMs) / 1000);
-    if (secs <= 30) return { label: 'live', color: '#22c55e' };
-    if (secs <= 120) return { label: `${Math.floor(secs / 60)}m ago`, color: '#f59e0b' };
-    return { label: 'offline', color: '#ef4444' };
+    if (secs <= 30) return '#22c55e';
+    if (secs <= 120) return '#f59e0b';
+    return '#ef4444';
   });
 
-  let active = $derived(liveState.color === '#22c55e');
+  let active = $derived(liveColor === '#22c55e');
 
   const badgeDefs = [
     { key: 'critical', icon: AlertCircle, color: '#ef4444', label: 'crit' },
@@ -69,33 +64,16 @@
 
       <!-- Live / connectivity status -->
       <div
-        class="flex items-center gap-1.5 ml-auto"
+        class="flex items-center ml-auto"
         title="Backend connectivity from the last successful poll"
       >
         <span class="relative flex h-2 w-2 flex-shrink-0">
           {#if active}
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style="background: {liveState.color}"></span>
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style="background: {liveColor}"></span>
           {/if}
-          <span class="relative inline-flex rounded-full h-2 w-2" style="background: {liveState.color}"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2" style="background: {liveColor}"></span>
         </span>
-        <span class="text-[10px] font-medium tabular-nums hidden min-[340px]:inline" style="color: {liveState.color}">{liveState.label}</span>
       </div>
-
-      <!-- Version chip / update indicator -->
-      <button
-        type="button"
-        onclick={updateAvailable ? onReload : undefined}
-        class="flex items-center gap-1 px-1.5 py-0.5 rounded-md font-mono text-[10px] transition-all duration-150 cursor-pointer"
-        class:opacity-60={!updateAvailable}
-        class:hover:brightness-110={updateAvailable}
-        title={updateAvailable ? `update ${appVersion} → available — click to reload` : `version ${appVersion}`}
-        style="background: {updateAvailable ? 'rgba(var(--color-primary-rgb), 0.15)' : 'rgba(0,0,0,0.04)'}; color: {updateAvailable ? 'var(--color-primary)' : 'var(--text-secondary)'};"
-      >
-        {#if updateAvailable}
-          <RefreshCw size={10} class={reloading ? 'animate-spin' : 'animate-pulse'} />
-        {/if}
-        {appVersion}
-      </button>
 
       <button onclick={onAccount} class="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5" aria-label="account">
         <div class="icon-wrap">

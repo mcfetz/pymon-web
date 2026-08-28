@@ -619,10 +619,6 @@
       onAccount={() => tab = 'account'}
       {severityCounts}
       onSeverityClick={handleSeverityClick}
-      appVersion={appVersion}
-      {updateAvailable}
-      onReload={applyUpdate}
-      {reloading}
       lastActivityMs={lastApiOk}
     />
 
