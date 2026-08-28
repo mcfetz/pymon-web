@@ -6,6 +6,8 @@
   import MetricsChart from '../MetricsChart.svelte';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import X from 'lucide-svelte/icons/x';
+  import ChevronLeft from 'lucide-svelte/icons/chevron-left';
+  import ChevronRight from 'lucide-svelte/icons/chevron-right';
 
   let {
     filters,
@@ -48,6 +50,42 @@
     if (v === null || v === undefined) return '—';
     if (typeof v === 'number') return Number.isInteger(v) ? String(v) : v.toFixed(2);
     return String(v);
+  }
+
+  const PRESET_HOURS = { '1h': 1, '6h': 6, '12h': 12, '1d': 24, '1w': 168 };
+
+  function formatDatetimeLocal(date) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const y = date.getFullYear();
+    const m = pad(date.getMonth() + 1);
+    const d = pad(date.getDate());
+    const h = pad(date.getHours());
+    const min = pad(date.getMinutes());
+    return `${y}-${m}-${d}T${h}:${min}`;
+  }
+
+  function stepBackward() {
+    const current = (filters.until && !isNaN(new Date(filters.until).getTime()))
+      ? new Date(filters.until).getTime()
+      : Date.now();
+    const hours = PRESET_HOURS[filters.timePreset] || 1;
+    const next = new Date(current - hours * 3600000);
+    filters.until = formatDatetimeLocal(next);
+    if (hasSearched) doQuery();
+  }
+
+  function stepForward() {
+    const current = (filters.until && !isNaN(new Date(filters.until).getTime()))
+      ? new Date(filters.until).getTime()
+      : Date.now();
+    const hours = PRESET_HOURS[filters.timePreset] || 1;
+    const next = new Date(current + hours * 3600000);
+    if (next.getTime() >= Date.now()) {
+      filters.until = '';
+    } else {
+      filters.until = formatDatetimeLocal(next);
+    }
+    if (hasSearched) doQuery();
   }
 </script>
 
@@ -103,7 +141,7 @@
           {#if filters.until}
             <button
               type="button"
-              onclick={() => { filters.until = ''; }}
+              onclick={() => { filters.until = ''; if (hasSearched) doQuery(); }}
               class="text-[9px] font-semibold transition-opacity hover:opacity-100 opacity-70 cursor-pointer flex items-center gap-0.5"
               style="color: var(--color-primary)"
               title="Reset to live / now"
@@ -120,14 +158,53 @@
         />
       </div>
 
-      <div class="flex gap-1">
-        {#each timePresets as p}
+      <!-- Step backward / forward navigation (segmented group) -->
+      <div class="flex flex-col gap-0.5">
+        <span class="text-[9px] uppercase tracking-wide font-semibold invisible">_</span>
+        <div
+          class="inline-flex items-center p-0.5 rounded-lg border h-[34px] box-border"
+          style="border-color: var(--border-default); background: var(--bg-surface, rgba(0, 0, 0, 0.03));"
+        >
           <button
-            onclick={() => { filters.timePreset = p.value; }}
-            class="px-2.5 py-2 rounded-lg text-[10px] font-medium transition-all duration-150 hover:brightness-110 active:scale-95"
-            style={filters.timePreset === p.value ? 'background: rgba(var(--color-primary-rgb), 0.15); color: var(--color-primary)' : 'color: var(--text-secondary)'}
-          >{p.label}</button>
-        {/each}
+            type="button"
+            onclick={stepBackward}
+            title="Step backward by {filters.timePreset}"
+            class="h-full px-2 rounded-[6px] transition-all duration-150 hover:brightness-110 active:scale-95 cursor-pointer flex items-center justify-center hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+            style="color: var(--text-secondary);"
+          >
+            <ChevronLeft size={14} strokeWidth={2.5} />
+          </button>
+          <div class="w-[1px] h-3.5 my-auto" style="background: var(--border-default);"></div>
+          <button
+            type="button"
+            onclick={stepForward}
+            title="Step forward by {filters.timePreset}"
+            class="h-full px-2 rounded-[6px] transition-all duration-150 hover:brightness-110 active:scale-95 cursor-pointer flex items-center justify-center hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+            style="color: var(--text-secondary);"
+          >
+            <ChevronRight size={14} strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
+
+      <!-- Time range presets (segmented group) -->
+      <div class="flex flex-col gap-0.5">
+        <span class="text-[9px] uppercase tracking-wide font-semibold invisible">_</span>
+        <div
+          class="inline-flex items-center p-0.5 rounded-lg border h-[34px] box-border"
+          style="border-color: var(--border-default); background: var(--bg-surface, rgba(0, 0, 0, 0.03));"
+        >
+          {#each timePresets as p}
+            <button
+              type="button"
+              onclick={() => { filters.timePreset = p.value; }}
+              class="h-full px-2.5 rounded-[6px] text-[10px] font-medium transition-all duration-150 cursor-pointer flex items-center justify-center"
+              style={filters.timePreset === p.value
+                ? 'background: rgba(var(--color-primary-rgb), 0.18); color: var(--color-primary); font-weight: 600;'
+                : 'color: var(--text-secondary);'}
+            >{p.label}</button>
+          {/each}
+        </div>
       </div>
 
       <button
