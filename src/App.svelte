@@ -184,6 +184,18 @@
   let histFilteredMerged = $derived(filteredHistoryGroups.merged.filter(g => histSeverityFilter.has(g.alarms[0].severity)));
   let alarmsTruncated = $state(false);
   let historyTruncated = $state(false);
+  let lastApiOk = $state(0);
+
+  function handleSeverityClick(sev) {
+    if (sev === 'snoozed') {
+      const next = new Set(severityFilter);
+      if (next.has('snoozed')) next.delete('snoozed'); else next.add('snoozed');
+      severityFilter = next;
+    } else {
+      severityFilter = new Set([sev]);
+    }
+    tab = 'alarms';
+  }
 
   // ── History date range ──
   let historyDateLabels = $state([]);
@@ -238,6 +250,7 @@
     try {
       const snoozed = await fetchSnoozed();
       snoozedSet = new Set(snoozed.map(s => `${s.rule_id}|${s.agentid}|${s.pluginid}|${s.metric}`));
+      lastApiOk = Date.now();
     } catch (e) {
       console.error('loadSnoozed failed:', e);
     }
@@ -252,6 +265,7 @@
       alarmsTruncated = openRes.truncated;
       historyTruncated = histRes.truncated;
       buildDateRange(historyAlarms);
+      lastApiOk = Date.now();
     } catch (e) { error = e.message; }
     finally { loading = false; }
   }
@@ -601,7 +615,16 @@
   {#if !loggedIn}
     <LoginPage error={loginError} loading={loginLoading} onsubmit={handleLogin} version={appVersion} />
   {:else}
-    <Header onAccount={() => tab = 'account'} />
+    <Header
+      onAccount={() => tab = 'account'}
+      {severityCounts}
+      onSeverityClick={handleSeverityClick}
+      appVersion={appVersion}
+      {updateAvailable}
+      onReload={applyUpdate}
+      {reloading}
+      lastActivityMs={lastApiOk}
+    />
 
     {#if error}
       <div class="mx-auto max-w-xl px-4 mb-4">
