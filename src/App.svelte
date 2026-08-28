@@ -25,10 +25,47 @@
   import Clock from 'lucide-svelte/icons/clock';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import Cog from 'lucide-svelte/icons/cog';
+  import RefreshCw from 'lucide-svelte/icons/refresh-cw';
   import { updateAccount } from './lib/api.js';
 
   initTheme();
   const AGENT_STATUS_PLUGIN = { id: 'agent', title: 'Agent status' };
+  const appVersion = typeof __APP_COMMIT__ !== 'undefined' ? __APP_COMMIT__ : 'dev';
+
+  // ── Version & Update state ──
+  let updateAvailable = $state(false);
+  let availableVersion = $state('');
+  let reloading = $state(false);
+
+  async function checkVersion() {
+    try {
+      const res = await fetch(`/version.json?_t=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.version && data.version !== appVersion && appVersion !== 'dev') {
+        updateAvailable = true;
+        availableVersion = data.version;
+      }
+    } catch {
+      // Ignore network errors
+    }
+  }
+
+  async function applyUpdate() {
+    reloading = true;
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const reg of regs) {
+          await reg.update();
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+        }
+      }
+    } catch {}
+    window.location.reload();
+  }
 
   // ── Tab state ──
   let tab = $state('alarms');
@@ -485,12 +522,36 @@
   }
 
   onMount(() => {
-    if (!loggedIn) return;
-    loadAlarms(); checkPush(); loadFilterOptions(); loadSnoozed();
-    fetchRules().then(r => { rules = r; }).catch(() => {});
-    fetchAdminPlugins().then(list => {
-      pluginLabelMap = Object.fromEntries(list.map(p => [p.name, p.label || p.name]));
-    }).catch(() => {});
+    checkVersion();
+    const versionTimer = setInterval(checkVersion, 30000);
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') checkVersion();
+    }
+    window.addEventListener('focus', checkVersion);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                updateAvailable = true;
+              }
+            });
+          }
+        });
+      }).catch(() => {});
+    }
+
+    if (loggedIn) {
+      loadAlarms(); checkPush(); loadFilterOptions(); loadSnoozed();
+      fetchRules().then(r => { rules = r; }).catch(() => {});
+      fetchAdminPlugins().then(list => {
+        pluginLabelMap = Object.fromEntries(list.map(p => [p.name, p.label || p.name]));
+      }).catch(() => {});
+    }
 
     // Hash routing — open alarm detail modal on #alarm/<id>
     function parseHash() {
@@ -500,9 +561,12 @@
     parseHash();
     window.addEventListener('hashchange', parseHash);
 
-    const t = setInterval(() => { loadAlarms(); loadSnoozed(); }, 5000);
+    const t = setInterval(() => { if (loggedIn) { loadAlarms(); loadSnoozed(); } }, 5000);
     return () => {
       clearInterval(t);
+      clearInterval(versionTimer);
+      window.removeEventListener('focus', checkVersion);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('hashchange', parseHash);
     };
   });
@@ -512,7 +576,7 @@
 
 <main class="min-h-screen pb-24" style="background: var(--bg-app)">
   {#if !loggedIn}
-    <LoginPage error={loginError} loading={loginLoading} onsubmit={handleLogin} />
+    <LoginPage error={loginError} loading={loginLoading} onsubmit={handleLogin} version={appVersion} />
   {:else}
     <Header onAccount={() => tab = 'account'} />
 
@@ -647,7 +711,48 @@
         <AccountPage onlogout={handleLogout} onsave={handleAccountSave} />
         </div>
       {/if}
+
+      <footer class="mt-8 mb-2 text-center select-none pointer-events-none">
+        <span class="text-[10px] font-mono tracking-wider opacity-30 select-all pointer-events-auto cursor-default transition-opacity hover:opacity-75" style="color: var(--text-secondary)">
+          pymon {appVersion}
+        </span>
+      </footer>
     </div>
+
+    {#if updateAvailable}
+      <aside
+        class="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-sm animate-slide-up"
+        aria-label="Update notification"
+      >
+        <div
+          class="glass-pill px-4 py-2.5 flex items-center justify-between gap-3 shadow-2xl border"
+          style="border-color: rgba(var(--color-primary-rgb), 0.4); background: var(--glass-bg); backdrop-filter: blur(24px);"
+        >
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="relative flex h-2 w-2 flex-shrink-0">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+            <div class="text-xs truncate">
+              <span class="font-semibold text-[var(--text-primary)]">Update available</span>
+              {#if availableVersion}
+                <span class="font-mono text-[10px] opacity-70 ml-1">({availableVersion})</span>
+              {/if}
+            </div>
+          </div>
+          <button
+            type="button"
+            onclick={applyUpdate}
+            disabled={reloading}
+            class="px-3 py-1 rounded-full text-xs font-semibold text-white transition-all duration-200 hover:brightness-110 active:scale-95 flex-shrink-0 flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+            style="background: var(--color-primary)"
+          >
+            <RefreshCw size={12} class={reloading ? 'animate-spin' : ''} />
+            {reloading ? 'reloading...' : 'reload'}
+          </button>
+        </div>
+      </aside>
+    {/if}
 
     <BottomNav {tab} onNavigate={handleNavigate} alarmCount={openAlarms.length} />
   {/if}

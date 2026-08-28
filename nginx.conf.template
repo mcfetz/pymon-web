@@ -16,6 +16,13 @@ server {
         proxy_read_timeout 300s;
     }
 
+    # Never cache version.json or service worker
+    location ~* (version\.json|sw\.js|registerSW\.js)$ {
+        expires -1;
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
+        try_files $uri =404;
+    }
+
     # SPA fallback — all unknown routes return index.html
     location / {
         try_files $uri $uri/ /index.html;

@@ -1,6 +1,9 @@
 ## ── Stage 1: Build ───────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 
+ARG VITE_COMMIT_HASH=unknown
+ENV VITE_COMMIT_HASH=$VITE_COMMIT_HASH
+
 WORKDIR /app
 
 COPY package*.json ./

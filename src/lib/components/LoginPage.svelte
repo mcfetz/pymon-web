@@ -1,7 +1,7 @@
 <script>
   import Shield from 'lucide-svelte/icons/shield';
 
-  let { error = '', loading = false, onsubmit = () => {} } = $props();
+  let { error = '', loading = false, onsubmit = () => {}, version = '' } = $props();
   let username = $state('');
   let password = $state('');
 
@@ -11,7 +11,7 @@
   }
 </script>
 
-<div class="flex items-center justify-center min-h-[70vh] p-4">
+<div class="flex flex-col items-center justify-center min-h-[70vh] p-4">
   <div class="glass w-full max-w-sm p-8 animate-scale-in">
     <div class="flex flex-col items-center mb-6">
       <div class="icon-wrap mb-3">
@@ -60,4 +60,12 @@
       </button>
     </form>
   </div>
+
+  {#if version}
+    <footer class="mt-4 text-center select-none pointer-events-none">
+      <span class="text-[10px] font-mono tracking-wider opacity-30 select-all cursor-default" style="color: var(--text-secondary)">
+        pymon {version}
+      </span>
+    </footer>
+  {/if}
 </div>
