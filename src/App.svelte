@@ -375,6 +375,7 @@
   });
 
   let pendingRule = $state(null);
+  let pendingDashboard = $state(null);
   let alarmDetailId = $state(null);
 
   // Rule title map for alarm cards
@@ -400,6 +401,10 @@
 
   function openRule(ruleId) {
     pendingRule = { id: ruleId, ts: Date.now() };
+    tab = 'config';
+  }
+  function openDashboardConfig(dashboardId) {
+    pendingDashboard = { id: dashboardId, ts: Date.now() };
     tab = 'config';
   }
   async function jumpToHistory(agentid, pluginid, metric) {
@@ -748,12 +753,18 @@
       {:else if tab === 'boards'}
         <div class="animate-slide-up">
         <PageHeader icon={LayoutDashboard} title="Dashboards" />
-        <DashboardView />
+        <DashboardView onEdit={openDashboardConfig} />
         </div>
       {:else if tab === 'config'}
         <div class="animate-slide-up">
         <PageHeader icon={Cog} title="Configuration" />
-        <ConfigView {pendingRule} onLogout={handleLogout} onClearPendingRule={() => pendingRule = null} />
+        <ConfigView
+          {pendingRule}
+          onLogout={handleLogout}
+          onClearPendingRule={() => pendingRule = null}
+          {pendingDashboard}
+          onClearPendingDashboard={() => pendingDashboard = null}
+        />
         </div>
       {:else if tab === 'account'}
         <div class="animate-slide-up">

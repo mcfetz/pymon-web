@@ -3,7 +3,12 @@
   import DashboardPanel from './DashboardPanel.svelte';
   import EmptyState from './EmptyState.svelte';
   import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
+  import Pencil from 'lucide-svelte/icons/pencil';
   import { fetchDashboards, queryMetrics } from '../api.js';
+
+  let {
+    onEdit = () => {},
+  } = $props();
 
   const TIME_PRESETS = [
     { label: '1h', value: '1h' }, { label: '6h', value: '6h' },
@@ -109,14 +114,26 @@
     <div>
       <div class="glass-pill px-2 py-1.5 overflow-x-auto whitespace-nowrap flex items-center gap-1" style="scrollbar-width:none">
         {#each dashboards as db}
-          <button
-            type="button"
-            onclick={() => selectDashboard(db.id)}
-            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer whitespace-nowrap"
-            style={activeId === db.id
-              ? 'background: rgba(var(--color-primary-rgb), 0.18); color: var(--color-primary); font-weight: 600;'
-              : 'color: var(--text-secondary);'}
-          >{db.name}</button>
+          <div class="flex items-center gap-0.5 flex-shrink-0">
+            <button
+              type="button"
+              onclick={() => selectDashboard(db.id)}
+              class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer whitespace-nowrap"
+              style={activeId === db.id
+                ? 'background: rgba(var(--color-primary-rgb), 0.18); color: var(--color-primary); font-weight: 600;'
+                : 'color: var(--text-secondary);'}
+            >{db.name}</button>
+            <button
+              type="button"
+              onclick={() => onEdit(db.id)}
+              title="Edit dashboard in config"
+              aria-label={`edit ${db.name}`}
+              class="p-1 rounded-md transition-colors cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
+              style="color: var(--text-secondary)"
+            >
+              <Pencil size={12} strokeWidth={2} />
+            </button>
+          </div>
         {/each}
       </div>
     </div>

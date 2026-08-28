@@ -38,7 +38,7 @@ import Plus from 'lucide-svelte/icons/plus';
     fetchMaintenanceStats, cleanupMetrics, fetchAgentPluginMetrics, vacuumDatabase,
   } from './api.js';
 
-  let { pendingRule = null, onLogout = () => {}, onClearPendingRule = () => {} } = $props();
+  let { pendingRule = null, onLogout = () => {}, onClearPendingRule = () => {}, pendingDashboard = null, onClearPendingDashboard = () => {} } = $props();
 
   let anyDialogOpen = $derived(
     showRuleDialog || showExecDialog || showNotifyDialog || showPluginDialog ||
@@ -57,6 +57,31 @@ import Plus from 'lucide-svelte/icons/plus';
       editRule(pendingRule.id);
       onClearPendingRule();
     }
+  });
+
+  $effect(() => {
+    const pid = pendingDashboard?.id;
+    if (!pid) return;
+    if (pid in dashboards) {
+      view = 'dashboards';
+      editDashboard(pid);
+      onClearPendingDashboard();
+      return;
+    }
+    let cancelled = false;
+    ensureData(['dashboards', 'agents', 'groups']).then(() => {
+      if (cancelled) return;
+      if (pid in dashboards) {
+        view = 'dashboards';
+        editDashboard(pid);
+        onClearPendingDashboard();
+      } else {
+        onClearPendingDashboard();
+      }
+    }).catch(() => {
+      if (!cancelled) onClearPendingDashboard();
+    });
+    return () => { cancelled = true; };
   });
 
   function fmtTime(iso) {
