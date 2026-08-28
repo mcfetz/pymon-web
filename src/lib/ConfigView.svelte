@@ -349,6 +349,21 @@ import Plus from 'lucide-svelte/icons/plus';
     } catch (e) { error = e.message; }
   }
 
+  async function handleDuplicateDashboard(id) {
+    const src = dashboards[id];
+    if (!src) return;
+    const copy = {
+      ...src,
+      id: genId('db'),
+      name: `${src.name || 'Dashboard'} Copy`,
+      panels: (src.panels || []).map(p => ({ ...p, id: genId('p'), pluginOptions: [] })),
+    };
+    try {
+      await saveDashboard(copy.id, copy);
+      dashboards = await fetchDashboards();
+    } catch (e) { error = e.message; }
+  }
+
   async function handleDeleteDashboard(id) {
     if (!confirm(`Delete dashboard '${dashboards[id]?.name || id}'?`)) return;
     try {
@@ -1367,6 +1382,7 @@ import Plus from 'lucide-svelte/icons/plus';
           </div>
         {/if}
         <div class="rule-actions">
+          <button class="btn-dup" onclick={() => handleDuplicateDashboard(did)}>Duplicate</button>
           <button class="btn-del" onclick={() => handleDeleteDashboard(did)}>Delete</button>
         </div>
         </div>
