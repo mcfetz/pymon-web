@@ -408,6 +408,14 @@ import Plus from 'lucide-svelte/icons/plus';
     editedDashboard = { ...editedDashboard, panels };
   }
 
+  function movePanel(index, direction) {
+    const target = index + direction;
+    const panels = [...(editedDashboard.panels || [])];
+    if (target < 0 || target >= panels.length) return;
+    [panels[index], panels[target]] = [panels[target], panels[index]];
+    editedDashboard = { ...editedDashboard, panels };
+  }
+
   function panelTypeLabel(t) {
     return ({ chart: 'Chart', table: 'Table', stats: 'Stats', last: 'Last value' })[t] || 'Panel';
   }
@@ -2743,6 +2751,20 @@ if __name__ == "__main__":
                 <option value="stats">Stats</option>
                 <option value="last">Last value</option>
               </select>
+              <div class="flex items-center gap-0.5">
+                <button
+                  onclick={() => movePanel(i, -1)}
+                  disabled={i === 0}
+                  title="Move panel up"
+                  style="color:var(--text-secondary);background:none;border:1px solid var(--border-default);border-radius:4px;cursor:pointer;padding:0.1rem 0.35rem;font-size:0.78rem;line-height:1;disabled:opacity:0.3"
+                >↑</button>
+                <button
+                  onclick={() => movePanel(i, 1)}
+                  disabled={i === (editedDashboard.panels || []).length - 1}
+                  title="Move panel down"
+                  style="color:var(--text-secondary);background:none;border:1px solid var(--border-default);border-radius:4px;cursor:pointer;padding:0.1rem 0.35rem;font-size:0.78rem;line-height:1;disabled:opacity:0.3"
+                >↓</button>
+              </div>
               <button onclick={() => removePanel(i)} style="color:#ef4444;font-size:1rem;background:none;border:none;cursor:pointer;padding:0 0.2rem" title="Remove panel">×</button>
             </div>
             <div class="flex flex-wrap items-center gap-1.5">
