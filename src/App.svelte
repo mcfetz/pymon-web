@@ -487,7 +487,7 @@
       if (untilDate && !isNaN(untilDate.getTime())) {
         params.to = untilDate.toISOString();
       }
-      params.limit = 500;
+      params.limit = 5000;
       const raw = await queryMetrics(params);
       metricsData = raw.map(row => ({ ...row, agent_title: agentTitleMap[row.agentid] || row.agentid, plugin_title: pluginTitleMap[row.pluginid] || row.pluginid }));
     } catch (e) { metricsError = e.message; }
