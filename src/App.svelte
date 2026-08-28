@@ -274,7 +274,7 @@
   let metricsData = $state([]);
   let metricsLoading = $state(false);
   let metricsError = $state(null);
-  let filters = $state({ group: '', agentid: [], pluginid: '', metric: '', timePreset: '1h' });
+  let filters = $state({ group: '', agentid: [], pluginid: '', metric: '', timePreset: '1h', until: '' });
   let hasSearched = $state(false);
   let sortCol = $state('timestamp');
   let sortDir = $state('desc');
@@ -328,6 +328,7 @@
   }
   async function jumpToHistory(agentid, pluginid, metric) {
     filters.timePreset = '1h';
+    filters.until = '';
     filters.agentid = [agentid];
     await onAgentChange();
     filters.pluginid = pluginid;
@@ -341,9 +342,12 @@
     { label: '1h', value: '1h' }, { label: '6h', value: '6h' },
     { label: '12h', value: '12h' }, { label: '1d', value: '1d' }, { label: '1w', value: '1w' },
   ];
-  function timeFromPreset(preset) {
+  function timeFromPreset(preset, untilStr) {
     const map = { '1h': 1, '6h': 6, '12h': 12, '1d': 24, '1w': 168 };
-    return new Date(Date.now() - (map[preset] || 1) * 3600000).toISOString();
+    const hours = map[preset] || 1;
+    const untilDate = untilStr ? new Date(untilStr) : null;
+    const baseTime = (untilDate && !isNaN(untilDate.getTime())) ? untilDate.getTime() : Date.now();
+    return new Date(baseTime - hours * 3600000).toISOString();
   }
 
   async function loadFilterOptions() {
@@ -404,7 +408,11 @@
       if (filters.agentid.length > 0) params.agentid = filters.agentid.join(',');
       if (filters.pluginid) params.pluginid = filters.pluginid;
       if (filters.metric) params.metric = filters.metric;
-      params.from = timeFromPreset(filters.timePreset);
+      params.from = timeFromPreset(filters.timePreset, filters.until);
+      const untilDate = filters.until ? new Date(filters.until) : null;
+      if (untilDate && !isNaN(untilDate.getTime())) {
+        params.to = untilDate.toISOString();
+      }
       params.limit = 500;
       const raw = await queryMetrics(params);
       metricsData = raw.map(row => ({ ...row, agent_title: agentTitleMap[row.agentid] || row.agentid, plugin_title: pluginTitleMap[row.pluginid] || row.pluginid }));

@@ -5,6 +5,7 @@
   import Select from './Select.svelte';
   import MetricsChart from '../MetricsChart.svelte';
   import ChartArea from 'lucide-svelte/icons/chart-area';
+  import X from 'lucide-svelte/icons/x';
 
   let {
     filters,
@@ -91,6 +92,31 @@
           bind:value={filters.metric}
           class="px-3 py-2 rounded-lg border text-xs bg-transparent outline-none"
           style="border-color: var(--border-default); color: var(--text-primary)"
+        />
+      </div>
+
+      <div class="flex flex-col gap-0.5 min-w-[150px]">
+        <div class="flex items-center justify-between gap-1">
+          <span class="text-[9px] uppercase tracking-wide font-semibold" style="color: var(--text-secondary)">
+            until {filters.until ? '' : '(now)'}
+          </span>
+          {#if filters.until}
+            <button
+              type="button"
+              onclick={() => { filters.until = ''; }}
+              class="text-[9px] font-semibold transition-opacity hover:opacity-100 opacity-70 cursor-pointer flex items-center gap-0.5"
+              style="color: var(--color-primary)"
+              title="Reset to live / now"
+            >
+              <X size={10} /> reset
+            </button>
+          {/if}
+        </div>
+        <input
+          type="datetime-local"
+          bind:value={filters.until}
+          class="px-2.5 py-2 rounded-lg border text-xs bg-transparent outline-none cursor-pointer"
+          style="border-color: var(--border-default); color: var(--text-primary); color-scheme: dark light;"
         />
       </div>
 
