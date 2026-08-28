@@ -143,22 +143,45 @@
 
   let alarmGroups = $derived(groupAlarms(openAlarms));
   let historyGroups = $derived(groupAlarms(historyAlarms));
+  let snoozedSet = $state(new Set());
+
+  function isAlarmVisible(a, sevFilter, snoozed) {
+    const key = a.key || `${a.rule_id}|${a.agentid}|${a.pluginid}|${a.metric}`;
+    const isSnoozed = snoozed.has(key);
+    const severity = a.severity || (a.alarms && a.alarms[0] && a.alarms[0].severity);
+
+    const hasAnySev = ['critical', 'warning', 'info'].some(s => sevFilter.has(s));
+
+    if (!hasAnySev && sevFilter.has('snoozed')) {
+      return isSnoozed;
+    }
+
+    if (!sevFilter.has(severity)) return false;
+    if (isSnoozed && !sevFilter.has('snoozed')) return false;
+    return true;
+  }
 
   let severityFilter = $state(new Set(['warning', 'critical', 'info']));
   let severityCounts = $derived.by(() => {
-    const counts = { warning: 0, critical: 0, info: 0 };
-    for (const a of openAlarms) counts[a.severity] = (counts[a.severity] || 0) + 1;
+    const counts = { warning: 0, critical: 0, info: 0, snoozed: 0 };
+    for (const a of openAlarms) {
+      const key = `${a.rule_id}|${a.agentid}|${a.pluginid}|${a.metric}`;
+      if (snoozedSet.has(key)) {
+        counts.snoozed = (counts.snoozed || 0) + 1;
+      } else {
+        counts[a.severity] = (counts[a.severity] || 0) + 1;
+      }
+    }
     return counts;
   });
-  let filteredStacks = $derived(alarmGroups.stacks.filter(g => severityFilter.has(g.alarms[0].severity)));
-  let filteredSingles = $derived(alarmGroups.singles.filter(a => severityFilter.has(a.severity)));
-  let filteredMerged = $derived(alarmGroups.merged.filter(g => severityFilter.has(g.alarms[0].severity)));
+  let filteredStacks = $derived(alarmGroups.stacks.filter(g => isAlarmVisible(g, severityFilter, snoozedSet)));
+  let filteredSingles = $derived(alarmGroups.singles.filter(a => isAlarmVisible(a, severityFilter, snoozedSet)));
+  let filteredMerged = $derived(alarmGroups.merged.filter(g => isAlarmVisible(g, severityFilter, snoozedSet)));
   // History severity filter
   let histSeverityFilter = $state(new Set(['warning', 'critical', 'info']));
   let histFilteredStacks = $derived(filteredHistoryGroups.stacks.filter(g => histSeverityFilter.has(g.alarms[0].severity)));
   let histFilteredSingles = $derived(filteredHistoryGroups.singles.filter(a => histSeverityFilter.has(a.severity)));
   let histFilteredMerged = $derived(filteredHistoryGroups.merged.filter(g => histSeverityFilter.has(g.alarms[0].severity)));
-  let snoozedSet = $state(new Set());
   let alarmsTruncated = $state(false);
   let historyTruncated = $state(false);
 

@@ -3,6 +3,7 @@
   import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
   import AlertCircle from 'lucide-svelte/icons/alert-circle';
   import Info from 'lucide-svelte/icons/info';
+  import BellOff from 'lucide-svelte/icons/bell-off';
   import FilterPills from './FilterPills.svelte';
   import AlarmCard from './AlarmCard.svelte';
   import EmptyState from './EmptyState.svelte';
@@ -33,11 +34,12 @@
     truncated = false,
   } = $props();
 
-  let sevOptions = ['critical', 'warning', 'info'];
+  let sevOptions = $derived(history ? ['critical', 'warning', 'info'] : ['critical', 'warning', 'info', 'snoozed']);
   let sevIcons = {
     critical: { icon: AlertCircle, color: '#ef4444' },
     warning: { icon: AlertTriangle, color: '#f59e0b' },
     info: { icon: Info, color: '#3b82f6' },
+    snoozed: { icon: BellOff, color: '#eab308' },
   };
 </script>
 
