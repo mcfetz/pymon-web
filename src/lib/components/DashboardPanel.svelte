@@ -5,11 +5,12 @@
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import Table2 from 'lucide-svelte/icons/table-2';
   import Sigma from 'lucide-svelte/icons/sigma';
+  import CircleDot from 'lucide-svelte/icons/circle-dot';
 
   let { panel, data = [], loading = false, error = null } = $props();
 
-  const TYPE_LABEL = { chart: 'Chart', table: 'Table', stats: 'Stats' };
-  const TYPE_ICON = { chart: ChartArea, table: Table2, stats: Sigma };
+  const TYPE_LABEL = { chart: 'Chart', table: 'Table', stats: 'Stats', last: 'Last value' };
+  const TYPE_ICON = { chart: ChartArea, table: Table2, stats: Sigma, last: CircleDot };
 
   function fmt(iso) {
     if (!iso) return '';
@@ -21,6 +22,17 @@
     if (typeof v === 'number') return Number.isInteger(v) ? String(v) : v.toFixed(2);
     return String(v);
   }
+
+  let lastValues = $derived.by(() => {
+    const map = {};
+    for (const row of data) {
+      const key = `${row.agent_title || row.agentid} › ${row.plugin_title || row.pluginid} › ${row.metric}`;
+      if (!(key in map) || new Date(map[key].timestamp) < new Date(row.timestamp)) {
+        map[key] = row;
+      }
+    }
+    return Object.values(map).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  });
 
   let stats = $derived.by(() => {
     const map = {};
@@ -63,6 +75,25 @@
     <div class="text-xs py-4 text-red-400">query failed: {error}</div>
   {:else if data.length === 0}
     <EmptyState icon={TYPE_ICON[panel.type] || ChartArea} message="no data" sub="try adjusting the panel filters or time range" />
+  {:else if panel.type === 'last'}
+    <div class="flex flex-col gap-2">
+      {#each lastValues as row}
+        <div class="flex items-center justify-between gap-3 rounded-[var(--radius-card)] px-3 py-3" style="background: rgba(0,0,0,0.02)">
+          <div class="min-w-0">
+            <p class="text-[11px] font-semibold truncate" style="color: var(--text-primary)">
+              {row.agent_title || row.agentid} › {row.plugin_title || row.pluginid} › {row.metric}
+            </p>
+            <p class="text-[9px] tabular-nums mt-0.5 truncate" style="color: var(--text-secondary)">{fmt(row.timestamp)}</p>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <span class="text-base font-mono font-bold tabular-nums" style="color: var(--color-primary)">{fmtVal(row.value)}</span>
+          </div>
+        </div>
+      {/each}
+      {#if lastValues.length === 0}
+        <div class="text-xs py-4 text-center" style="color: var(--text-secondary)">no values</div>
+      {/if}
+    </div>
   {:else if panel.type === 'chart'}
     <MetricsChart data={data} />
   {:else if panel.type === 'table'}

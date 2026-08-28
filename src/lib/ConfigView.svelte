@@ -409,7 +409,7 @@ import Plus from 'lucide-svelte/icons/plus';
   }
 
   function panelTypeLabel(t) {
-    return ({ chart: 'Chart', table: 'Table', stats: 'Stats' })[t] || 'Panel';
+    return ({ chart: 'Chart', table: 'Table', stats: 'Stats', last: 'Last value' })[t] || 'Panel';
   }
 
   async function loadPanelPlugins(index) {
@@ -2741,6 +2741,7 @@ if __name__ == "__main__":
                 <option value="chart">Chart</option>
                 <option value="table">Table</option>
                 <option value="stats">Stats</option>
+                <option value="last">Last value</option>
               </select>
               <button onclick={() => removePanel(i)} style="color:#ef4444;font-size:1rem;background:none;border:none;cursor:pointer;padding:0 0.2rem" title="Remove panel">×</button>
             </div>
