@@ -19,12 +19,14 @@
   import AlarmList from './lib/components/AlarmList.svelte';
   import AlarmDetailModal from './lib/components/AlarmDetailModal.svelte';
   import MetricsView from './lib/components/MetricsView.svelte';
+  import DashboardView from './lib/components/DashboardView.svelte';
   import AccountPage from './lib/components/AccountPage.svelte';
   import PageHeader from './lib/components/PageHeader.svelte';
   import Bell from 'lucide-svelte/icons/bell';
   import Clock from 'lucide-svelte/icons/clock';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import Cog from 'lucide-svelte/icons/cog';
+  import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
   import RefreshCw from 'lucide-svelte/icons/refresh-cw';
   import { updateAccount } from './lib/api.js';
 
@@ -742,6 +744,11 @@
           chartData={metricsData}
           timePresets={TIME_PRESETS}
         />
+        </div>
+      {:else if tab === 'boards'}
+        <div class="animate-slide-up">
+        <PageHeader icon={LayoutDashboard} title="Dashboards" />
+        <DashboardView />
         </div>
       {:else if tab === 'config'}
         <div class="animate-slide-up">

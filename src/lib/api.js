@@ -237,3 +237,12 @@ export function saveVariable(id, data) {
 export function deleteVariable(id) {
   return api(`/admin/variables/${id}`, { method: 'DELETE' });
 }
+
+// ── Dashboards ──
+export function fetchDashboards() { return api('/admin/dashboards'); }
+export function saveDashboard(id, data) {
+  return api(`/admin/dashboards/${id}`, { method: 'PUT', body: data });
+}
+export function deleteDashboard(id) {
+  return api(`/admin/dashboards/${id}`, { method: 'DELETE' });
+}

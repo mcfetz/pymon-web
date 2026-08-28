@@ -14,11 +14,13 @@ import Plus from 'lucide-svelte/icons/plus';
   import Plug from 'lucide-svelte/icons/plug';
   import SearchX from 'lucide-svelte/icons/search-x';
   import Database from 'lucide-svelte/icons/database';
+  import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
   import PluginForm from './PluginForm.svelte';
   import CodeEditor from './CodeEditor.svelte';
   import EmptyState from './components/EmptyState.svelte';
   import Tooltip from './components/Tooltip.svelte';
   import Combobox from './components/Combobox.svelte';
+  import MultiSelect from './components/MultiSelect.svelte';
   import {
     fetchPluginSchemas, fetchAdminAgents, fetchAdminGroups,
     createAgent, deleteAgent, setAgentGroups, setAgentPluginConfig,
@@ -31,6 +33,8 @@ import Plus from 'lucide-svelte/icons/plus';
     updateAccount, setToken,
     fetchBlackouts, fetchBlackoutSchema, saveBlackout, deleteBlackout,
     fetchVariables, saveVariable, deleteVariable,
+    fetchDashboards, saveDashboard, deleteDashboard,
+    fetchAgentPlugins,
     fetchMaintenanceStats, cleanupMetrics, fetchAgentPluginMetrics, vacuumDatabase,
   } from './api.js';
 
@@ -38,7 +42,8 @@ import Plus from 'lucide-svelte/icons/plus';
 
   let anyDialogOpen = $derived(
     showRuleDialog || showExecDialog || showNotifyDialog || showPluginDialog ||
-    showGroupDialog || showBlackoutDialog || showAgentDialog || showVariableDialog
+    showGroupDialog || showBlackoutDialog || showAgentDialog || showVariableDialog ||
+    showDashboardDialog
   );
 
   $effect(() => {
@@ -217,6 +222,32 @@ import Plus from 'lucide-svelte/icons/plus';
   let showVariableDialog = $state(false);
   let editingVariable = $state(null);
   let editedVariable = $state(null);
+
+  // Dashboards state
+  let dashboards = $state({});
+  let showDashboardDialog = $state(false);
+  let editingDashboard = $state(null);
+  let editedDashboard = $state(null);
+  const panelPluginCache = new Map();
+  const TIME_RANGE_OPTIONS = ['1h', '6h', '12h', '1d', '1w'];
+
+  let agentOptions = $derived(
+    Object.entries(agents).map(([id, a]) => ({ id, title: a?.title || id }))
+  );
+  let groupOptions = $derived(
+    Object.entries(groups).map(([id, g]) => ({ id, title: g?.title || id }))
+  );
+
+  let filteredDashboards = $derived.by(() => {
+    const entries = Object.entries(dashboards);
+    if (!filterText) return entries.sort((a, b) => alphaCompare(a[1].name, b[1].name) || alphaCompare(a[0], b[0]));
+    const q = filterText.toLowerCase();
+    return entries.filter(([id, db]) => {
+      const panelFields = (db.panels || []).flatMap(p => [p.title, p.metric, p.pluginid, p.group, p.type, ...(p.agentid || [])]);
+      return [id, db.name, db.timerange, ...panelFields]
+        .some(value => String(value ?? '').toLowerCase().includes(q));
+    }).sort((a, b) => alphaCompare(a[1].name, b[1].name) || alphaCompare(a[0], b[0]));
+  });
   let maintenanceStats = $state(null);
   let maintDays = $state(30);
   let maintAgent = $state('');
@@ -231,6 +262,7 @@ import Plus from 'lucide-svelte/icons/plus';
   const CONFIG_DATA = [
     'schemas', 'agents', 'groups', 'rules', 'ruleSchema', 'executors',
     'notifications', 'notifySchema', 'plugins', 'blackouts', 'blackoutSchema', 'variables',
+    'dashboards',
   ];
 
   const VIEW_DATA = {
@@ -240,6 +272,7 @@ import Plus from 'lucide-svelte/icons/plus';
     notify: ['notifications'],
     groups: ['groups'],
     variables: ['variables'],
+    dashboards: ['dashboards'],
     blackouts: ['blackouts'],
     plugins: ['plugins'],
     maintenance: ['maintenanceStats', 'agents', 'plugins'],
@@ -286,6 +319,76 @@ import Plus from 'lucide-svelte/icons/plus';
 
   function removeVarException(i) {
     editedVariable.exceptions = editedVariable.exceptions.filter((_, j) => j !== i);
+  }
+
+  // ── Dashboard handlers ──
+  function openNewDashboard() {
+    editingDashboard = null;
+    editedDashboard = { name: '', timerange: '1h', panels: [] };
+    showDashboardDialog = true;
+  }
+
+  async function editDashboard(id) {
+    if (!await ensureDialogData(['agents', 'groups'])) return;
+    editingDashboard = id;
+    editedDashboard = JSON.parse(JSON.stringify(dashboards[id]));
+    for (const panel of editedDashboard.panels || []) panel.pluginOptions = [];
+    await Promise.all((editedDashboard.panels || []).map((_, i) => loadPanelPlugins(i)));
+    showDashboardDialog = true;
+  }
+
+  async function handleSaveDashboard() {
+    const id = editingDashboard || genId('db');
+    const name = (editedDashboard.name || '').trim();
+    if (!name) { error = 'Dashboard needs a name'; return; }
+    if (!(editedDashboard.panels || []).length) { error = 'Add at least one panel'; return; }
+    try {
+      await saveDashboard(id, { ...editedDashboard, id, name });
+      dashboards = await fetchDashboards();
+      showDashboardDialog = false;
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleDeleteDashboard(id) {
+    if (!confirm(`Delete dashboard '${dashboards[id]?.name || id}'?`)) return;
+    try {
+      await deleteDashboard(id);
+      dashboards = await fetchDashboards();
+    } catch (e) { error = e.message; }
+  }
+
+  function addPanel() {
+    const panels = [...(editedDashboard.panels || [])];
+    panels.push({ id: genId('p'), type: 'chart', title: '', group: '', agentid: [], pluginid: '', metric: '', pluginOptions: [] });
+    editedDashboard = { ...editedDashboard, panels };
+  }
+
+  function removePanel(index) {
+    const panels = (editedDashboard.panels || []).filter((_, i) => i !== index);
+    editedDashboard = { ...editedDashboard, panels };
+  }
+
+  function panelTypeLabel(t) {
+    return ({ chart: 'Chart', table: 'Table', stats: 'Stats' })[t] || 'Panel';
+  }
+
+  async function loadPanelPlugins(index) {
+    const panel = editedDashboard.panels?.[index];
+    if (!panel) return;
+    const acc = new Map();
+    for (const aid of panel.agentid || []) {
+      if (!panelPluginCache.has(aid)) {
+        try { panelPluginCache.set(aid, await fetchAgentPlugins(aid)); }
+        catch { panelPluginCache.set(aid, []); }
+      }
+      for (const p of panelPluginCache.get(aid) || []) {
+        const pid = p.id || p;
+        if (!acc.has(pid)) acc.set(pid, { id: pid, title: p.title || pid });
+      }
+    }
+    panel.pluginOptions = [...acc.values()];
+    if (panel.pluginid && !acc.has(panel.pluginid)) panel.pluginid = '';
+    editedDashboard = { ...editedDashboard };
   }
 
   // ── Filters ──
@@ -396,6 +499,7 @@ import Plus from 'lucide-svelte/icons/plus';
       case 'blackouts': blackouts = await fetchBlackouts(); break;
       case 'blackoutSchema': blackoutSchema = await fetchBlackoutSchema(); break;
       case 'variables': variables = await fetchVariables(); break;
+      case 'dashboards': dashboards = await fetchDashboards(); break;
       case 'maintenanceStats': maintenanceStats = await fetchMaintenanceStats(); break;
       default: throw new Error(`Unknown configuration resource: ${name}`);
     }
@@ -948,7 +1052,7 @@ import Plus from 'lucide-svelte/icons/plus';
         onclick={() => { const el = document.getElementById('cfg-tabs'); if(el) el.scrollBy({left:-120,behavior:'smooth'}); }}
       >&#8249;</button>
       <div id="cfg-tabs" class="tab-nav-scroll" style="border-color: var(--border-default)">
-        {#each ['Agents','Rules','Notifications','Groups','Variables','Blackouts','Executors','Plugins','Maintenance'] as label}
+        {#each ['Agents','Rules','Notifications','Groups','Variables','Dashboards','Blackouts','Executors','Plugins','Maintenance'] as label}
           {@const id = label === 'Notifications' ? 'notify' : label.toLowerCase()}
           <button
             onclick={() => selectView(id)}
@@ -1232,6 +1336,43 @@ import Plus from 'lucide-svelte/icons/plus';
       {/each}
       {#if filteredVariables.length === 0}
         <EmptyState icon={SearchX} message="No variables match" sub="Try another search" />
+      {/if}
+    {/if}
+  </div>
+{/if}
+
+{#if view === 'dashboards'}
+  <div class="rules-view">
+    <div class="rules-header">
+      <h3>Dashboards</h3>
+      <input type="text" class="filter-input" placeholder="Filter dashboards..." bind:value={filterText} />
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewDashboard}><Plus size={14} strokeWidth={2} /></button>
+    </div>
+    {#if Object.keys(dashboards).length === 0}
+      <EmptyState icon={LayoutDashboard} message="No dashboards" sub="Create a dashboard to combine multiple queries" />
+    {:else}
+      {#each filteredDashboards as [did, db]}
+      <div class="rule-card">
+        <div class="rule-head">
+          <span class="rule-id font-mono" style="color:var(--color-primary);cursor:pointer" onclick={() => editDashboard(did)}>{db.name || did}</span>
+          <span class="rule-status active">{(db.panels || []).length} panels · {db.timerange}</span>
+        </div>
+        {#if (db.panels || []).length}
+          <div class="text-[11px] mt-1 flex flex-wrap gap-1" style="color:var(--text-secondary)">
+            {#each db.panels as p}
+              <span class="px-1.5 py-0.5 rounded" style="background:rgba(var(--color-primary-rgb),0.08)">
+                {panelTypeLabel(p.type)}{p.metric ? `: ${p.metric}` : ''}{p.title ? ` — ${p.title}` : ''}
+              </span>
+            {/each}
+          </div>
+        {/if}
+        <div class="rule-actions">
+          <button class="btn-del" onclick={() => handleDeleteDashboard(did)}>Delete</button>
+        </div>
+        </div>
+      {/each}
+      {#if filteredDashboards.length === 0}
+        <EmptyState icon={SearchX} message="No dashboards match" sub="Try another search" />
       {/if}
     {/if}
   </div>
@@ -2515,6 +2656,96 @@ if __name__ == "__main__":
   </div>
 {/if}
 
+{#if showDashboardDialog && editedDashboard}
+  <div class="dialog-overlay" onclick={() => showDashboardDialog = false}></div>
+  <div class="dialog" style="width:760px;max-width:calc(100vw - 2rem);">
+    <div class="dialog-header">
+      <h3>{editingDashboard ? 'Edit dashboard' : 'New dashboard'}</h3>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-field">
+        <label>Name</label>
+        <input type="text" bind:value={editedDashboard.name} placeholder="e.g. CPU & network overview" />
+      </div>
+      <div class="dialog-field">
+        <label>Default time range</label>
+        <select bind:value={editedDashboard.timerange} class="w-fit">
+          {#each TIME_RANGE_OPTIONS as tr}
+            <option value={tr}>{tr}</option>
+          {/each}
+        </select>
+      </div>
+
+      <div style="margin-top:0.9rem">
+        <div class="flex items-center justify-between mb-1.5">
+          <label style="font-size:0.82rem;font-weight:600;color:var(--text-secondary)">Panels</label>
+          <button class="btn-edit" style="font-size:0.72rem;padding:0.2rem 0.5rem" onclick={addPanel}>+ Add panel</button>
+        </div>
+        {#if (editedDashboard.panels || []).length === 0}
+          <div class="text-[11px] py-2" style="color:var(--text-secondary)">No panels yet — add at least one chart, table or stats panel.</div>
+        {/if}
+        {#each editedDashboard.panels as panel, i (panel.id)}
+          <div class="dash-panel-card">
+            <div class="flex items-center gap-1.5 mb-1.5">
+              <input
+                type="text"
+                bind:value={panel.title}
+                placeholder="Panel title (optional)"
+                style="flex:1;padding:0.3rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.78rem;background:var(--bg-surface);color:var(--text-primary)"
+              />
+              <select
+                bind:value={panel.type}
+                style="padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.78rem;background:var(--bg-surface);color:var(--text-primary)"
+              >
+                <option value="chart">Chart</option>
+                <option value="table">Table</option>
+                <option value="stats">Stats</option>
+              </select>
+              <button onclick={() => removePanel(i)} style="color:#ef4444;font-size:1rem;background:none;border:none;cursor:pointer;padding:0 0.2rem" title="Remove panel">×</button>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <select
+                bind:value={panel.group}
+                style="padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.78rem;background:var(--bg-surface);color:var(--text-primary)"
+              >
+                <option value="">all groups</option>
+                {#each groupOptions as g}
+                  <option value={g.id}>{g.title}</option>
+                {/each}
+              </select>
+              <MultiSelect
+                items={agentOptions}
+                selected={panel.agentid || []}
+                placeholder="all agents"
+                onchange={(sel) => { panel.agentid = sel; loadPanelPlugins(i); }}
+              />
+              <select
+                bind:value={panel.pluginid}
+                style="padding:0.3rem 0.4rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.78rem;background:var(--bg-surface);color:var(--text-primary)"
+              >
+                <option value="">all plugins</option>
+                {#each panel.pluginOptions || [] as p}
+                  <option value={p.id}>{p.title}</option>
+                {/each}
+              </select>
+              <input
+                type="text"
+                bind:value={panel.metric}
+                placeholder="metric (like search)"
+                style="flex:1;min-width:120px;padding:0.3rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.78rem;background:var(--bg-surface);color:var(--text-primary)"
+              />
+            </div>
+          </div>
+        {/each}
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-cancel" onclick={() => showDashboardDialog = false}>Cancel</button>
+      <button class="btn-save-rule" onclick={handleSaveDashboard}>Save</button>
+    </div>
+  </div>
+{/if}
+
 <style>
   .dialog-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.5); touch-action: none; overscroll-behavior: none; }
   .dialog { position: fixed; top: max(1.5rem, env(safe-area-inset-top, 0px) + 1.5rem); left: 50%; transform: translateX(-50%); z-index: 51; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-default, #e2e8f0); border-radius: var(--radius-card); box-shadow: 0 16px 48px rgba(0,0,0,0.15); max-width: 500px; width: calc(100vw - 2rem); max-height: calc(100vh - max(3rem, env(safe-area-inset-top, 0px) + 3rem) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain; }
@@ -2557,6 +2788,7 @@ if __name__ == "__main__":
   .fs-editor-body :global(.editor-wrap) { height: 100% !important; min-height: 0 !important; border: none !important; }
   /* Tag-based restyling for config views */
   .rule-card { border: 1px solid var(--border-default); border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 0.4rem; background: var(--bg-surface); transition: all 0.15s; }
+  .dash-panel-card { border: 1px solid var(--border-default); border-radius: 8px; padding: 0.5rem 0.6rem; margin-bottom: 0.6rem; background: rgba(0,0,0,0.02); }
   .rule-card:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
   .rule-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.15rem; }
   .rule-head .rule-id { font-weight: 600; font-size: 0.8rem; color: var(--text-primary); }

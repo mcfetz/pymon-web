@@ -3,12 +3,14 @@
   import Clock from 'lucide-svelte/icons/clock';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import Cog from 'lucide-svelte/icons/cog';
+  import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
 
   let { tab = 'alarms', onNavigate, alarmCount = 0 } = $props();
 
   const items = [
     { id: 'alarms', icon: Bell, label: 'Alarms' },
     { id: 'history', icon: Clock, label: 'History' },
+    { id: 'boards', icon: LayoutDashboard, label: 'Boards' },
     { id: 'metrics', icon: ChartArea, label: 'Metrics' },
     { id: 'config', icon: Cog, label: 'Config' },
   ];
