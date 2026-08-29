@@ -1,7 +1,6 @@
 <script>
   import { onMount } from 'svelte';
   import { fly } from 'svelte/transition';
-  import MetricsChart from './lib/MetricsChart.svelte';
   import ConfigView from './lib/ConfigView.svelte';
   import {
     fetchAlarms, acknowledgeAlarm, fetchVapidPublicKey,
@@ -13,6 +12,7 @@
     login, setToken, isLoggedIn,
   } from './lib/api.js';
   import { initTheme } from './lib/theme.svelte.js';
+  import { TIME_PRESETS, timeFromPreset } from './lib/metricsUtils.js';
   import Header from './lib/components/Header.svelte';
   import BottomNav from './lib/components/BottomNav.svelte';
   import LoginPage from './lib/components/LoginPage.svelte';
@@ -417,18 +417,6 @@
     filters.metric = metric;
     await doQuery();
     tab = 'metrics';
-  }
-
-  const TIME_PRESETS = [
-    { label: '1h', value: '1h' }, { label: '6h', value: '6h' },
-    { label: '12h', value: '12h' }, { label: '1d', value: '1d' }, { label: '1w', value: '1w' },
-  ];
-  function timeFromPreset(preset, untilStr) {
-    const map = { '1h': 1, '6h': 6, '12h': 12, '1d': 24, '1w': 168 };
-    const hours = map[preset] || 1;
-    const untilDate = untilStr ? new Date(untilStr) : null;
-    const baseTime = (untilDate && !isNaN(untilDate.getTime())) ? untilDate.getTime() : Date.now();
-    return new Date(baseTime - hours * 3600000).toISOString();
   }
 
   async function loadFilterOptions() {

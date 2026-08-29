@@ -4,6 +4,7 @@
   import MultiSelect from './MultiSelect.svelte';
   import Select from './Select.svelte';
   import MetricsChart from '../MetricsChart.svelte';
+  import { fmtTime as fmt, fmtVal } from '../metricsUtils.js';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import X from 'lucide-svelte/icons/x';
   import ChevronLeft from 'lucide-svelte/icons/chevron-left';
@@ -40,17 +41,6 @@
     chartData = [],
     timePresets = [],
   } = $props();
-
-  function fmt(iso) {
-    if (!iso) return '';
-    const s = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
-    return new Date(s).toLocaleString();
-  }
-  function fmtVal(v) {
-    if (v === null || v === undefined) return '—';
-    if (typeof v === 'number') return Number.isInteger(v) ? String(v) : v.toFixed(2);
-    return String(v);
-  }
 
   const PRESET_HOURS = { '1h': 1, '6h': 6, '12h': 12, '1d': 24, '1w': 168 };
 

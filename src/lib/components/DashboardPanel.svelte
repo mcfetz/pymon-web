@@ -2,6 +2,7 @@
   import GlassCard from './GlassCard.svelte';
   import EmptyState from './EmptyState.svelte';
   import MetricsChart from '../MetricsChart.svelte';
+  import { fmtTime as fmt, fmtVal } from '../metricsUtils.js';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import Table2 from 'lucide-svelte/icons/table-2';
   import Sigma from 'lucide-svelte/icons/sigma';
@@ -11,17 +12,6 @@
 
   const TYPE_LABEL = { chart: 'Chart', table: 'Table', stats: 'Stats', last: 'Last value' };
   const TYPE_ICON = { chart: ChartArea, table: Table2, stats: Sigma, last: CircleDot };
-
-  function fmt(iso) {
-    if (!iso) return '';
-    const s = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
-    return new Date(s).toLocaleString();
-  }
-  function fmtVal(v) {
-    if (v === null || v === undefined) return '—';
-    if (typeof v === 'number') return Number.isInteger(v) ? String(v) : v.toFixed(2);
-    return String(v);
-  }
 
   let lastValues = $derived.by(() => {
     const map = {};

@@ -5,20 +5,11 @@
   import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
   import Pencil from 'lucide-svelte/icons/pencil';
   import { fetchDashboards, queryMetrics, fetchAgents, fetchPluginSchemas } from '../api.js';
+  import { TIME_PRESETS, timeFromPreset } from '../metricsUtils.js';
 
   let {
     onEdit = () => {},
   } = $props();
-
-  const TIME_PRESETS = [
-    { label: '1h', value: '1h' }, { label: '6h', value: '6h' },
-    { label: '12h', value: '12h' }, { label: '1d', value: '1d' }, { label: '1w', value: '1w' },
-  ];
-  const PRESET_HOURS = { '1h': 1, '6h': 6, '12h': 12, '1d': 24, '1w': 168 };
-
-  function timeFromPreset(preset) {
-    return new Date(Date.now() - (PRESET_HOURS[preset] || 1) * 3600000).toISOString();
-  }
 
   let dashboards = $state([]);
   let activeId = $state('');
