@@ -4,7 +4,7 @@
   import EmptyState from './EmptyState.svelte';
   import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
   import Pencil from 'lucide-svelte/icons/pencil';
-  import { fetchDashboards, queryMetrics } from '../api.js';
+  import { fetchDashboards, queryMetrics, fetchAgents, fetchPluginSchemas } from '../api.js';
 
   let {
     onEdit = () => {},
@@ -27,13 +27,32 @@
   let error = $state(null);
   let panelResults = $state({});
   let panelErrors = $state({});
+  let agentTitleMap = $state({});
+  let pluginTitleMap = $state({});
   let timer = null;
 
   let active = $derived(dashboards.find(d => d.id === activeId) || null);
 
+  async function loadTitleMaps() {
+    try {
+      const [agents, schemas] = await Promise.all([fetchAgents(), fetchPluginSchemas()]);
+      const aMap = {};
+      for (const a of agents) aMap[a.id] = a.title || a.id;
+      agentTitleMap = aMap;
+      const pMap = {};
+      for (const [name, schema] of Object.entries(schemas)) {
+        pMap[name] = schema?.label || name;
+      }
+      pluginTitleMap = pMap;
+    } catch {
+      // Title lookup is best-effort; fall back to ids.
+    }
+  }
+
   async function reload() {
     error = null;
     try {
+      await loadTitleMaps();
       const raw = await fetchDashboards();
       const sorted = Object.values(raw).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       dashboards = sorted;
@@ -81,7 +100,12 @@
       params.from = timeFromPreset(timePreset);
       params.limit = 5000;
       try {
-        results[panel.id] = await queryMetrics(params);
+        const raw = await queryMetrics(params);
+        results[panel.id] = raw.map(row => ({
+          ...row,
+          agent_title: agentTitleMap[row.agentid] || row.agentid,
+          plugin_title: pluginTitleMap[row.pluginid] || row.pluginid,
+        }));
       } catch (e) {
         errs[panel.id] = e.message;
         results[panel.id] = [];
