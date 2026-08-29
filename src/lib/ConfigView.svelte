@@ -36,6 +36,7 @@ import Plus from 'lucide-svelte/icons/plus';
     fetchDashboards, saveDashboard, deleteDashboard,
     fetchAgentPlugins,
     fetchMaintenanceStats, cleanupMetrics, fetchAgentPluginMetrics, vacuumDatabase,
+    fetchCleanupJob, saveCleanupJob,
   } from './api.js';
 
   let { pendingRule = null, onLogout = () => {}, onClearPendingRule = () => {}, pendingDashboard = null, onClearPendingDashboard = () => {} } = $props();
@@ -283,6 +284,32 @@ import Plus from 'lucide-svelte/icons/plus';
   let maintResult = $state(null);
   let vacuumRunning = $state(false);
   let vacuumResult = $state(null);
+  let cleanupJob = $state(null);
+  let cleanupEnabled = $state(false);
+  let cleanupTime = $state('03:00');
+  let cleanupRetention = $state(30);
+  let cleanupSaving = $state(false);
+
+  function applyCleanupJob(job) {
+    if (!job) return;
+    cleanupEnabled = job.enabled;
+    cleanupTime = job.time;
+    cleanupRetention = job.retention_days;
+    cleanupJob = job;
+  }
+
+  async function handleSaveCleanupJob() {
+    cleanupSaving = true;
+    try {
+      const res = await saveCleanupJob({
+        enabled: cleanupEnabled,
+        time: cleanupTime,
+        retention_days: cleanupRetention,
+      });
+      applyCleanupJob(res);
+    } catch (e) { error = e.message; }
+    finally { cleanupSaving = false; }
+  }
 
   const CONFIG_DATA = [
     'schemas', 'agents', 'groups', 'rules', 'ruleSchema', 'executors',
@@ -300,7 +327,7 @@ import Plus from 'lucide-svelte/icons/plus';
     dashboards: ['dashboards'],
     blackouts: ['blackouts'],
     plugins: ['plugins'],
-    maintenance: ['maintenanceStats', 'agents', 'plugins'],
+    maintenance: ['maintenanceStats', 'agents', 'plugins', 'cleanupJob'],
   };
 
   async function openNewVariable() {
@@ -549,6 +576,13 @@ import Plus from 'lucide-svelte/icons/plus';
       case 'variables': variables = await fetchVariables(); break;
       case 'dashboards': dashboards = await fetchDashboards(); break;
       case 'maintenanceStats': maintenanceStats = await fetchMaintenanceStats(); break;
+      case 'cleanupJob':
+        const job = await fetchCleanupJob();
+        cleanupJob = job;
+        cleanupEnabled = job.enabled;
+        cleanupTime = job.time;
+        cleanupRetention = job.retention_days;
+        break;
       default: throw new Error(`Unknown configuration resource: ${name}`);
     }
     loadedData = new Set([...loadedData, name]);
@@ -1661,6 +1695,58 @@ if __name__ == "__main__":
               </span>
             {/if}
           </div>
+        </div>
+      </div>
+      <div class="glass rounded-[var(--radius-card)] p-4 mt-4">
+        <div class="flex items-center gap-2 mb-3">
+          <Database size={18} style="color:var(--text-primary)" />
+          <div class="text-xs font-semibold" style="color:var(--text-primary)">Automatic metric cleanup</div>
+          <label class="flex items-center gap-1.5 ml-auto text-[11px] cursor-pointer" style="color:var(--text-secondary)">
+            <input type="checkbox" bind:checked={cleanupEnabled} style="accent-color:var(--color-primary)" />
+            Enabled
+          </label>
+        </div>
+        <div class="flex flex-col gap-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[11px]" style="color:var(--text-secondary)">Daily at</span>
+            <input type="time" bind:value={cleanupTime} style="padding:0.35rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary);color-scheme:dark light;" />
+            <span class="text-[11px]" style="color:var(--text-secondary)">delete metrics older than</span>
+            <input type="number" min="1" step="1" bind:value={cleanupRetention} style="width:70px;padding:0.35rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary);" />
+            <span class="text-[11px]" style="color:var(--text-secondary)">day(s)</span>
+            <button class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:brightness-110 disabled:opacity-50"
+              style="background:rgba(var(--color-primary-rgb),0.1);color:var(--color-primary)"
+              disabled={cleanupSaving}
+              onclick={handleSaveCleanupJob}
+            >{cleanupSaving ? 'Saving...' : 'Save'}</button>
+          </div>
+          <div class="text-[10px]" style="color:var(--text-secondary)">
+            Deletes in small batches ({cleanupJob?.batch_size || 500} per batch) with pauses so agent ingest stays responsive.
+            {#if cleanupJob?.next_run}
+              Next run: <strong style="color:var(--text-primary)">{fmtTime(cleanupJob.next_run)}</strong>
+            {:else}
+              Job is disabled — no next run scheduled.
+            {/if}
+          </div>
+          {#if cleanupJob?.last_run}
+            <div class="rounded-lg p-3 text-[11px]" style="background:rgba(0,0,0,0.02);border:1px solid var(--border-default)">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="font-semibold" style="color:var(--text-primary)">Last run</span>
+                <span class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
+                  style="background:{cleanupJob.last_run.status === 'completed' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)'};color:{cleanupJob.last_run.status === 'completed' ? '#22c55e' : '#ef4444'}">
+                  {cleanupJob.last_run.status}
+                </span>
+              </div>
+              <div class="grid grid-cols-2 gap-x-4 gap-y-0.5" style="color:var(--text-secondary)">
+                <span>Started: <strong style="color:var(--text-primary)">{fmtTime(cleanupJob.last_run.started_at)}</strong></span>
+                <span>Duration: <strong style="color:var(--text-primary)">{cleanupJob.last_run.duration_seconds} s</strong></span>
+                <span>Deleted metrics: <strong style="color:var(--text-primary)">{fmtCount(cleanupJob.last_run.deleted_metrics)}</strong></span>
+                <span>Deleted alarms: <strong style="color:var(--text-primary)">{fmtCount(cleanupJob.last_run.deleted_alarms)}</strong></span>
+                <span>Retention: <strong style="color:var(--text-primary)">{cleanupJob.last_run.retention_days} day(s)</strong></span>
+              </div>
+            </div>
+          {:else}
+            <div class="text-[10px]" style="color:var(--text-secondary)">No scheduled run executed yet — the result of the nightly cleanup will appear here.</div>
+          {/if}
         </div>
       </div>
       <div class="glass rounded-[var(--radius-card)] p-4 mt-4">

@@ -119,6 +119,10 @@ export function fetchAdminGroups() { return api('/admin/groups'); }
 export function fetchMaintenanceStats() { return api('/admin/maintenance/stats'); }
 export function cleanupMetrics(data) { return api('/admin/maintenance/metrics', { method: 'DELETE', body: data }); }
 export function vacuumDatabase() { return api('/admin/maintenance/vacuum', { method: 'POST' }); }
+export function fetchCleanupJob() { return api('/admin/maintenance/cleanup-job'); }
+export function saveCleanupJob(data) {
+  return api('/admin/maintenance/cleanup-job', { method: 'PUT', body: data });
+}
 export function createAgent(id, groups = [], title = '') {
   return api('/admin/agents', { method: 'POST', body: { id, groups, title } });
 }
