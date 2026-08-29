@@ -21,6 +21,9 @@ import Plus from 'lucide-svelte/icons/plus';
   import Tooltip from './components/Tooltip.svelte';
   import Combobox from './components/Combobox.svelte';
   import MultiSelect from './components/MultiSelect.svelte';
+  import AppDialog from './components/AppDialog.svelte';
+  import { fmtTime } from './metricsUtils.js';
+  import { fmtCount, fmtBytes, genId, alphaCompare, namedValue, compareNamed, compareEntries } from './configUtils.js';
   import {
     fetchPluginSchemas, fetchAdminAgents, fetchAdminGroups,
     createAgent, deleteAgent, setAgentGroups, setAgentPluginConfig,
@@ -84,52 +87,6 @@ import Plus from 'lucide-svelte/icons/plus';
     });
     return () => { cancelled = true; };
   });
-
-  function fmtTime(iso) {
-    if (!iso) return '';
-    const s = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
-    const d = new Date(s);
-    return d.toLocaleString();
-  }
-
-  function fmtCount(value) {
-    return Number(value || 0).toLocaleString('de-DE');
-  }
-
-  function fmtBytes(value) {
-    const n = Number(value || 0);
-    if (!Number.isFinite(n)) return String(value ?? '');
-    if (n < 1024) return `${n} B`;
-    const units = ['KB', 'MB', 'GB', 'TB'];
-    let u = -1;
-    let v = n;
-    while (v >= 1024 && u < units.length - 1) { v /= 1024; u++; }
-    return `${v.toFixed(1)} ${units[u]}`;
-  }
-
-  function genId(prefix) {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    let s = '';
-    for (let i = 0; i < 7; i++) s += chars[Math.floor(Math.random() * chars.length)];
-    return prefix + s;
-  }
-
-  function alphaCompare(a, b) {
-    return String(a ?? '').localeCompare(String(b ?? ''), undefined, { sensitivity: 'base' });
-  }
-
-  function namedValue(value, fallback = '') {
-    if (!value || typeof value !== 'object') return value || fallback;
-    return value.title || value.label || value.name || value.id || fallback;
-  }
-
-  function compareNamed(a, b) {
-    return alphaCompare(namedValue(a), namedValue(b)) || alphaCompare(a?.id || a?.name || '', b?.id || b?.name || '');
-  }
-
-  function compareEntries([idA, valueA], [idB, valueB]) {
-    return alphaCompare(namedValue(valueA, idA), namedValue(valueB, idB)) || alphaCompare(idA, idB);
-  }
 
   let view = $state('agents'); // 'agents'|'rules'|'executors'|'notify'|'groups'|'blackouts'|'plugins'|'variables'|'maintenance'|'account'
   // ── Account state ──
@@ -1795,13 +1752,7 @@ if __name__ == "__main__":
 
 <!-- Rule Dialog -->
 {#if showRuleDialog && editedRule}
-  <div class="dialog-overlay" onclick={() => showRuleDialog = false}></div>
-  <div class="dialog">
-    <div class="dialog-header">
-      <h3>Rule {editingRule?.id?.includes('new_') ? 'create' : 'edit'}</h3>
-      <button class="btn-close" onclick={() => showRuleDialog = false}>&#10005;</button>
-    </div>
-    <div class="dialog-body">
+  <AppDialog title="Rule {editingRule?.id?.includes('new_') ? 'create' : 'edit'}" onclose={() => showRuleDialog = false}>
       <div style="margin-bottom:0.5rem;">
         <button onclick={() => expandedRuleGeneral = !expandedRuleGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedRuleGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
@@ -2048,23 +1999,16 @@ if __name__ == "__main__":
           </div>
         {/if}
       </div>
-    </div>
-    <div class="dialog-footer">
+    {#snippet footer()}
       <button class="btn-cancel" onclick={() => showRuleDialog = false}>Cancel</button>
       <button class="btn-save-rule" onclick={handleSaveRule} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-    </div>
-  </div>
+    {/snippet}
+  </AppDialog>
 {/if}
 
 <!-- Executor Dialog --><!-- Executor Dialog -->
 {#if showExecDialog && editedExec}
-  <div class="dialog-overlay" onclick={() => showExecDialog = false}></div>
-  <div class="dialog">
-    <div class="dialog-header">
-      <h3>Executor {editedExec.id ? 'edit' : 'create'}</h3>
-      <button class="btn-close" onclick={() => showExecDialog = false}>✕</button>
-    </div>
-    <div class="dialog-body">
+  <AppDialog title="Executor {editedExec.id ? 'edit' : 'create'}" onclose={() => showExecDialog = false}>
       <div style="margin-bottom:0.5rem;">
         <button onclick={() => expandedExecGeneral = !expandedExecGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedExecGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
@@ -2108,23 +2052,16 @@ if __name__ == "__main__":
           </div>
         {/if}
       </div>
-    </div>
-    <div class="dialog-footer">
+    {#snippet footer()}
       <button class="btn-cancel" onclick={() => showExecDialog = false}>Cancel</button>
       <button class="btn-save-rule" onclick={handleSaveExec} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-    </div>
-  </div>
+    {/snippet}
+  </AppDialog>
 {/if}
 
 <!-- Notifications Dialog -->
 {#if showNotifyDialog && editedNotify}
-  <div class="dialog-overlay" onclick={() => showNotifyDialog = false}></div>
-  <div class="dialog" style="width:560px;max-width:calc(100vw - 2rem)">
-    <div class="dialog-header">
-      <h3>Notification {editedNotify.id?.includes('new_') ? 'create' : 'edit'}</h3>
-      <button class="btn-close" onclick={() => showNotifyDialog = false}>✕</button>
-    </div>
-    <div class="dialog-body">
+  <AppDialog title="Notification {editedNotify.id?.includes('new_') ? 'create' : 'edit'}" onclose={() => showNotifyDialog = false} width="560px">
       <div style="margin-bottom:0.5rem;">
         <button onclick={() => expandedNotifyGeneral = !expandedNotifyGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedNotifyGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
@@ -2241,23 +2178,16 @@ if __name__ == "__main__":
         try { await testNotification(editedNotify); alert('Test sent successfully'); }
         catch (e) { alert('Test failed: ' + e.message); }
       }}>Send Test</button>
-    </div>
-    <div class="dialog-footer">
+    {#snippet footer()}
       <button class="btn-cancel" onclick={() => showNotifyDialog = false}>Cancel</button>
       <button class="btn-save-rule" onclick={handleSaveNotify} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-    </div>
-  </div>
+    {/snippet}
+  </AppDialog>
 {/if}
 
 <!-- Plugin Dialog -->
 {#if showPluginDialog && editedPlugin}
-  <div class="dialog-overlay" onclick={() => { showPluginDialog = false; selPluginName = null; }}></div>
-  <div class="dialog" style="width:760px;max-width:calc(100vw - 2rem);top:5%;max-height:90vh;">
-    <div class="dialog-header">
-      <h3>Plugin: {editedPlugin.name}</h3>
-      <button class="btn-close" onclick={() => { showPluginDialog = false; selPluginName = null; }}>✕</button>
-    </div>
-    <div class="dialog-body" style="overflow:visible;display:flex;flex-direction:column;gap:0.6rem;">
+  <AppDialog title="Plugin: {editedPlugin.name}" onclose={() => { showPluginDialog = false; selPluginName = null; }} width="760px">
       <div style="margin-bottom:0.5rem;">
         <button onclick={() => expandedPluginGeneral = !expandedPluginGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedPluginGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
@@ -2317,8 +2247,7 @@ if __name__ == "__main__":
           </div>
         {/if}
       </div>
-    </div>
-    <div class="dialog-footer">
+    {#snippet footer()}
       <button class="btn-cancel" onclick={() => { showPluginDialog = false; selPluginName = null; }}>Close</button>
       <button class="btn-save-rule" onclick={async () => {
         if (pluginSourceDirty) await savePluginSource(editedPlugin.name, pluginSource);
@@ -2327,19 +2256,13 @@ if __name__ == "__main__":
         showPluginDialog = false; selPluginName = null; pluginSourceDirty = false;
         pluginList = await fetchAdminPlugins();
       }}>Save</button>
-    </div>
-  </div>
+    {/snippet}
+  </AppDialog>
 {/if}
 
 <!-- Group Dialog -->
 {#if showGroupDialog && editedGroup}
-  <div class="dialog-overlay" onclick={() => showGroupDialog = false}></div>
-  <div class="dialog">
-    <div class="dialog-header">
-      <h3>{editedGroup.id ? 'Edit Group' : 'New Group'}</h3>
-      <button class="btn-close" onclick={() => showGroupDialog = false}>✕</button>
-    </div>
-    <div class="dialog-body">
+  <AppDialog title="{editedGroup.id ? 'Edit Group' : 'New Group'}" onclose={() => showGroupDialog = false}>
       <div style="margin-bottom:0.5rem;">
         <button onclick={() => expandedGroupGeneral = !expandedGroupGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedGroupGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
@@ -2383,8 +2306,7 @@ if __name__ == "__main__":
           </div>
         {/if}
       </div>
-    </div>
-    <div class="dialog-footer">
+    {#snippet footer()}
       <button class="btn-cancel" onclick={() => showGroupDialog = false}>Cancel</button>
 <button class="btn-save-rule" onclick={async () => {
         const gid = editedGroup.id?.trim() || genId('g');
@@ -2399,19 +2321,13 @@ if __name__ == "__main__":
           groups = await fetchAdminGroups();
         } catch (e) { error = e.message; }
       }} disabled={!editedGroup.title?.trim()}>Save</button>
-    </div>
-  </div>
+    {/snippet}
+  </AppDialog>
 {/if}
 
 <!-- Blackout Dialog -->
 {#if showBlackoutDialog && editedBlackout}
-  <div class="dialog-overlay" onclick={() => showBlackoutDialog = false}></div>
-  <div class="dialog">
-    <div class="dialog-header">
-      <h3>Blackout {editingBlackout?.id?.includes('new_') ? 'create' : 'edit'}</h3>
-      <button class="btn-close" onclick={() => showBlackoutDialog = false}>✕</button>
-    </div>
-    <div class="dialog-body">
+  <AppDialog title="Blackout {editingBlackout?.id?.includes('new_') ? 'create' : 'edit'}" onclose={() => showBlackoutDialog = false}>
       <div style="margin-bottom:0.5rem;">
         <button onclick={() => expandedBlackoutGeneral = !expandedBlackoutGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedBlackoutGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
@@ -2556,12 +2472,11 @@ if __name__ == "__main__":
           </div>
         {/if}
       </div>
-    </div>
-    <div class="dialog-footer">
+    {#snippet footer()}
       <button class="btn-cancel" onclick={() => showBlackoutDialog = false}>Cancel</button>
       <button class="btn-save-rule" onclick={handleSaveBlackout} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-    </div>
-  </div>
+    {/snippet}
+  </AppDialog>
 {/if}
 
 <!-- Source editor when opened inline from plugin dialog -->
@@ -2583,13 +2498,7 @@ if __name__ == "__main__":
 {#if showAgentDialog && editedAgentData}
   {@const agent = editedAgentData}
   {@const agentId = editingAgent}
-  <div class="dialog-overlay" onclick={closeAgentDialog}></div>
-  <div class="dialog" style="width:640px;max-width:calc(100vw - 2rem);top:5%;max-height:90vh;">
-    <div class="dialog-header">
-      <h3>Agent edit</h3>
-      <button class="btn-close" onclick={closeAgentDialog}>✕</button>
-    </div>
-    <div class="dialog-body" style="overflow:visible;">
+  <AppDialog title="Agent edit" onclose={closeAgentDialog} width="640px">
       <div style="margin-bottom:0.5rem;">
         <button onclick={() => expandedAgentGeneral = !expandedAgentGeneral} class="flex items-center gap-1 w-full text-left text-xs font-semibold" style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
           <span style="display:inline-block; transition: transform 0.2s; transform: {expandedAgentGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
@@ -2691,12 +2600,11 @@ if __name__ == "__main__":
           </div>
         {/if}
       </div>
-    </div>
-    <div class="dialog-footer">
+    {#snippet footer()}
       <button class="btn-cancel" onclick={closeAgentDialog}>Close</button>
       <button class="btn-save-rule" onclick={() => saveAgentSettings(agentId)}>Save</button>
-    </div>
-  </div>
+    {/snippet}
+  </AppDialog>
 {/if}
 
 <!-- Fullscreen editor overlay -->
@@ -2715,13 +2623,7 @@ if __name__ == "__main__":
 
 <!-- Variable Dialog -->
 {#if showVariableDialog && editedVariable}
-  <div class="dialog-overlay" onclick={() => showVariableDialog = false}></div>
-  <div class="dialog" style="max-width:520px">
-    <div class="dialog-header">
-      <h3>{editingVariable ? 'Edit Variable' : 'New Variable'}</h3>
-      <button class="btn-close" onclick={() => showVariableDialog = false}>✕</button>
-    </div>
-    <div class="dialog-body">
+  <AppDialog title="{editingVariable ? 'Edit Variable' : 'New Variable'}" onclose={() => showVariableDialog = false} width="520px">
 
       <div class="dialog-field">
         <label>Name</label>
@@ -2783,21 +2685,15 @@ if __name__ == "__main__":
         {/each}
       </div>
 
-    </div>
-    <div class="dialog-footer">
+    {#snippet footer()}
       <button class="btn-cancel" onclick={() => showVariableDialog = false}>Cancel</button>
       <button class="btn-save-rule" onclick={handleSaveVariable}>Save</button>
-    </div>
-  </div>
+    {/snippet}
+  </AppDialog>
 {/if}
 
 {#if showDashboardDialog && editedDashboard}
-  <div class="dialog-overlay" onclick={() => showDashboardDialog = false}></div>
-  <div class="dialog" style="width:760px;max-width:calc(100vw - 2rem);">
-    <div class="dialog-header">
-      <h3>{editingDashboard ? 'Edit dashboard' : 'New dashboard'}</h3>
-    </div>
-    <div class="dialog-body">
+  <AppDialog title="{editingDashboard ? 'Edit dashboard' : 'New dashboard'}" onclose={() => showDashboardDialog = false} width="760px">
       <div class="dialog-field">
         <label>Name</label>
         <input type="text" bind:value={editedDashboard.name} placeholder="e.g. CPU & network overview" />
@@ -2888,22 +2784,15 @@ if __name__ == "__main__":
           </div>
         {/each}
       </div>
-    </div>
-    <div class="dialog-footer">
+    {#snippet footer()}
       <button class="btn-cancel" onclick={() => showDashboardDialog = false}>Cancel</button>
       <button class="btn-save-rule" onclick={handleSaveDashboard}>Save</button>
-    </div>
-  </div>
+    {/snippet}
+  </AppDialog>
 {/if}
 
 <style>
-  .dialog-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.5); touch-action: none; overscroll-behavior: none; }
-  .dialog { position: fixed; top: max(1.5rem, env(safe-area-inset-top, 0px) + 1.5rem); left: 50%; transform: translateX(-50%); z-index: 51; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-default, #e2e8f0); border-radius: var(--radius-card); box-shadow: 0 16px 48px rgba(0,0,0,0.15); max-width: 500px; width: calc(100vw - 2rem); max-height: calc(100vh - max(3rem, env(safe-area-inset-top, 0px) + 3rem) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain; }
-  :global(.dark) .dialog { box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
-  .dialog-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-default); }
-  .dialog-header h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary); }
-  .dialog-body { padding: 1rem 1.25rem; }
-  .dialog-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border-default); }
+  .btn-close { background: none; border: none; font-size: 1rem; cursor: pointer; color: var(--text-secondary); padding: 0.2rem 0.4rem; border-radius: 5px; }
   .dialog-field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.5rem; }
    .dialog-field label { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
    .required-mark { color: #ef4444; }

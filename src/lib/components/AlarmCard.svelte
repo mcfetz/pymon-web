@@ -1,10 +1,9 @@
 <script>
   import ChevronDown from 'lucide-svelte/icons/chevron-down';
   import ChevronUp from 'lucide-svelte/icons/chevron-up';
-  import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
-  import AlertCircle from 'lucide-svelte/icons/alert-circle';
-  import Info from 'lucide-svelte/icons/info';
   import { fade, slide } from 'svelte/transition';
+  import { fmtSmartTime as fmt } from '../metricsUtils.js';
+  import { SEVERITY_ICONS, SEVERITY_COLORS, severityIcon } from '../severity.js';
 
   let { group = null, onAck = () => {}, onAckAll = () => {}, onRule = () => {}, onHistory = () => {}, onSnooze = () => {}, onDetail = () => {}, ruleTitleMap = {}, agentTitleMap = {}, pluginLabelMap = {}, snoozed = false, acking = new Set(), expanded = false, onexpand = () => {}, history = false } = $props();
 
@@ -35,23 +34,6 @@
   let agent_label  = $derived(agentTitleMap[agentid] || agentid);
   let plugin_label = $derived(pluginLabelMap[pluginid] || pluginid);
 
-  let sevIcons = { critical: AlertCircle, warning: AlertTriangle, info: Info };
-  let sevColors = { critical: '#ef4444', warning: '#f59e0b', info: '#3b82f6' };
-
-  function fmt(iso) {
-    if (!iso) return '';
-    const s = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
-    const d = new Date(s);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today.getTime() - 86400000);
-    const alarmDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (alarmDate.getTime() === today.getTime()) return time;
-    if (alarmDate.getTime() === yesterday.getTime()) return `yesterday ${time}`;
-    return d.toLocaleString();
-  }
-
   let latest = $derived(alarms[0]);
 </script>
 
@@ -59,12 +41,12 @@
 
 <div
   class="glass rounded-[var(--radius-card)] transition-all duration-200 overflow-visible"
-  style="border-left: 3px solid {sevColors[severity] || '#888'}"
+  style="border-left: 3px solid {SEVERITY_COLORS[severity] || '#888'}"
 >
   <div class="p-4">
     <div class="flex items-center justify-between mb-2">
       <div class="flex items-center gap-2 flex-1 min-w-0">
-        <svelte:component this={sevIcons[severity] || Info} size={14} strokeWidth={2} style="color: {sevColors[severity]}" />
+        <svelte:component this={SEVERITY_ICONS[severity] || severityIcon(severity)} size={14} strokeWidth={2} style="color: {SEVERITY_COLORS[severity]}" />
         <span class="text-xs font-medium truncate" style="color: var(--text-primary)">{rule_label}</span>
         {#if alarms.length > 1}
           <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style="background: var(--color-primary">{alarms.length}×</span>

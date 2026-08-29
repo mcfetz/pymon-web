@@ -2,7 +2,7 @@
   import GlassCard from './GlassCard.svelte';
   import EmptyState from './EmptyState.svelte';
   import MetricsChart from '../MetricsChart.svelte';
-  import { fmtTime as fmt, fmtVal } from '../metricsUtils.js';
+  import { fmtTime as fmt, fmtVal, computeStats } from '../metricsUtils.js';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import Table2 from 'lucide-svelte/icons/table-2';
   import Sigma from 'lucide-svelte/icons/sigma';
@@ -24,24 +24,7 @@
     return Object.values(map).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   });
 
-  let stats = $derived.by(() => {
-    const map = {};
-    for (const row of data) {
-      if (typeof row.value !== 'number') continue;
-      const key = `${row.agent_title || row.agentid} › ${row.plugin_title || row.pluginid} › ${row.metric}`;
-      if (!map[key]) map[key] = { vals: [], latest: null, oldest: null };
-      const s = map[key];
-      s.vals.push(row.value);
-      if (s.latest === null) s.latest = row.value;
-      s.oldest = row.value;
-    }
-    return Object.entries(map).map(([label, s]) => {
-      let min = Infinity, max = -Infinity, sum = 0;
-      for (const v of s.vals) { if (v < min) min = v; if (v > max) max = v; sum += v; }
-      const avg = sum / s.vals.length;
-      return { label, count: s.vals.length, min, avg, max, latest: s.latest, delta: s.latest - s.oldest };
-    });
-  });
+  let stats = $derived(computeStats(data));
 </script>
 
 <GlassCard className="p-4">

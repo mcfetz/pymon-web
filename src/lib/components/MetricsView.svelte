@@ -3,8 +3,9 @@
   import EmptyState from './EmptyState.svelte';
   import MultiSelect from './MultiSelect.svelte';
   import Select from './Select.svelte';
+  import SegmentedControl from './SegmentedControl.svelte';
   import MetricsChart from '../MetricsChart.svelte';
-  import { fmtTime as fmt, fmtVal } from '../metricsUtils.js';
+  import { fmtTime as fmt, fmtVal, copyText } from '../metricsUtils.js';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import X from 'lucide-svelte/icons/x';
   import ChevronLeft from 'lucide-svelte/icons/chevron-left';
@@ -180,21 +181,7 @@
       <!-- Time range presets (segmented group) -->
       <div class="flex flex-col gap-0.5">
         <span class="text-[9px] uppercase tracking-wide font-semibold invisible">_</span>
-        <div
-          class="inline-flex items-center p-0.5 rounded-lg border h-[34px] box-border"
-          style="border-color: var(--border-default); background: var(--bg-surface, rgba(0, 0, 0, 0.03));"
-        >
-          {#each timePresets as p}
-            <button
-              type="button"
-              onclick={() => { filters.timePreset = p.value; }}
-              class="h-full px-2.5 rounded-[6px] text-[10px] font-medium transition-all duration-150 cursor-pointer flex items-center justify-center"
-              style={filters.timePreset === p.value
-                ? 'background: rgba(var(--color-primary-rgb), 0.18); color: var(--color-primary); font-weight: 600;'
-                : 'color: var(--text-secondary);'}
-            >{p.label}</button>
-          {/each}
-        </div>
+        <SegmentedControl options={timePresets} value={filters.timePreset} onchange={(v) => { filters.timePreset = v; }} />
       </div>
 
       <button
@@ -263,16 +250,7 @@
                 <td class="py-2 px-3 whitespace-nowrap font-mono opacity-70" style="color: var(--text-secondary)">{fmt(row.timestamp)}</td>
                 <td class="py-2 px-3" style="color: var(--text-primary)">{agentTitleMap[row.agentid] || row.agentid}</td>
                 <td class="py-2 px-3" style="color: var(--text-primary)">{pluginTitleMap[row.pluginid] || row.pluginid}</td>
-                <td class="py-2 px-3 font-mono cursor-pointer select-all transition-colors hover:brightness-110" style="color: var(--color-primary)" title="Click to copy" onclick={async () => {
-                    try { await navigator.clipboard.writeText(row.metric); } catch {
-                      const ta = document.createElement('textarea');
-                      ta.value = row.metric;
-                      document.body.appendChild(ta);
-                      ta.select();
-                      document.execCommand('copy');
-                      ta.remove();
-                    }
-                  }}>{row.metric}</td>
+                <td class="py-2 px-3 font-mono cursor-pointer select-all transition-colors hover:brightness-110" style="color: var(--color-primary)" title="Click to copy" onclick={() => copyText(row.metric)}>{row.metric}</td>
                 <td class="py-2 px-3 text-right font-mono font-medium tabular-nums" style="color: var(--text-primary)">{fmtVal(row.value)}</td>
                 <td class="py-2 px-3 text-center">
                   {#if row.alarm_id}

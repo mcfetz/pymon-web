@@ -12,7 +12,7 @@
     login, setToken, isLoggedIn,
   } from './lib/api.js';
   import { initTheme } from './lib/theme.svelte.js';
-  import { TIME_PRESETS, timeFromPreset } from './lib/metricsUtils.js';
+  import { TIME_PRESETS, timeFromPreset, computeStats } from './lib/metricsUtils.js';
   import Header from './lib/components/Header.svelte';
   import BottomNav from './lib/components/BottomNav.svelte';
   import LoginPage from './lib/components/LoginPage.svelte';
@@ -514,26 +514,7 @@
 
   let metricsStats = $derived.by(() => {
     if (!metricsData.length) return [];
-      const groups = {};
-    for (const row of metricsData) {
-      if (typeof row.value !== 'number') continue;
-      const key = `${row.agent_title} › ${row.plugin_title} › ${row.metric}`;
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(row.value);
-    }
-    return Object.entries(groups).map(([label, vals]) => {
-      let min = Infinity, max = -Infinity, sum = 0;
-      for (const v of vals) { if (v < min) min = v; if (v > max) max = v; sum += v; }
-      return {
-        label,
-        min,
-        max,
-        avg: sum / vals.length,
-        latest: vals[vals.length - 1],
-        delta: vals[vals.length - 1] - vals[0],
-        count: vals.length,
-      };
-    }).sort((a, b) => a.label.localeCompare(b.label));
+    return computeStats(metricsData).sort((a, b) => a.label.localeCompare(b.label));
   });
 
   async function handleAccountSave({ username, curPw, newPw }) {

@@ -1,12 +1,10 @@
 <script>
   import ShieldCheck from 'lucide-svelte/icons/shield-check';
-  import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
-  import AlertCircle from 'lucide-svelte/icons/alert-circle';
-  import Info from 'lucide-svelte/icons/info';
   import BellOff from 'lucide-svelte/icons/bell-off';
   import FilterPills from './FilterPills.svelte';
   import AlarmCard from './AlarmCard.svelte';
   import EmptyState from './EmptyState.svelte';
+  import { SEVERITY_ICONS, SEVERITY_COLORS } from '../severity.js';
   import { fly } from 'svelte/transition';
 
   let {
@@ -36,9 +34,9 @@
 
   let sevOptions = $derived(history ? ['critical', 'warning', 'info'] : ['critical', 'warning', 'info', 'snoozed']);
   let sevIcons = {
-    critical: { icon: AlertCircle, color: '#ef4444' },
-    warning: { icon: AlertTriangle, color: '#f59e0b' },
-    info: { icon: Info, color: '#3b82f6' },
+    critical: { icon: SEVERITY_ICONS.critical, color: SEVERITY_COLORS.critical },
+    warning: { icon: SEVERITY_ICONS.warning, color: SEVERITY_COLORS.warning },
+    info: { icon: SEVERITY_ICONS.info, color: SEVERITY_COLORS.info },
     snoozed: { icon: BellOff, color: '#eab308' },
   };
 </script>

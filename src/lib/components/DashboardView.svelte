@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import DashboardPanel from './DashboardPanel.svelte';
+  import SegmentedControl from './SegmentedControl.svelte';
   import EmptyState from './EmptyState.svelte';
   import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
   import Pencil from 'lucide-svelte/icons/pencil';
@@ -144,21 +145,7 @@
     {#if active}
       <!-- Time range preset (segmented control, pre-set from dashboard default) -->
       <div class="flex justify-center">
-        <div
-          class="inline-flex items-center p-0.5 rounded-lg border h-[34px] box-border"
-          style="border-color: var(--border-default); background: var(--bg-surface, rgba(0, 0, 0, 0.03));"
-        >
-          {#each TIME_PRESETS as p}
-            <button
-              type="button"
-              onclick={() => changePreset(p.value)}
-              class="h-full px-2.5 rounded-[6px] text-[10px] font-medium transition-all duration-150 cursor-pointer flex items-center justify-center"
-              style={timePreset === p.value
-                ? 'background: rgba(var(--color-primary-rgb), 0.18); color: var(--color-primary); font-weight: 600;'
-                : 'color: var(--text-secondary);'}
-            >{p.label}</button>
-          {/each}
-        </div>
+        <SegmentedControl options={TIME_PRESETS} value={timePreset} onchange={changePreset} />
       </div>
 
       <!-- Panels -->

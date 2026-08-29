@@ -7,6 +7,8 @@
   import Check from 'lucide-svelte/icons/check';
   import ExternalLink from 'lucide-svelte/icons/external-link';
   import { fetchAlarm, acknowledgeAlarm } from '../api.js';
+  import { fmtSmartTime, fmtRelTime, copyText } from '../metricsUtils.js';
+  import { SEVERITY_COLORS, SEVERITY_ICONS, severityIcon } from '../severity.js';
 
   let { alarmId = null, onClose = () => {}, onAcked = () => {} } = $props();
 
@@ -16,8 +18,6 @@
   let acking  = $state(false);
   let copied  = $state(false);
 
-  const SEV_COLOR = { critical: '#ef4444', warning: '#f59e0b', info: '#3b82f6' };
-  const SEV_ICON  = { critical: AlertCircle, warning: AlertTriangle, info: Info };
   const COND_LABEL = { gt: '>', ge: '≥', lt: '<', le: '≤', eq: '=', ne: '≠' };
 
   $effect(() => {
@@ -42,42 +42,17 @@
     finally { acking = false; }
   }
 
-  function copyLink() {
+  async function copyLink() {
     const url = `${window.location.origin}/#alarm/${alarmId}`;
-    navigator.clipboard.writeText(url).then(() => {
-      copied = true;
-      setTimeout(() => { copied = false; }, 2000);
-    }).catch(() => {});
-  }
-
-  function fmt(iso) {
-    if (!iso) return '—';
-    const s = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
-    const d = new Date(s);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today.getTime() - 86400000);
-    const alarmDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (alarmDate.getTime() === today.getTime()) return time;
-    if (alarmDate.getTime() === yesterday.getTime()) return `yesterday ${time}`;
-    return d.toLocaleString();
-  }
-
-  function fmtRel(iso) {
-    if (!iso) return '';
-    const s = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
-    const sec = (Date.now() - new Date(s).getTime()) / 1000;
-    if (sec < 60)    return `${Math.round(sec)}s ago`;
-    if (sec < 3600)  return `${Math.round(sec / 60)}m ago`;
-    if (sec < 86400) return `${Math.round(sec / 3600)}h ago`;
-    return `${Math.round(sec / 86400)}d ago`;
+    await copyText(url);
+    copied = true;
+    setTimeout(() => { copied = false; }, 2000);
   }
 
   function snoozeSummary(snooze) {
     if (!snooze?.active) return 'not snoozed';
     if (!snooze.expires_at) return 'active (permanent)';
-    return `active until ${fmt(snooze.expires_at)}`;
+    return `active until ${fmtSmartTime(snooze.expires_at)}`;
   }
 
   function dateMs(iso) {
@@ -167,13 +142,13 @@
     <div class="dialog-header" style="border-bottom:1px solid var(--border-default);padding:0.85rem 1rem 0.75rem">
       {#if alarm}
         <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
-          <svelte:component this={SEV_ICON[sev] || Info} size={16} strokeWidth={2} style="color:{SEV_COLOR[sev]};flex-shrink:0" />
+          <svelte:component this={SEVERITY_ICONS[sev] || Info} size={16} strokeWidth={2} style="color:{SEVERITY_COLORS[sev]};flex-shrink:0" />
           <span class="font-semibold text-sm truncate" style="color:var(--text-primary);flex:1;min-width:0">
             {alarm.rule?.title || alarm.rule_id}
           </span>
         </div>
         <div style="display:flex;align-items:center;gap:0.4rem">
-          <span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:rgba({sev==='critical'?'239,68,68':sev==='warning'?'245,158,11':'59,130,246'},0.12);color:{SEV_COLOR[sev]}">
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:rgba({sev==='critical'?'239,68,68':sev==='warning'?'245,158,11':'59,130,246'},0.12);color:{SEVERITY_COLORS[sev]}">
             {sev}
           </span>
           {#if alarm.acknowledged}
@@ -233,9 +208,9 @@
             ['Plugin',  alarm.pluginid],
             ['Metric',  alarm.metric],
             ['Value',   alarm.value != null ? String(alarm.value) : '—'],
-            ['Fired',   `${fmt(alarm.created_at)}  ·  ${fmtRel(alarm.created_at)}`],
+            ['Fired',   `${fmtSmartTime(alarm.created_at)}  ·  ${fmtRelTime(alarm.created_at)}`],
             ...(alarm.acknowledged ? [
-              ['Acked',   `${fmt(alarm.acknowledged_at)}${alarm.ack_method ? '  ·  ' + alarm.ack_method : ''}`],
+              ['Acked',   `${fmtSmartTime(alarm.acknowledged_at)}${alarm.ack_method ? '  ·  ' + alarm.ack_method : ''}`],
             ] : []),
             ['Snooze',  snoozeSummary(alarm.snooze)],
           ] as [label, val], i}
@@ -260,7 +235,7 @@
               <svg viewBox="0 0 260 44" width="100%" height="44" preserveAspectRatio="none">
                 <!-- Alarm value marker and reference line -->
                 {#if alarm.value != null && sparkline.alarmPoint}
-                  <line x1="0" y1={sparkline.alarmPoint.y} x2="260" y2={sparkline.alarmPoint.y} stroke={SEV_COLOR[sev]} stroke-width="0.8" stroke-dasharray="4,3" opacity="0.5" />
+                  <line x1="0" y1={sparkline.alarmPoint.y} x2="260" y2={sparkline.alarmPoint.y} stroke={SEVERITY_COLORS[sev]} stroke-width="0.8" stroke-dasharray="4,3" opacity="0.5" />
                 {/if}
                 <!-- Sparkline path -->
                 {#if sparkline.path}
@@ -268,11 +243,11 @@
                 {/if}
                 {#if alarm.value != null && sparkline.alarmPoint}
                   {@const marker = sparkline.alarmPoint}
-                  <circle cx={marker.x} cy={marker.y} r="3.5" fill={SEV_COLOR[sev]} stroke="var(--glass-bg)" stroke-width="2" />
+                  <circle cx={marker.x} cy={marker.y} r="3.5" fill={SEVERITY_COLORS[sev]} stroke="var(--glass-bg)" stroke-width="2" />
                 {/if}
               </svg>
               <div class="flex justify-between text-[10px] mt-1" style="color:var(--text-secondary)">
-                <span>{fmt(alarm.metric_history[0]?.timestamp).split(',')[0]}</span>
+                <span>{fmtSmartTime(alarm.metric_history[0]?.timestamp).split(',')[0]}</span>
                 <span>now</span>
               </div>
             </div>
@@ -301,9 +276,9 @@
                   onkeydown={(e) => !isCurrent && e.key === 'Enter' && (window.location.hash = `#alarm/${a.id}`)}
                 >
                   <span class="font-mono w-12 flex-shrink-0" style="color:{isCurrent ? 'var(--color-primary)' : 'var(--text-secondary)'}">#{ a.id}</span>
-                  <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:{a.acknowledged ? '#22c55e' : SEV_COLOR[a.severity]}"></span>
+                  <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:{a.acknowledged ? '#22c55e' : SEVERITY_COLORS[a.severity]}"></span>
                   <span class="font-mono flex-1" style="color:var(--text-primary)">{a.value != null ? a.value : '—'}</span>
-                  <span style="color:var(--text-secondary)">{fmt(a.created_at)}</span>
+                  <span style="color:var(--text-secondary)">{fmtSmartTime(a.created_at)}</span>
                   {#if a.acknowledged}
                     <span style="color:#22c55e">✓</span>
                   {/if}
