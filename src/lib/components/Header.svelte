@@ -39,15 +39,36 @@
 <header class="sticky top-0 z-30 safe-top mt-3 mb-4">
   <div class="mx-auto max-w-sm px-4">
     <div class="glass-pill flex flex-wrap items-center gap-x-2 gap-y-1.5 px-4 py-2.5">
-      <div class="flex items-center gap-2">
+      <!-- Logo -->
+      <div class="flex items-center gap-2 order-1">
         <div class="icon-wrap">
           <Bell size={18} strokeWidth={2} style="color: var(--color-primary)" />
         </div>
         <h1 class="text-base font-bold m-0" style="color: var(--text-primary)">pymon</h1>
       </div>
 
-      <!-- Severity status badges -->
-      <div class="flex items-center gap-1 flex-1 justify-center order-3 min-[400px]:order-none">
+      <!-- Live / connectivity status + account (always right-aligned) -->
+      <div class="flex items-center gap-1 order-2 ml-auto">
+        <div
+          class="flex items-center"
+          title="Backend connectivity from the last successful poll"
+        >
+          <span class="relative flex h-2 w-2 flex-shrink-0">
+            {#if active}
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style="background: {liveColor}"></span>
+            {/if}
+            <span class="relative inline-flex rounded-full h-2 w-2" style="background: {liveColor}"></span>
+          </span>
+        </div>
+        <button onclick={onAccount} class="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5" aria-label="account">
+          <div class="icon-wrap">
+            <User size={18} strokeWidth={1.8} style="color: var(--text-secondary)" />
+          </div>
+        </button>
+      </div>
+
+      <!-- Severity status badges (own row on narrow screens, inline on wider) -->
+      <div class="flex items-center gap-1 w-full justify-center order-3 min-[480px]:w-auto min-[480px]:flex-1 min-[480px]:order-none">
         {#each badgeDefs as { key, icon: Icon, color, label }}
           <button
             type="button"
@@ -61,25 +82,6 @@
           </button>
         {/each}
       </div>
-
-      <!-- Live / connectivity status -->
-      <div
-        class="flex items-center ml-auto"
-        title="Backend connectivity from the last successful poll"
-      >
-        <span class="relative flex h-2 w-2 flex-shrink-0">
-          {#if active}
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style="background: {liveColor}"></span>
-          {/if}
-          <span class="relative inline-flex rounded-full h-2 w-2" style="background: {liveColor}"></span>
-        </span>
-      </div>
-
-      <button onclick={onAccount} class="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5" aria-label="account">
-        <div class="icon-wrap">
-          <User size={18} strokeWidth={1.8} style="color: var(--text-secondary)" />
-        </div>
-      </button>
     </div>
   </div>
 </header>
