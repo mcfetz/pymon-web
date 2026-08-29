@@ -273,7 +273,16 @@
                 <td class="py-2 px-3 whitespace-nowrap font-mono opacity-70" style="color: var(--text-secondary)">{fmt(row.timestamp)}</td>
                 <td class="py-2 px-3" style="color: var(--text-primary)">{agentTitleMap[row.agentid] || row.agentid}</td>
                 <td class="py-2 px-3" style="color: var(--text-primary)">{pluginTitleMap[row.pluginid] || row.pluginid}</td>
-                <td class="py-2 px-3 font-mono" style="color: var(--text-primary)">{row.metric}</td>
+                <td class="py-2 px-3 font-mono cursor-pointer select-all transition-colors hover:brightness-110" style="color: var(--color-primary)" title="Click to copy" onclick={async () => {
+                    try { await navigator.clipboard.writeText(row.metric); } catch {
+                      const ta = document.createElement('textarea');
+                      ta.value = row.metric;
+                      document.body.appendChild(ta);
+                      ta.select();
+                      document.execCommand('copy');
+                      ta.remove();
+                    }
+                  }}>{row.metric}</td>
                 <td class="py-2 px-3 text-right font-mono font-medium tabular-nums" style="color: var(--text-primary)">{fmtVal(row.value)}</td>
                 <td class="py-2 px-3 text-center">
                   {#if row.alarm_id}
