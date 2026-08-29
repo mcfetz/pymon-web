@@ -10,7 +10,7 @@
 
 <div class="flex justify-center">
   <div
-    class="inline-flex items-center p-0.5 rounded-xl border flex-wrap gap-0.5"
+    class="inline-flex items-center p-0.5 rounded-xl border gap-0.5 overflow-x-auto max-w-full"
     style="border-color: var(--border-default); background: var(--bg-surface, rgba(0, 0, 0, 0.03));"
   >
     {#each options as opt}
@@ -20,7 +20,9 @@
       <button
         type="button"
         onclick={() => toggle(opt)}
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer"
+        title="{opt}{counts[opt] !== undefined ? `: ${counts[opt]}` : ''}"
+        aria-label="{opt}{counts[opt] !== undefined ? ` (${counts[opt]})` : ''}"
+        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer whitespace-nowrap"
         style="
           background: {active ? `color-mix(in srgb, ${itemColor} 15%, transparent)` : 'transparent'};
           color: {active ? itemColor : 'var(--text-secondary)'};
@@ -31,7 +33,7 @@
         {#if Icon}
           <Icon size={13} strokeWidth={active ? 2.5 : 1.8} style="color: {active ? itemColor : 'var(--text-secondary)'}" />
         {/if}
-        <span>{opt}</span>
+        <span class="hidden min-[480px]:inline">{opt}</span>
         {#if counts[opt] !== undefined}
           <span
             class="text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-mono"
