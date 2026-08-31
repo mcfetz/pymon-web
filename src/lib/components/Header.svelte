@@ -39,16 +39,16 @@
 <header class="sticky top-0 z-30 safe-top mt-3 mb-4">
   <div class="mx-auto max-w-sm px-4">
     <div class="glass-pill flex items-center gap-x-2 gap-y-1.5 px-4 py-2.5 overflow-x-auto">
-      <!-- Logo -->
-      <div class="flex items-center gap-2 flex-shrink-0">
+      <!-- Logo (left, flex-1 balances the right side) -->
+      <div class="flex items-center gap-2 flex-1 justify-start min-w-0">
         <div class="icon-wrap">
           <Bell size={18} strokeWidth={2} style="color: var(--color-primary)" />
         </div>
-        <h1 class="text-base font-bold m-0" style="color: var(--text-primary)">pymon</h1>
+        <h1 class="text-base font-bold m-0 truncate" style="color: var(--text-primary)">pymon</h1>
       </div>
 
-      <!-- Severity status badges -->
-      <div class="flex items-center gap-1 flex-shrink-0">
+      <!-- Severity status badges (exactly centered) -->
+      <div class="flex items-center gap-1">
         {#each badgeDefs as { key, icon: Icon, color, label }}
           <button
             type="button"
@@ -63,8 +63,8 @@
         {/each}
       </div>
 
-      <!-- Live / connectivity status + account (right-aligned) -->
-      <div class="flex items-center gap-1 ml-auto flex-shrink-0">
+      <!-- Live / connectivity status + account (right, flex-1 balances the left side) -->
+      <div class="flex items-center gap-1 flex-1 justify-end">
         <div
           class="flex items-center"
           title="Backend connectivity from the last successful poll"
