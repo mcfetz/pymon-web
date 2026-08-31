@@ -38,17 +38,33 @@
 
 <header class="sticky top-0 z-30 safe-top mt-3 mb-4">
   <div class="mx-auto max-w-sm px-4">
-    <div class="glass-pill flex flex-wrap items-center gap-x-2 gap-y-1.5 px-4 py-2.5">
+    <div class="glass-pill flex items-center gap-x-2 gap-y-1.5 px-4 py-2.5 overflow-x-auto">
       <!-- Logo -->
-      <div class="flex items-center gap-2 order-1">
+      <div class="flex items-center gap-2 flex-shrink-0">
         <div class="icon-wrap">
           <Bell size={18} strokeWidth={2} style="color: var(--color-primary)" />
         </div>
         <h1 class="text-base font-bold m-0" style="color: var(--text-primary)">pymon</h1>
       </div>
 
-      <!-- Live / connectivity status + account (always right-aligned) -->
-      <div class="flex items-center gap-1 order-2 ml-auto">
+      <!-- Severity status badges -->
+      <div class="flex items-center gap-1 flex-shrink-0">
+        {#each badgeDefs as { key, icon: Icon, color, label }}
+          <button
+            type="button"
+            onclick={() => onSeverityClick(key)}
+            title="{label}: {severityCounts[key] || 0}"
+            class="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium transition-all duration-150 cursor-pointer hover:brightness-110 active:scale-95"
+            style="background: {color}18; color: {color};"
+          >
+            <Icon size={11} strokeWidth={2.5} />
+            <span class="tabular-nums font-bold">{severityCounts[key] || 0}</span>
+          </button>
+        {/each}
+      </div>
+
+      <!-- Live / connectivity status + account (right-aligned) -->
+      <div class="flex items-center gap-1 ml-auto flex-shrink-0">
         <div
           class="flex items-center"
           title="Backend connectivity from the last successful poll"
@@ -65,22 +81,6 @@
             <User size={18} strokeWidth={1.8} style="color: var(--text-secondary)" />
           </div>
         </button>
-      </div>
-
-      <!-- Severity status badges (own row on narrow screens, inline on wider) -->
-      <div class="flex items-center gap-1 w-full justify-center order-3 min-[480px]:w-auto min-[480px]:flex-1 min-[480px]:order-none">
-        {#each badgeDefs as { key, icon: Icon, color, label }}
-          <button
-            type="button"
-            onclick={() => onSeverityClick(key)}
-            title="{label}: {severityCounts[key] || 0}"
-            class="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium transition-all duration-150 cursor-pointer hover:brightness-110 active:scale-95"
-            style="background: {color}18; color: {color};"
-          >
-            <Icon size={11} strokeWidth={2.5} />
-            <span class="tabular-nums font-bold">{severityCounts[key] || 0}</span>
-          </button>
-        {/each}
       </div>
     </div>
   </div>
