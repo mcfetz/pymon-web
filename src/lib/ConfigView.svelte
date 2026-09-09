@@ -15,6 +15,7 @@ import Plus from 'lucide-svelte/icons/plus';
   import SearchX from 'lucide-svelte/icons/search-x';
   import Database from 'lucide-svelte/icons/database';
   import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
+  import CalendarClock from 'lucide-svelte/icons/calendar-clock';
   import PluginForm from './PluginForm.svelte';
   import CodeEditor from './CodeEditor.svelte';
   import EmptyState from './components/EmptyState.svelte';
@@ -37,6 +38,7 @@ import Plus from 'lucide-svelte/icons/plus';
     fetchBlackouts, fetchBlackoutSchema, saveBlackout, deleteBlackout,
     fetchVariables, saveVariable, deleteVariable,
     fetchDashboards, saveDashboard, deleteDashboard,
+    fetchCronTasks, saveCronTask, deleteCronTask,
     fetchAgentPlugins,
     fetchMaintenanceStats, cleanupMetrics, fetchAgentPluginMetrics, vacuumDatabase,
     fetchCleanupJob, saveCleanupJob,
@@ -271,7 +273,7 @@ import Plus from 'lucide-svelte/icons/plus';
   const CONFIG_DATA = [
     'schemas', 'agents', 'groups', 'rules', 'ruleSchema', 'executors',
     'notifications', 'notifySchema', 'plugins', 'blackouts', 'blackoutSchema', 'variables',
-    'dashboards',
+    'dashboards', 'cronTasks',
   ];
 
   const VIEW_DATA = {
@@ -282,6 +284,7 @@ import Plus from 'lucide-svelte/icons/plus';
     groups: ['groups'],
     variables: ['variables'],
     dashboards: ['dashboards'],
+    cronTasks: ['cronTasks', 'agents', 'executors'],
     blackouts: ['blackouts'],
     plugins: ['plugins'],
     maintenance: ['maintenanceStats', 'agents', 'plugins', 'cleanupJob'],
@@ -423,6 +426,77 @@ import Plus from 'lucide-svelte/icons/plus';
     editedDashboard = { ...editedDashboard };
   }
 
+  // ── Cron tasks state ──
+  let cronTasks = $state({});
+  let showCronTaskDialog = $state(false);
+  let editingCronTask = $state(null);
+  let editedCronTask = $state(null);
+
+  let agentExecutorOptions = $derived(
+    Object.entries(executors)
+      .filter(([ , e]) => e.execution_target === 'agent')
+      .map(([id, e]) => ({ id, title: `${e.title || id} (${id})` }))
+  );
+
+  let filteredCronTasks = $derived.by(() => {
+    const entries = Object.entries(cronTasks);
+    if (!filterText) return entries.sort((a, b) => alphaCompare(a[1].title || a[0], b[1].title || b[0]) || alphaCompare(a[0], b[0]));
+    const q = filterText.toLowerCase();
+    return entries.filter(([id, t]) => {
+      return [
+        id, t.title, t.description, t.schedule, t.executor_id, t.agents_mode, ...(t.agents || []),
+      ].some(value => String(value ?? '').toLowerCase().includes(q));
+    }).sort((a, b) => alphaCompare(a[1].title || a[0], b[1].title || b[0]) || alphaCompare(a[0], b[0]));
+  });
+
+  function openNewCronTask() {
+    if (!agentExecutorOptions.length) { error = 'Create an agent-side executor (execute on = agent) first'; return; }
+    editingCronTask = null;
+    editedCronTask = { id: '', title: '', description: '', enabled: true, agents_mode: 'exclude', agents: [], schedule: '', executor_id: agentExecutorOptions[0].id };
+    showCronTaskDialog = true;
+  }
+
+  async function editCronTask(id) {
+    if (!await ensureDialogData(['agents', 'executors'])) return;
+    editingCronTask = id;
+    editedCronTask = JSON.parse(JSON.stringify(cronTasks[id]));
+    showCronTaskDialog = true;
+  }
+
+  async function handleSaveCronTask() {
+    const id = editingCronTask || editedCronTask.id?.trim();
+    if (!id || !/^t[a-zA-Z0-9_-]*$/.test(id)) { error = 'Task ID must start with "t" (e.g. tbackup)'; return; }
+    if (!(editedCronTask.schedule || '').trim()) { error = 'Schedule is required (5 cron fields)'; return; }
+    if (!editedCronTask.executor_id) { error = 'Select an executor'; return; }
+    try {
+      await saveCronTask(id, { ...editedCronTask, id });
+      cronTasks = await fetchCronTasks();
+      showCronTaskDialog = false;
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleDuplicateCronTask(id) {
+    const src = cronTasks[id];
+    if (!src) return;
+    const copy = {
+      ...src,
+      id: genId('t'),
+      title: `${src.title || 'Task'} Copy`,
+    };
+    try {
+      await saveCronTask(copy.id, copy);
+      cronTasks = await fetchCronTasks();
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleDeleteCronTask(id) {
+    if (!confirm(`Delete cron task '${cronTasks[id]?.title || id}'?`)) return;
+    try {
+      await deleteCronTask(id);
+      cronTasks = await fetchCronTasks();
+    } catch (e) { error = e.message; }
+  }
+
   // ── Filters ──
   let filterText = $state('');
 
@@ -532,6 +606,7 @@ import Plus from 'lucide-svelte/icons/plus';
       case 'blackoutSchema': blackoutSchema = await fetchBlackoutSchema(); break;
       case 'variables': variables = await fetchVariables(); break;
       case 'dashboards': dashboards = await fetchDashboards(); break;
+      case 'cronTasks': cronTasks = await fetchCronTasks(); break;
       case 'maintenanceStats': maintenanceStats = await fetchMaintenanceStats(); break;
       case 'cleanupJob':
         const job = await fetchCleanupJob();
@@ -915,7 +990,7 @@ import Plus from 'lucide-svelte/icons/plus';
 
   // ── Executors ──
   function openNewExec() {
-    editedExec = { id: '', command: '' };
+    editedExec = { id: '', command: '', execution_target: 'server', enabled: true, timeout: 60 };
     showExecDialog = true;
   }
 
@@ -1091,8 +1166,8 @@ import Plus from 'lucide-svelte/icons/plus';
         onclick={() => { const el = document.getElementById('cfg-tabs'); if(el) el.scrollBy({left:-120,behavior:'smooth'}); }}
       >&#8249;</button>
       <div id="cfg-tabs" class="tab-nav-scroll" style="border-color: var(--border-default)">
-        {#each ['Agents','Rules','Notifications','Groups','Variables','Dashboards','Blackouts','Executors','Plugins','Maintenance'] as label}
-          {@const id = label === 'Notifications' ? 'notify' : label.toLowerCase()}
+        {#each ['Agents','Rules','Notifications','Groups','Variables','Dashboards','Cron Tasks','Blackouts','Executors','Plugins','Maintenance'] as label}
+          {@const id = label === 'Notifications' ? 'notify' : label === 'Cron Tasks' ? 'cronTasks' : label.toLowerCase()}
           <button
             onclick={() => selectView(id)}
             class="relative px-3 py-2 text-xs font-medium transition-colors duration-150 whitespace-nowrap flex-shrink-0"
@@ -1413,6 +1488,46 @@ import Plus from 'lucide-svelte/icons/plus';
       {/each}
       {#if filteredDashboards.length === 0}
         <EmptyState icon={SearchX} message="No dashboards match" sub="Try another search" />
+      {/if}
+    {/if}
+  </div>
+{/if}
+
+{#if view === 'cronTasks'}
+  <div class="rules-view">
+    <div class="rules-header">
+      <h3>Cron Tasks</h3>
+      <input type="text" class="filter-input" placeholder="Filter cron tasks..." bind:value={filterText} />
+      <button class="ml-auto p-1.5 rounded-full text-white transition-all duration-150 hover:scale-110 active:scale-95" style="background: var(--color-primary)" onclick={openNewCronTask}><Plus size={14} strokeWidth={2} /></button>
+    </div>
+    {#if Object.keys(cronTasks).length === 0}
+      <EmptyState icon={CalendarClock} message="No cron tasks" sub="Schedule agent-side executors with a 5-field cron expression" />
+    {:else}
+      {#each filteredCronTasks as [tid, t]}
+      <div class="rule-card">
+        <div class="rule-head">
+          <span class="rule-id font-mono" style="color:var(--color-primary);cursor:pointer" onclick={() => editCronTask(tid)}>{t.title || tid}</span>
+          <span class="rule-status" class:active={t.enabled !== false}>{t.enabled !== false ? 'Enabled' : 'Disabled'}</span>
+        </div>
+        <div class="rule-desc">{t.description || '—'}</div>
+        <div class="text-[11px] mt-1 flex flex-wrap gap-1" style="color:var(--text-secondary)">
+          <span class="px-1.5 py-0.5 rounded font-mono" style="background:rgba(var(--color-primary-rgb),0.08)">{t.schedule}</span>
+          <span class="px-1.5 py-0.5 rounded" style="background:rgba(var(--color-primary-rgb),0.08)">executor: {t.executor_id}</span>
+          <span class="px-1.5 py-0.5 rounded" style="background:rgba(var(--color-primary-rgb),0.08)">
+            {t.agents_mode === 'include' ? 'only' : 'excluding'}: {t.agents?.length ? t.agents.join(', ') : 'all agents'}
+          </span>
+          {#if t.last_due_at}
+            <span class="px-1.5 py-0.5 rounded" style="background:rgba(var(--color-primary-rgb),0.08)">last fire: {fmtTime(t.last_due_at)}</span>
+          {/if}
+        </div>
+        <div class="rule-actions">
+          <button class="btn-dup" onclick={() => handleDuplicateCronTask(tid)}>Duplicate</button>
+          <button class="btn-del" onclick={() => handleDeleteCronTask(tid)}>Delete</button>
+        </div>
+        </div>
+      {/each}
+      {#if filteredCronTasks.length === 0}
+        <EmptyState icon={SearchX} message="No cron tasks match" sub="Try another search" />
       {/if}
     {/if}
   </div>
@@ -2043,6 +2158,11 @@ if __name__ == "__main__":
                 <option value="server">server</option>
                 <option value="agent">agent</option>
               </select>
+            </div>
+            <div class="dialog-field">
+              <label>Timeout (seconds)</label>
+              <input type="number" min="1" step="1" bind:value={editedExec.timeout} placeholder="60" style="width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.82rem;background:var(--bg-surface);color:var(--text-primary)" />
+              <span class="text-[11px]" style="color:var(--text-secondary)">Kill the command after this many seconds (default 60)</span>
             </div>
             <div class="dialog-field">
               <label>Shell Command</label>
@@ -2787,6 +2907,55 @@ if __name__ == "__main__":
     {#snippet footer()}
       <button class="btn-cancel" onclick={() => showDashboardDialog = false}>Cancel</button>
       <button class="btn-save-rule" onclick={handleSaveDashboard}>Save</button>
+    {/snippet}
+  </AppDialog>
+{/if}
+
+{#if showCronTaskDialog && editedCronTask}
+  <AppDialog title="{editingCronTask ? 'Edit cron task' : 'New cron task'}" onclose={() => showCronTaskDialog = false} width="640px">
+    <div style="display:flex;gap:1rem;">
+      <div class="dialog-field" style="flex:1">
+        <label>ID <span class="required-mark">*</span></label>
+        <input type="text" bind:value={editedCronTask.id} disabled={!!editingCronTask} placeholder="tbackup" style="font-family:monospace" />
+        <span class="text-[11px]" style="color:var(--text-secondary)">must start with "t"</span>
+      </div>
+      <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
+        <input type="checkbox" checked={editedCronTask.enabled ?? true} onchange={(e) => editedCronTask.enabled = e.target.checked} />
+        <label style="margin:0;">Enabled</label>
+      </div>
+    </div>
+    <div class="dialog-field"><label>Title</label><input type="text" bind:value={editedCronTask.title} /></div>
+    <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedCronTask.description} /></div>
+    <div class="dialog-field">
+      <label>Schedule <span class="required-mark">*</span></label>
+      <input type="text" bind:value={editedCronTask.schedule} placeholder="0 3 * * 1" style="font-family:monospace" />
+      <span class="text-[11px]" style="color:var(--text-secondary)">5 cron fields: minute hour day-of-month month day-of-week (0-6 = sun-mon, * / */n a-b a,b)</span>
+    </div>
+    <div class="dialog-field">
+      <label>Executor <span class="required-mark">*</span></label>
+      <select bind:value={editedCronTask.executor_id} class="w-full">
+        {#each agentExecutorOptions as e}
+          <option value={e.id}>{e.title}</option>
+        {/each}
+      </select>
+      <span class="text-[11px]" style="color:var(--text-secondary)">Only executors with execute on = agent are shown</span>
+    </div>
+    <div class="dialog-field">
+      <label>Restricted agents</label>
+      <select bind:value={editedCronTask.agents_mode} class="w-fit">
+        <option value="exclude">Run on all agents except…</option>
+        <option value="include">Run only on…</option>
+      </select>
+      <MultiSelect
+        items={agentOptions}
+        selected={editedCronTask.agents || []}
+        placeholder="all agents"
+        onchange={(sel) => { editedCronTask.agents = sel; }}
+      />
+    </div>
+    {#snippet footer()}
+      <button class="btn-cancel" onclick={() => showCronTaskDialog = false}>Cancel</button>
+      <button class="btn-save-rule" onclick={handleSaveCronTask} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
     {/snippet}
   </AppDialog>
 {/if}

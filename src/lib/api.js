@@ -250,3 +250,12 @@ export function saveDashboard(id, data) {
 export function deleteDashboard(id) {
   return api(`/admin/dashboards/${id}`, { method: 'DELETE' });
 }
+
+// ── Cron tasks ──
+export function fetchCronTasks() { return api('/admin/cron-tasks'); }
+export function saveCronTask(id, data) {
+  return api(`/admin/cron-tasks/${id}`, { method: 'PUT', body: data });
+}
+export function deleteCronTask(id) {
+  return api(`/admin/cron-tasks/${id}`, { method: 'DELETE' });
+}
