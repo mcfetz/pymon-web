@@ -32,6 +32,7 @@
 
   initTheme();
   const AGENT_STATUS_PLUGIN = { id: 'agent', title: 'Agent status' };
+  const CRON_PLUGIN = { id: 'cron', title: 'Cron tasks' };
   const appVersion = typeof __APP_COMMIT__ !== 'undefined' ? __APP_COMMIT__ : 'dev';
 
   // ── Version & Update state ──
@@ -345,7 +346,7 @@
   let groups = $state([]);
   let groupAgents = $state({});
   let agents = $state([]);
-  let plugins = $state([AGENT_STATUS_PLUGIN]);
+  let plugins = $state([AGENT_STATUS_PLUGIN, CRON_PLUGIN]);
   let metricNames = $state([]);
   let metricsData = $state([]);
   let metricsLoading = $state(false);
@@ -446,14 +447,14 @@
   }
   async function onGroupChange() {
     filters.agentid = []; filters.pluginid = ''; filters.metric = '';
-    plugins = [AGENT_STATUS_PLUGIN]; metricNames = [];
+    plugins = [AGENT_STATUS_PLUGIN, CRON_PLUGIN]; metricNames = [];
   }
   async function onAgentChange() {
     filters.pluginid = ''; filters.metric = ''; metricNames = [];
     if (filters.agentid.length > 0) {
       try {
         const results = await Promise.all(filters.agentid.map(a => fetchAgentPlugins(a)));
-        const merged = new Map([[AGENT_STATUS_PLUGIN.id, AGENT_STATUS_PLUGIN]]);
+        const merged = new Map([[AGENT_STATUS_PLUGIN.id, AGENT_STATUS_PLUGIN], [CRON_PLUGIN.id, CRON_PLUGIN]]);
         for (const list of results) for (const p of list) {
           const pid = p.id || p;
           if (!merged.has(pid)) merged.set(pid, { id: pid, title: p.title || pid });

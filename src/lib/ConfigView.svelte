@@ -431,6 +431,76 @@ import Plus from 'lucide-svelte/icons/plus';
   let showCronTaskDialog = $state(false);
   let editingCronTask = $state(null);
   let editedCronTask = $state(null);
+  let expandedCronGeneral = $state(true);
+  let expandedCronSchedule = $state(true);
+  let expandedCronAgents = $state(false);
+  let cronNextRuns = $state([]);
+
+  function parseCronField(field, lo, hi) {
+    const values = new Set();
+    for (const part of String(field || '').split(',')) {
+      const p = part.trim();
+      if (!p) return null;
+      let step = 1;
+      let base = p;
+      if (p.includes('/')) {
+        const [b, s] = p.split('/');
+        base = b; step = parseInt(s, 10);
+        if (!Number.isInteger(step) || step <= 0) return null;
+        if (base === '*') base = `${lo}-${hi}`;
+      }
+      if (base === '*') { for (let v = lo; v <= hi; v++) values.add(v); continue; }
+      if (base.includes('-')) {
+        const [a, b] = base.split('-').map(s => parseInt(s, 10));
+        if (!Number.isInteger(a) || !Number.isInteger(b) || a > b || a < lo || b > hi) return null;
+        for (let v = a; v <= b; v += step) values.add(v);
+      } else {
+        const v = parseInt(base, 10);
+        if (!Number.isInteger(v) || v < lo || v > hi) return null;
+        values.add(v);
+      }
+    }
+    return values;
+  }
+
+  function parseCronSchedule(schedule) {
+    const parts = String(schedule || '').trim().split(/\s+/);
+    if (parts.length !== 5) return null;
+    const bounds = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 7]];
+    const fields = [];
+    for (let i = 0; i < 5; i++) {
+      const f = parseCronField(parts[i], bounds[i][0], bounds[i][1]);
+      if (f === null) return null;
+      if (i === 4) fields.push(new Set([...f].map(v => (v % 7 + 6) % 7)));
+      else fields.push(f);
+    }
+    return fields;
+  }
+
+  function cronMatches(parsed, d) {
+    return parsed[0].has(d.getMinutes()) && parsed[1].has(d.getHours()) &&
+           parsed[2].has(d.getDate()) && parsed[3].has(d.getMonth() + 1) &&
+           parsed[4].has(d.getDay());
+  }
+
+  function computeNextRuns(schedule, count = 3) {
+    const parsed = parseCronSchedule(schedule);
+    if (parsed === null) return [];
+    const runs = [];
+    let d = new Date();
+    d.setSeconds(0, 0);
+    while (runs.length < count) {
+      d = new Date(d.getTime() + 60000);
+      if (cronMatches(parsed, d)) runs.push(new Date(d));
+    }
+    return runs;
+  }
+
+  $effect(() => {
+    if (showCronTaskDialog && editedCronTask) {
+      cronNextRuns = computeNextRuns(editedCronTask.schedule);
+    }
+  });
 
   let agentExecutorOptions = $derived(
     Object.entries(executors)
@@ -452,14 +522,25 @@ import Plus from 'lucide-svelte/icons/plus';
   function openNewCronTask() {
     if (!agentExecutorOptions.length) { error = 'Create an agent-side executor (execute on = agent) first'; return; }
     editingCronTask = null;
-    editedCronTask = { id: '', title: '', description: '', enabled: true, agents_mode: 'exclude', agents: [], schedule: '', executor_id: agentExecutorOptions[0].id };
+    editedCronTask = {
+      id: genId('t'), title: '', description: '', enabled: true,
+      agents_mode: 'exclude', agents: [], schedule: '0 * * * *',
+      executor_id: agentExecutorOptions[0].id,
+    };
+    cronNextRuns = computeNextRuns(editedCronTask.schedule);
     showCronTaskDialog = true;
+  }
+
+  function onCronScheduleInput() {
+    cronNextRuns = computeNextRuns(editedCronTask.schedule);
   }
 
   async function editCronTask(id) {
     if (!await ensureDialogData(['agents', 'executors'])) return;
     editingCronTask = id;
     editedCronTask = JSON.parse(JSON.stringify(cronTasks[id]));
+    if (!editedCronTask.schedule) editedCronTask.schedule = '0 * * * *';
+    cronNextRuns = computeNextRuns(editedCronTask.schedule);
     showCronTaskDialog = true;
   }
 
@@ -2913,45 +2994,96 @@ if __name__ == "__main__":
 
 {#if showCronTaskDialog && editedCronTask}
   <AppDialog title="{editingCronTask ? 'Edit cron task' : 'New cron task'}" onclose={() => showCronTaskDialog = false} width="640px">
-    <div style="display:flex;gap:1rem;">
-      <div class="dialog-field" style="flex:1">
-        <label>ID <span class="required-mark">*</span></label>
-        <input type="text" bind:value={editedCronTask.id} disabled={!!editingCronTask} placeholder="tbackup" style="font-family:monospace" />
-        <span class="text-[11px]" style="color:var(--text-secondary)">must start with "t"</span>
+    <div style="margin-bottom:0.5rem;">
+      <button onclick={() => expandedCronGeneral = !expandedCronGeneral}
+        class="flex items-center gap-1 w-full text-left text-xs font-semibold"
+        style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+        <span style="display:inline-block; transition: transform 0.2s; transform: {expandedCronGeneral ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> General
+      </button>
+    </div>
+    {#if expandedCronGeneral}
+      <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+        <div style="display:flex;gap:1rem;">
+          <div class="dialog-field" style="flex:1">
+            <label>ID</label>
+            <input type="text" bind:value={editedCronTask.id} disabled style="font-family:monospace" />
+            <span class="text-[11px]" style="color:var(--text-secondary)">auto-generated — starts with "t"</span>
+          </div>
+          <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
+            <input type="checkbox" checked={editedCronTask.enabled ?? true} onchange={(e) => editedCronTask.enabled = e.target.checked} />
+            <label style="margin:0;">Enabled</label>
+          </div>
+        </div>
+        <div class="dialog-field"><label>Title</label><input type="text" bind:value={editedCronTask.title} /></div>
+        <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedCronTask.description} /></div>
       </div>
-      <div class="dialog-field" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.2rem;">
-        <input type="checkbox" checked={editedCronTask.enabled ?? true} onchange={(e) => editedCronTask.enabled = e.target.checked} />
-        <label style="margin:0;">Enabled</label>
-      </div>
+    {/if}
+
+    <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+      <button onclick={() => expandedCronSchedule = !expandedCronSchedule}
+        class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2"
+        style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+        <span style="display:inline-block; transition: transform 0.2s; transform: {expandedCronSchedule ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span> Schedule & executor
+      </button>
+      {#if expandedCronSchedule}
+        <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);margin-bottom:0.75rem;">
+          <div class="dialog-field">
+            <label>Schedule <span class="required-mark">*</span></label>
+            <input type="text" bind:value={editedCronTask.schedule} placeholder="0 3 * * 1" style="font-family:monospace" oninput={onCronScheduleInput} />
+            <span class="text-[11px]" style="color:var(--text-secondary)">5 cron fields: minute hour day-of-month month day-of-week (0-6 = sun-mon, * / */n a-b a,b)</span>
+            {#if cronNextRuns.length}
+              <div class="text-[11px] mt-1" style="color:var(--text-secondary)">Next runs:
+                {#each cronNextRuns as run (run.toISOString())}<span class="font-mono font-medium mx-0.5" style="color:var(--color-primary)">{run.toLocaleString()}</span>{/each}
+              </div>
+            {:else}
+              <div class="text-[11px] mt-1" style="color:#ef4444">Invalid schedule — cannot compute next runs.</div>
+            {/if}
+          </div>
+          <div class="dialog-field">
+            <label>Executor <span class="required-mark">*</span></label>
+            <select bind:value={editedCronTask.executor_id} class="w-full">
+              {#each agentExecutorOptions as e}
+                <option value={e.id}>{e.title}</option>
+              {/each}
+            </select>
+            <span class="text-[11px]" style="color:var(--text-secondary)">Only executors with execute on = agent are shown</span>
+          </div>
+        </div>
+      {/if}
     </div>
-    <div class="dialog-field"><label>Title</label><input type="text" bind:value={editedCronTask.title} /></div>
-    <div class="dialog-field"><label>Description</label><input type="text" bind:value={editedCronTask.description} /></div>
-    <div class="dialog-field">
-      <label>Schedule <span class="required-mark">*</span></label>
-      <input type="text" bind:value={editedCronTask.schedule} placeholder="0 3 * * 1" style="font-family:monospace" />
-      <span class="text-[11px]" style="color:var(--text-secondary)">5 cron fields: minute hour day-of-month month day-of-week (0-6 = sun-mon, * / */n a-b a,b)</span>
-    </div>
-    <div class="dialog-field">
-      <label>Executor <span class="required-mark">*</span></label>
-      <select bind:value={editedCronTask.executor_id} class="w-full">
-        {#each agentExecutorOptions as e}
-          <option value={e.id}>{e.title}</option>
-        {/each}
-      </select>
-      <span class="text-[11px]" style="color:var(--text-secondary)">Only executors with execute on = agent are shown</span>
-    </div>
-    <div class="dialog-field">
-      <label>Restricted agents</label>
-      <select bind:value={editedCronTask.agents_mode} class="w-fit">
-        <option value="exclude">Run on all agents except…</option>
-        <option value="include">Run only on…</option>
-      </select>
-      <MultiSelect
-        items={agentOptions}
-        selected={editedCronTask.agents || []}
-        placeholder="all agents"
-        onchange={(sel) => { editedCronTask.agents = sel; }}
-      />
+
+    <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-default)">
+      <button onclick={() => expandedCronAgents = !expandedCronAgents}
+        class="flex items-center gap-1 w-full text-left text-xs font-semibold mb-2"
+        style="color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 0;">
+        <span style="display:inline-block; transition: transform 0.2s; transform: {expandedCronAgents ? 'rotate(90deg)' : 'rotate(0)'}">&#9656;</span>
+        Restricted agents
+      </button>
+      {#if expandedCronAgents}
+        <div style="padding-left:0.75rem;border-left:2px solid var(--border-default);">
+          <div class="dialog-field">
+            <select bind:value={editedCronTask.agents_mode} class="w-full">
+              <option value="exclude">exclude</option>
+              <option value="include">include</option>
+            </select>
+          </div>
+          <div class="dialog-field">
+            <div class="dialog-array" style="max-height:150px;overflow-y:auto;">
+              {#each Object.entries(agents).sort(compareEntries) as [agentId, agent] (agentId)}
+                <label class="checkbox-row" style="cursor:pointer;font-size:0.8rem;">
+                  <input type="checkbox" checked={(editedCronTask.agents || []).includes(agentId)} onchange={(e) => {
+                    const arr = [...(editedCronTask.agents || [])];
+                    if (e.target.checked) arr.push(agentId); else arr.splice(arr.indexOf(agentId), 1);
+                    editedCronTask.agents = arr;
+                  }} />
+                  {agent.title || agentId}
+                </label>
+              {/each}
+            </div>
+            <span class="text-[11px]" style="color:var(--text-secondary)">include = run only on selected, exclude = run on all except selected (empty = all agents)</span>
+          </div>
+        </div>
+      {/if}
     </div>
     {#snippet footer()}
       <button class="btn-cancel" onclick={() => showCronTaskDialog = false}>Cancel</button>
