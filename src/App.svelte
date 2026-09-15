@@ -412,11 +412,11 @@
     filters.timePreset = '1h';
     filters.until = '';
     filters.agentid = [agentid];
-    await onAgentChange();
+    try { await onAgentChange(); } catch { /* keep going */ }
     filters.pluginid = pluginid;
-    await onPluginChange();
+    try { await onPluginChange(); } catch { /* keep going */ }
     filters.metric = metric;
-    await doQuery();
+    try { await doQuery(); } catch { /* keep going */ }
     tab = 'metrics';
   }
 
