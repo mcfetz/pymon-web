@@ -65,7 +65,7 @@
           responsive: true,
           maintainAspectRatio: false,
           locale: navigator.language,
-          interaction: { mode: 'nearest', axis: 'x', intersect: false },
+          interaction: { mode: 'nearest', intersect: true },
           plugins: {
             annotation: {
               annotations: Object.fromEntries(
