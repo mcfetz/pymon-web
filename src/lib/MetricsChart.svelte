@@ -72,8 +72,8 @@
                 [...new Set(data.filter(r => r.alarm_id != null && typeof r.value === 'number').map(r => r.timestamp))]
                   .map((ts, i) => [`alarm_${i}`, {
                     type: 'line',
-                    xMin: ts,
-                    xMax: ts,
+                    xMin: parseTimestamp(ts),
+                    xMax: parseTimestamp(ts),
                     borderColor: '#e53e3e',
                     borderWidth: 1.5,
                     borderDash: [6, 4],
