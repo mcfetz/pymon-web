@@ -43,6 +43,37 @@ export function fmtSmartTime(iso) {
   return d.toLocaleString();
 }
 
+const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+/** Local calendar day as YYYY-MM-DD (not UTC — the server sends naive UTC). */
+export function dayKey(iso) {
+  const d = toDate(iso);
+  if (!d) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function startOfWeek(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+
+/** Section heading for a timestamp: today / yesterday / weekday / last week / older. */
+export function daySectionLabel(iso, now = new Date()) {
+  const d = toDate(iso);
+  if (!d) return '';
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (day.getTime() === today.getTime()) return 'today';
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  if (day.getTime() === yesterday.getTime()) return 'yesterday';
+  const week = startOfWeek(today).getTime();
+  const dayWeek = startOfWeek(day).getTime();
+  if (dayWeek === week) return WEEKDAYS[(day.getDay() + 6) % 7];
+  if (dayWeek === startOfWeek(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7)).getTime()) return 'last week';
+  return 'older';
+}
+
 /** Relative duration like "5m ago" / "3h ago" / "2d ago". */
 export function fmtRelTime(iso) {
   const d = toDate(iso);

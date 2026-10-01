@@ -12,7 +12,7 @@
     login, setToken, isLoggedIn,
   } from './lib/api.js';
   import { initTheme } from './lib/theme.svelte.js';
-  import { TIME_PRESETS, timeFromPreset, computeStats } from './lib/metricsUtils.js';
+  import { TIME_PRESETS, timeFromPreset, computeStats, dayKey } from './lib/metricsUtils.js';
   import Header from './lib/components/Header.svelte';
   import BottomNav from './lib/components/BottomNav.svelte';
   import LoginPage from './lib/components/LoginPage.svelte';
@@ -207,8 +207,7 @@
   let historyRangeInitialized = false;
 
   function dateYMD(iso) {
-    const s = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
-    return new Date(s).toISOString().slice(0, 10);
+    return dayKey(iso);
   }
 
   function buildDateRange(alarms) {
@@ -217,7 +216,7 @@
     historyDateLabels = dates;
     if (!historyRangeInitialized) {
       historyRangeInitialized = true;
-      const today = new Date().toISOString().slice(0, 10);
+      const today = dayKey(new Date().toISOString());
       const todayIdx = dates.indexOf(today);
       if (todayIdx >= 0) {
         historyDateStart = dates[Math.max(0, todayIdx - 1)];

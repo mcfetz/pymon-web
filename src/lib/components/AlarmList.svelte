@@ -3,8 +3,10 @@
   import BellOff from 'lucide-svelte/icons/bell-off';
   import FilterPills from './FilterPills.svelte';
   import AlarmCard from './AlarmCard.svelte';
+  import DaySeparator from './DaySeparator.svelte';
   import EmptyState from './EmptyState.svelte';
   import { SEVERITY_ICONS, SEVERITY_COLORS } from '../severity.js';
+  import { dayKey, daySectionLabel } from '../metricsUtils.js';
   import { fly } from 'svelte/transition';
 
   let {
@@ -39,6 +41,26 @@
     info: { icon: SEVERITY_ICONS.info, color: SEVERITY_COLORS.info },
     snoozed: { icon: BellOff, color: '#eab308' },
   };
+
+  // Interleave day separators into the sorted group list (history view only).
+  // A group is filed under the day of its newest alarm — the timestamp the card
+  // shows — and a day yields exactly one separator even with severity gaps.
+  let mergedItems = $derived.by(() => {
+    const items = [];
+    let lastDay = null;
+    for (const g of merged || []) {
+      if (history) {
+        const ts = g.alarms?.[0]?.created_at;
+        const key = dayKey(ts);
+        if (key && key !== lastDay) {
+          lastDay = key;
+          items.push({ type: 'day', key: `day_${key}`, label: daySectionLabel(ts) });
+        }
+      }
+      items.push({ type: 'group', key: g.key, group: g });
+    }
+    return items;
+  });
 </script>
 
 <div class="space-y-3">
@@ -54,7 +76,11 @@
   {/if}
 
   {#if merged}
-    {#each merged as g (g.key)}
+    {#each mergedItems as item (item.key)}
+      {#if item.type === 'day'}
+        <DaySeparator label={item.label} />
+      {:else}
+      {@const g = item.group}
       <div transition:fly|local={{ y: 12, duration: 200 }}>
         {#if g.alarms?.length > 1}
           <AlarmCard
@@ -93,6 +119,7 @@
           />
         {/if}
       </div>
+      {/if}
     {/each}
     {#if merged.length === 0}
       <EmptyState icon={ShieldCheck} message="no alarms" sub="all clear" />
