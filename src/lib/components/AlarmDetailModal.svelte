@@ -315,13 +315,13 @@
               <span
                 title={alarm.surrounding_before_capped ? `more before, showing the nearest ${alarm.surrounding_before}` : ""}
                 style:font-weight={alarm.surrounding_before_capped ? '600' : 'normal'}
-              >{alarm.surrounding_before}/{alarm.surrounding_before_total} davor</span>
+              >{alarm.surrounding_before} of {alarm.surrounding_before_total} before</span>
               <span
                 title={alarm.surrounding_after_capped ? `more after, showing the nearest ${alarm.surrounding_after}` : ""}
                 style:font-weight={alarm.surrounding_after_capped ? '600' : 'normal'}
-              >{alarm.surrounding_after}/{alarm.surrounding_after_total} danach</span>
+              >{alarm.surrounding_after} of {alarm.surrounding_after_total} after</span>
               <span>·</span>
-              <span>{alarm.total_same_rule} gesamt</span>
+              <span>{alarm.total_same_rule} total</span>
             </div>
           </div>
         {/if}
