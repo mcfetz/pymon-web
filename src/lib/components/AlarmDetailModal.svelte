@@ -7,7 +7,7 @@
   import Check from 'lucide-svelte/icons/check';
   import ExternalLink from 'lucide-svelte/icons/external-link';
   import { fetchAlarm, acknowledgeAlarm } from '../api.js';
-  import { fmtSmartTime, fmtRelTime, copyText } from '../metricsUtils.js';
+  import { fmtSmartTime, fmtRelTime, fmtSpanTime, copyText } from '../metricsUtils.js';
   import { SEVERITY_COLORS, SEVERITY_ICONS, severityIcon } from '../severity.js';
 
   let { alarmId = null, onClose = () => {}, onAcked = () => {} } = $props();
@@ -307,11 +307,22 @@
                 </div>
               {/each}
             </div>
-            {#if alarm.surrounding_capped}
-              <div class="text-[10px] mt-1" style="color:var(--text-secondary)">
-                showing {alarm.surrounding.length} of {alarm.total_same_rule} — older/newer ones not listed
-              </div>
-            {/if}
+            <div class="text-[10px] mt-1 flex flex-wrap items-center gap-x-1.5 font-mono" style="color:var(--text-secondary)">
+              {#if alarm.surrounding_span}
+                <span>{fmtSpanTime(alarm.surrounding_span[0])} – {fmtSpanTime(alarm.surrounding_span[1])}</span>
+                <span>·</span>
+              {/if}
+              <span
+                title={alarm.surrounding_before_capped ? `more before, showing the nearest ${alarm.surrounding_before}` : ""}
+                style:font-weight={alarm.surrounding_before_capped ? '600' : 'normal'}
+              >{alarm.surrounding_before}/{alarm.surrounding_before_total} davor</span>
+              <span
+                title={alarm.surrounding_after_capped ? `more after, showing the nearest ${alarm.surrounding_after}` : ""}
+                style:font-weight={alarm.surrounding_after_capped ? '600' : 'normal'}
+              >{alarm.surrounding_after}/{alarm.surrounding_after_total} danach</span>
+              <span>·</span>
+              <span>{alarm.total_same_rule} gesamt</span>
+            </div>
           </div>
         {/if}
 

@@ -46,6 +46,25 @@ export function fmtSmartTime(iso) {
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 /** Local calendar day as YYYY-MM-DD (not UTC — the server sends naive UTC). */
+/**
+ * Compact timestamp for range ends: "18:32" today, "yesterday 18:32",
+ * otherwise "27.09. 18:32".
+ */
+export function fmtSpanTime(iso) {
+  const d = toDate(iso);
+  if (!d) return iso ? '—' : '';
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const now = new Date();
+  const days = Math.round(
+    (new Date(now.getFullYear(), now.getMonth(), now.getDate()) -
+      new Date(d.getFullYear(), d.getMonth(), d.getDate())) /
+      86400000
+  );
+  if (days === 0) return time;
+  if (days === 1) return `yesterday ${time}`;
+  return `${d.toLocaleDateString([], { day: '2-digit', month: '2-digit' })} ${time}`;
+}
+
 export function dayKey(iso) {
   const d = toDate(iso);
   if (!d) return '';
