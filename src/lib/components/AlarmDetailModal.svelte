@@ -73,6 +73,14 @@
     return `${sign}${Math.round(mins / 1440)}d`;
   }
 
+  /** Compact duration for incident spacing: 45m, 11h, 3.2d. */
+  function fmtDuration(hours) {
+    if (hours == null || !Number.isFinite(hours)) return '—';
+    if (hours < 1) return `${Math.round(hours * 60)}m`;
+    if (hours < 48) return `${hours < 10 ? hours.toFixed(1) : Math.round(hours)}h`;
+    return `${(hours / 24).toFixed(1)}d`;
+  }
+
   function sparklinePath(data, alarmValue, alarmTimestamp, w = 260, h = 44) {
     if (!data || data.length < 2) return { path: '', min: 0, max: 0 };
     const rawPoints = data
@@ -262,6 +270,66 @@
                 <span>{fmtSmartTime(alarm.metric_history[0]?.timestamp).split(',')[0]}</span>
                 <span>now</span>
               </div>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Incident statistics for the rule -->
+        {#if alarm.rule_stats?.incidents > 0}
+          {@const st = alarm.rule_stats}
+          <div class="mb-1">
+            <div class="text-[11px] font-medium mb-1.5" style="color:var(--text-secondary)">
+              Incident pattern · rule {alarm.rule_id}
+              {#if st.truncated}<span title="only the most recent alarms of this rule were analysed">(partial)</span>{/if}
+            </div>
+
+            <!-- Burst size: how bad a single incident typically gets -->
+            <div class="rounded-xl overflow-hidden mb-1" style="border:1px solid var(--border-default)">
+              <div class="px-3 py-1.5 text-[11px] flex items-baseline justify-between" style="border-bottom:1px solid var(--border-default)">
+                <span style="color:var(--text-secondary)">Alarms per incident</span>
+                <span class="font-mono">
+                  <span style="color:var(--text-primary);font-weight:600">{st.alarms_per_incident.median}</span>
+                  <span style="color:var(--text-secondary)"> median · </span>
+                  <span style="color:var(--text-primary)">{st.alarms_per_incident.max}</span>
+                  <span style="color:var(--text-secondary)"> max</span>
+                </span>
+              </div>
+              <div class="px-3 py-1.5 text-[11px] flex items-baseline justify-between" style="border-bottom:1px solid var(--border-default)">
+                <span style="color:var(--text-secondary)">Time between incidents</span>
+                <span class="font-mono">
+                  {#if st.interval_hours.samples > 0}
+                    <span style="color:var(--text-primary);font-weight:600">{fmtDuration(st.interval_hours.median)}</span>
+                    <span style="color:var(--text-secondary)"> median · p75 {fmtDuration(st.interval_hours.p75)} · n={st.interval_hours.samples}</span>
+                  {:else}
+                    <span style="color:var(--text-secondary)">only one incident observed</span>
+                  {/if}
+                </span>
+              </div>
+              <div class="px-3 py-1.5 text-[11px] flex items-baseline justify-between" style="border-bottom:1px solid var(--border-default)">
+                <span style="color:var(--text-secondary)">Longest quiet stretch</span>
+                <span class="font-mono" style="color:var(--text-primary)">{fmtDuration(st.longest_quiet_hours)}</span>
+              </div>
+              <div class="px-3 py-1.5 text-[11px] flex items-baseline justify-between">
+                <span style="color:var(--text-secondary)">Last incident</span>
+                <span class="font-mono">
+                  <span style="color:var(--text-primary)">{fmtSmartTime(st.last_incident)}</span>
+                  <span style="color:var(--text-secondary)"> · {fmtDuration(st.since_last_hours)} ago</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-x-1.5 text-[10px] font-mono" style="color:var(--text-secondary)">
+              <span>{st.incidents} incidents</span>
+              <span>·</span>
+              <span>{st.alarms} alarms</span>
+              {#if st.incidents_per_week}
+                <span>·</span>
+                <span>{st.incidents_per_week}/week</span>
+              {/if}
+              <span>·</span>
+              <span>over {st.observed_days}d</span>
+              <span>·</span>
+              <span title="alarms closer than this count as one incident">gap &gt; {st.gap_minutes}m</span>
             </div>
           </div>
         {/if}
