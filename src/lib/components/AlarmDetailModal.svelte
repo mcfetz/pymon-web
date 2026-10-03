@@ -61,14 +61,15 @@
     return new Date(s).getTime();
   }
 
-  /** Signed distance from the reference alarm: -3h, +12m, same. */
+  /** Signed distance from the reference alarm: -45s, +12m, +3d. */
   function timeDiff(iso, refIso) {
     const d = dateMs(iso) - dateMs(refIso);
-    if (!Number.isFinite(d) || d === 0) return '';
+    if (!Number.isFinite(d) || d === 0) return '0s';
     const sign = d < 0 ? '-' : '+';
-    const mins = Math.round(Math.abs(d) / 60000);
-    if (mins < 60) return `${sign}${mins}m`;
-    if (mins < 1440) return `${sign}${Math.round(mins / 60)}h`;
+    const secs = Math.round(Math.abs(d) / 1000);
+    if (secs < 60) return `${sign}${secs}s`;
+    const mins = Math.round(secs / 60);
+    if (mins < 1440) return `${sign}${mins}m`;
     return `${sign}${Math.round(mins / 1440)}d`;
   }
 
