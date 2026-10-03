@@ -61,6 +61,17 @@
     return new Date(s).getTime();
   }
 
+  /** Signed distance from the reference alarm: -3h, +12m, same. */
+  function timeDiff(iso, refIso) {
+    const d = dateMs(iso) - dateMs(refIso);
+    if (!Number.isFinite(d) || d === 0) return '';
+    const sign = d < 0 ? '-' : '+';
+    const mins = Math.round(Math.abs(d) / 60000);
+    if (mins < 60) return `${sign}${mins}m`;
+    if (mins < 1440) return `${sign}${Math.round(mins / 60)}h`;
+    return `${sign}${Math.round(mins / 1440)}d`;
+  }
+
   function sparklinePath(data, alarmValue, alarmTimestamp, w = 260, h = 44) {
     if (!data || data.length < 2) return { path: '', min: 0, max: 0 };
     const rawPoints = data
@@ -254,15 +265,17 @@
           </div>
         {/if}
 
-        <!-- Surrounding alarms timeline -->
-        {#if alarm.surrounding?.length > 0 || alarm.total_same_type > 1}
+        <!-- Nearby alarms from the same rule -->
+        {#if alarm.surrounding?.length > 0}
           <div class="mb-1">
-            <div class="text-[11px] font-medium mb-1.5" style="color:var(--text-secondary)">
-              Same alarm type · {alarm.total_same_type} total
+            <div class="flex items-baseline justify-between gap-2 text-[11px] font-medium mb-1.5" style="color:var(--text-secondary)">
+              <span>Nearby alarms · same rule</span>
+              <span class="font-mono">{alarm.total_same_rule} total</span>
             </div>
             <div class="rounded-xl overflow-hidden" style="border:1px solid var(--border-default)">
-              {#each [...alarm.surrounding.filter(a => a.id < alarm.id).slice(-5), alarm, ...alarm.surrounding.filter(a => a.id > alarm.id).slice(0,5)] as a}
+              {#each alarm.surrounding as a (a.id)}
                 {@const isCurrent = a.id === alarm.id}
+                {@const diff = timeDiff(a.created_at, alarm.created_at)}
                 <div
                   class="flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors"
                   style="
@@ -277,8 +290,13 @@
                 >
                   <span class="font-mono w-12 flex-shrink-0" style="color:{isCurrent ? 'var(--color-primary)' : 'var(--text-secondary)'}">#{ a.id}</span>
                   <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:{a.acknowledged ? '#22c55e' : SEVERITY_COLORS[a.severity]}"></span>
-                  <span class="font-mono flex-1" style="color:var(--text-primary)">{a.value != null ? a.value : '—'}</span>
-                  <span style="color:var(--text-secondary)">{fmtSmartTime(a.created_at)}</span>
+                  <span class="font-mono w-16 flex-shrink-0 truncate" style="color:var(--text-primary)">{a.value != null ? a.value : '—'}</span>
+                  {#if !isCurrent}
+                    <span class="font-mono w-10 flex-shrink-0 text-right" style="color:var(--text-secondary)">{diff}</span>
+                  {/if}
+                  <span class="truncate flex-shrink-0" style="color:var(--text-secondary);min-width:0">{a.agentid}</span>
+                  <span class="font-mono flex-1 truncate" style="color:var(--text-secondary)">{a.metric}</span>
+                  <span class="whitespace-nowrap" style="color:var(--text-secondary)">{fmtSmartTime(a.created_at)}</span>
                   {#if a.acknowledged}
                     <span style="color:#22c55e">✓</span>
                   {/if}
@@ -288,6 +306,11 @@
                 </div>
               {/each}
             </div>
+            {#if alarm.surrounding_capped}
+              <div class="text-[10px] mt-1" style="color:var(--text-secondary)">
+                showing {alarm.surrounding.length} of {alarm.total_same_rule} — older/newer ones not listed
+              </div>
+            {/if}
           </div>
         {/if}
 
