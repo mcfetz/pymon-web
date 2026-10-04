@@ -382,6 +382,7 @@
        position:fixed resolve against the card instead of the viewport. -->
   {#if expandedPanel && (panelResults[expandedPanel.id] || []).length > 0}
     <div
+      bind:this={overlayEl}
       class="fixed inset-0 z-50 flex flex-col"
       style="background: var(--bg-app);"
       role="dialog"
