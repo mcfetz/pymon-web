@@ -344,7 +344,7 @@ import Plus from 'lucide-svelte/icons/plus';
     if (!await ensureDialogData(['agents', 'groups'])) return;
     editingDashboard = id;
     editedDashboard = JSON.parse(JSON.stringify(dashboards[id]));
-    for (const panel of editedDashboard.panels || []) panel.pluginOptions = [];
+    for (const panel of editedDashboard.panels || []) { panel.pluginOptions = []; panel.comment = panel.comment || ''; }
     await Promise.all((editedDashboard.panels || []).map((_, i) => loadPanelPlugins(i)));
     showDashboardDialog = true;
   }
