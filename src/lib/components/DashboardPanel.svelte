@@ -60,9 +60,9 @@
     {/if}
   </div>
 
-  {#if loading}
+  {#if loading && data.length === 0}
     <div class="text-xs py-6 text-center" style="color: var(--text-secondary)">loading…</div>
-  {:else if error}
+  {:else if error && data.length === 0}
     <div class="text-xs py-4 text-red-400">query failed: {error}</div>
   {:else if data.length === 0}
     <EmptyState icon={TYPE_ICON[panel.type] || ChartArea} message="no data" sub="try adjusting the panel filters or time range" />
@@ -131,6 +131,12 @@
       {#if stats.length === 0}
         <div class="text-xs py-4 text-center" style="color: var(--text-secondary)">no numeric values</div>
       {/if}
+    </div>
+  {/if}
+
+  {#if error && data.length > 0}
+    <div class="mt-2 text-[10px] text-right" style="color: var(--text-secondary)">
+      refresh failed, showing last known values: {error}
     </div>
   {/if}
 </GlassCard>
