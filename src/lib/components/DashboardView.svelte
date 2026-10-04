@@ -384,14 +384,18 @@
     <div
       bind:this={overlayEl}
       class="fixed inset-0 z-50 flex flex-col"
-      style="background: var(--bg-app);"
+      style="background: var(--bg-app); height: 100vh; height: 100dvh;"
       role="dialog"
       aria-modal="true"
       aria-label={expandedPanel.title || expandedPanel.metric || 'chart'}
     >
+      <!-- Safe-area insets: without these the close button ends up underneath
+           the status bar / home indicator on notched iPhones. -->
       <div
-        class="flex items-center justify-between gap-2 px-4 py-3 flex-shrink-0"
-        style="border-bottom: 1px solid var(--border-default);"
+        onclick={closeFullscreen}
+        title="Close full screen chart"
+        class="flex items-center justify-between gap-2 pl-4 pr-2 pb-3 pt-3 flex-shrink-0 cursor-pointer"
+        style="border-bottom: 1px solid var(--border-default); padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));"
       >
         <h3 class="text-sm font-semibold m-0 truncate min-w-0" style="color: var(--text-primary);">
           {expandedPanel.title || expandedPanel.metric || 'Chart'}
@@ -401,16 +405,19 @@
           onclick={closeFullscreen}
           title="Close full screen chart"
           aria-label="close full screen chart"
-          class="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 cursor-pointer hover:brightness-110 active:scale-95 transition-all"
+          class="flex items-center justify-center w-11 h-11 rounded-lg flex-shrink-0 cursor-pointer hover:brightness-110 active:scale-95 transition-all"
           style="background: rgba(var(--color-primary-rgb), 0.08); color: var(--color-primary);"
         >
-          <X size={16} strokeWidth={2} />
+          <X size={18} strokeWidth={2} />
         </button>
       </div>
 
       <!-- min-h-0 is what lets the chart actually shrink instead of
            overflowing its flex parent. -->
-      <div class="flex-1 min-h-0 px-3 py-3">
+      <div
+        class="flex-1 min-h-0 px-3 py-3"
+        style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));"
+      >
         <MetricsChart data={panelResults[expandedPanel.id]} height="100%" />
       </div>
     </div>
