@@ -1,6 +1,7 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import DashboardPanel from './DashboardPanel.svelte';
+  import MetricsChart from '../MetricsChart.svelte';
   import SegmentedControl from './SegmentedControl.svelte';
   import EmptyState from './EmptyState.svelte';
   import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
@@ -38,7 +39,46 @@
   let pluginTitleMap = $state({});
   let filterText = $state('');
   let onlyProblems = $state(false);
+  let expandedId = $state(null);
+  let overlayEl = $state(null);
   let timer = null;
+
+  let expandedPanel = $derived(
+    expandedId ? allPanels.find(p => p.id === expandedId) || null : null
+  );
+
+  async function openFullscreen(panelId) {
+    expandedId = panelId;
+    // Render first, then ask for real full screen. iOS Safari has no
+    // Element.requestFullscreen, so the CSS overlay has to carry it alone.
+    await tick();
+    try {
+      if (overlayEl?.requestFullscreen) await overlayEl.requestFullscreen();
+    } catch {
+      // Denied or unsupported: the fixed overlay still works.
+    }
+  }
+
+  function closeFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    expandedId = null;
+  }
+
+  // Escape closes the CSS overlay; when native full screen is active the
+  // browser consumes the key and fullscreenchange below cleans up instead.
+  $effect(() => {
+    if (!expandedId) return;
+    const onKey = (e) => { if (e.key === 'Escape') closeFullscreen(); };
+    const onFsChange = () => { if (!document.fullscreenElement) expandedId = null; };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.body.style.overflow = '';
+    };
+  });
 
   let active = $derived(dashboards.find(d => d.id === activeId) || null);
   let columns = $derived(active?.columns === 1 ? 1 : 2);
@@ -302,6 +342,7 @@
               error={panelErrors[panel.id]}
               compact={columns === 2}
               issues={issuesByPanel[panel.id] || []}
+              onexpand={openFullscreen}
             />
           {/each}
         </div>
@@ -334,5 +375,43 @@
         </button>
       </div>
     {/if}
+  {/if}
+
+  <!-- Full screen chart. Rendered outside the cards on purpose: .glass cards
+       carry backdrop-filter and a hover transform, either of which would make
+       position:fixed resolve against the card instead of the viewport. -->
+  {#if expandedPanel && (panelResults[expandedPanel.id] || []).length > 0}
+    <div
+      class="fixed inset-0 z-50 flex flex-col"
+      style="background: var(--bg-app);"
+      role="dialog"
+      aria-modal="true"
+      aria-label={expandedPanel.title || expandedPanel.metric || 'chart'}
+    >
+      <div
+        class="flex items-center justify-between gap-2 px-4 py-3 flex-shrink-0"
+        style="border-bottom: 1px solid var(--border-default);"
+      >
+        <h3 class="text-sm font-semibold m-0 truncate min-w-0" style="color: var(--text-primary);">
+          {expandedPanel.title || expandedPanel.metric || 'Chart'}
+        </h3>
+        <button
+          type="button"
+          onclick={closeFullscreen}
+          title="Close full screen chart"
+          aria-label="close full screen chart"
+          class="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 cursor-pointer hover:brightness-110 active:scale-95 transition-all"
+          style="background: rgba(var(--color-primary-rgb), 0.08); color: var(--color-primary);"
+        >
+          <X size={16} strokeWidth={2} />
+        </button>
+      </div>
+
+      <!-- min-h-0 is what lets the chart actually shrink instead of
+           overflowing its flex parent. -->
+      <div class="flex-1 min-h-0 px-3 py-3">
+        <MetricsChart data={panelResults[expandedPanel.id]} height="100%" />
+      </div>
+    </div>
   {/if}
 </div>

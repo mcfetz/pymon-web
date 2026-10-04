@@ -10,8 +10,9 @@
   import CircleDot from 'lucide-svelte/icons/circle-dot';
   import Info from 'lucide-svelte/icons/info';
   import TriangleAlert from 'lucide-svelte/icons/triangle-alert';
+  import Maximize2 from 'lucide-svelte/icons/maximize-2';
 
-  let { panel, data = [], loading = false, error = null, compact = false, issues = [] } = $props();
+  let { panel, data = [], loading = false, error = null, compact = false, issues = [], onexpand = () => {} } = $props();
 
   const TYPE_LABEL = { chart: 'Chart', table: 'Table', stats: 'Stats', last: 'Last value' };
   const TYPE_ICON = { chart: ChartArea, table: Table2, stats: Sigma, last: CircleDot };
@@ -46,6 +47,18 @@
         {TYPE_LABEL[panel.type] || panel.type}
       </span>
     </div>
+    {#if panel.type === 'chart' && !loading && data.length > 0}
+      <button
+        type="button"
+        onclick={() => onexpand(panel.id)}
+        title="Open chart full screen"
+        aria-label="open chart full screen"
+        class="flex items-center justify-center w-6 h-6 rounded-lg flex-shrink-0 cursor-pointer hover:brightness-110 active:scale-95 transition-all"
+        style="background: rgba(var(--color-primary-rgb), 0.08); color: var(--color-primary);"
+      >
+        <Maximize2 size={14} strokeWidth={2} />
+      </button>
+    {/if}
     {#if comment}
       <button
         type="button"

@@ -147,7 +147,7 @@
   onDestroy(destroyChart);
 </script>
 
-<div class="chart-wrap" style="height: {height}px;">
+<div class="chart-wrap" style="height: {typeof height === 'number' ? `${height}px` : height};">
   {#if data.length === 0}
     <div class="chart-empty">No numeric metrics for chart</div>
   {:else}
