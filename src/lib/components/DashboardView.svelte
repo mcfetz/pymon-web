@@ -20,7 +20,7 @@
     { value: '2', label: '', icon: Columns2, title: 'Two columns' },
   ];
 
-  // Below this panel count the sticky bar is leaner without a filter row.
+  // Below this panel count the control bar is leaner without a filter row.
   const FILTER_MIN_PANELS = 7;
 
   let {
@@ -36,7 +36,6 @@
   let panelErrors = $state({});
   let agentTitleMap = $state({});
   let pluginTitleMap = $state({});
-  let headerH = $state(0);
   let filterText = $state('');
   let onlyProblems = $state(false);
   let timer = null;
@@ -75,17 +74,6 @@
     filterText = '';
     onlyProblems = false;
   }
-
-  $effect(() => {
-    const el = document.getElementById('app-header');
-    if (!el) return;
-    const measure = () => { headerH = el.offsetHeight; };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    window.addEventListener('resize', measure);
-    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
-  });
 
   async function loadTitleMaps() {
     try {
@@ -204,11 +192,10 @@
   {#if dashboards.length === 0}
     <EmptyState icon={LayoutDashboard} message="no dashboards yet" sub="create one in Config → Dashboards" />
   {:else}
-    <!-- Dashboard selector + time range + column toggle -->
-    <div
-      class="sticky z-20 -mx-4 px-4 pb-2 pt-3 space-y-2"
-      style="top: {headerH}px; background: var(--bg-app);"
-    >
+    <!-- Dashboard selector + time range + column toggle + panel filter.
+         Scrolls away with the content: only the app header stays pinned, so
+         the panels get the full height on small screens. -->
+    <div class="space-y-2">
       <div class="glass-pill px-2 py-1.5 overflow-x-auto whitespace-nowrap flex items-center gap-1" style="scrollbar-width:none">
         {#each dashboards as db}
           <button
