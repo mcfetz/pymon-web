@@ -6,7 +6,7 @@
 
   Chart.register(...registerables, annotationPlugin);
 
-  let { data = [] } = $props();
+  let { data = [], height = 350 } = $props();
   let canvas = $state(null);
   let chart = null;
   let hidden = new Set();
@@ -147,7 +147,7 @@
   onDestroy(destroyChart);
 </script>
 
-<div class="chart-wrap" style="height: 350px;">
+<div class="chart-wrap" style="height: {height}px;">
   {#if data.length === 0}
     <div class="chart-empty">No numeric metrics for chart</div>
   {:else}

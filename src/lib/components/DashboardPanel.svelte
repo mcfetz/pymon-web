@@ -10,7 +10,7 @@
   import CircleDot from 'lucide-svelte/icons/circle-dot';
   import Info from 'lucide-svelte/icons/info';
 
-  let { panel, data = [], loading = false, error = null } = $props();
+  let { panel, data = [], loading = false, error = null, compact = false } = $props();
 
   const TYPE_LABEL = { chart: 'Chart', table: 'Table', stats: 'Stats', last: 'Last value' };
   const TYPE_ICON = { chart: ChartArea, table: Table2, stats: Sigma, last: CircleDot };
@@ -86,7 +86,7 @@
       {/if}
     </div>
   {:else if panel.type === 'chart'}
-    <MetricsChart data={data} />
+    <MetricsChart data={data} height={compact ? 200 : 350} />
   {:else if panel.type === 'table'}
     <div class="overflow-x-auto">
       <table class="w-full text-xs">

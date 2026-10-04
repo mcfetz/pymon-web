@@ -4,9 +4,16 @@
   import SegmentedControl from './SegmentedControl.svelte';
   import EmptyState from './EmptyState.svelte';
   import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
+  import Columns2 from 'lucide-svelte/icons/columns-2';
+  import Columns3 from 'lucide-svelte/icons/columns-3';
   import Pencil from 'lucide-svelte/icons/pencil';
-  import { fetchDashboards, queryMetrics, fetchAgents, fetchPluginSchemas } from '../api.js';
+  import { fetchDashboards, queryMetrics, fetchAgents, fetchPluginSchemas, saveDashboard } from '../api.js';
   import { TIME_PRESETS, timeFromPreset } from '../metricsUtils.js';
+
+  const COLUMN_OPTIONS = [
+    { value: '1', label: '', icon: Columns3, title: 'One column' },
+    { value: '2', label: '', icon: Columns2, title: 'Two columns' },
+  ];
 
   let {
     onEdit = () => {},
@@ -21,9 +28,25 @@
   let panelErrors = $state({});
   let agentTitleMap = $state({});
   let pluginTitleMap = $state({});
+  let headerH = $state(0);
   let timer = null;
 
   let active = $derived(dashboards.find(d => d.id === activeId) || null);
+  let columns = $derived(active?.columns === 1 ? 1 : 2);
+  let gridStyle = $derived(
+    `grid-template-columns: repeat(${columns}, minmax(0, 1fr));`
+  );
+
+  $effect(() => {
+    const el = document.getElementById('app-header');
+    if (!el) return;
+    const measure = () => { headerH = el.offsetHeight; };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  });
 
   async function loadTitleMaps() {
     try {
@@ -77,6 +100,19 @@
     await runQueries();
   }
 
+  async function changeColumns(n) {
+    const db = active;
+    if (!db || db.columns === n) return;
+    const updated = { ...db, columns: n };
+    dashboards = dashboards.map(d => (d.id === db.id ? updated : d));
+    try {
+      await saveDashboard(db.id, updated);
+    } catch (e) {
+      dashboards = dashboards.map(d => (d.id === db.id ? db : d));
+      error = e.message;
+    }
+  }
+
   async function runQueries() {
     const db = active;
     if (!db) return;
@@ -126,37 +162,49 @@
   {#if dashboards.length === 0}
     <EmptyState icon={LayoutDashboard} message="no dashboards yet" sub="create one in Config → Dashboards" />
   {:else}
-    <!-- Dashboard selector -->
-    <div>
+    <!-- Dashboard selector + time range + column toggle -->
+    <div
+      class="sticky z-20 -mx-4 px-4 pb-2 pt-3 space-y-2"
+      style="top: {headerH}px; background: var(--bg-app);"
+    >
       <div class="glass-pill px-2 py-1.5 overflow-x-auto whitespace-nowrap flex items-center gap-1" style="scrollbar-width:none">
         {#each dashboards as db}
           <button
             type="button"
             onclick={() => selectDashboard(db.id)}
-            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer whitespace-nowrap"
+            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer whitespace-nowrap flex-shrink-0"
             style={activeId === db.id
               ? 'background: rgba(var(--color-primary-rgb), 0.18); color: var(--color-primary); font-weight: 600;'
               : 'color: var(--text-secondary);'}
           >{db.name}</button>
         {/each}
       </div>
+
+      <div class="flex justify-center">
+        <SegmentedControl options={TIME_PRESETS} value={timePreset} onchange={changePreset} />
+        <div class="ml-2">
+          <SegmentedControl
+            options={COLUMN_OPTIONS}
+            value={String(columns)}
+            onchange={(v) => changeColumns(Number(v))}
+          />
+        </div>
+      </div>
     </div>
 
     {#if active}
-      <!-- Time range preset (segmented control, pre-set from dashboard default) -->
-      <div class="flex justify-center">
-        <SegmentedControl options={TIME_PRESETS} value={timePreset} onchange={changePreset} />
-      </div>
-
       <!-- Panels -->
-      {#each active.panels || [] as panel}
-        <DashboardPanel
-          panel={panel}
-          data={panelResults[panel.id] || []}
-          loading={loading}
-          error={panelErrors[panel.id]}
-        />
-      {/each}
+      <div class="grid gap-3" style={gridStyle}>
+        {#each active.panels || [] as panel}
+          <DashboardPanel
+            panel={panel}
+            data={panelResults[panel.id] || []}
+            loading={loading}
+            error={panelErrors[panel.id]}
+            compact={columns === 2}
+          />
+        {/each}
+      </div>
 
       <!-- Edit in config -->
       <div class="flex justify-center pt-1">
