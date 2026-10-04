@@ -7,13 +7,21 @@
   import Columns2 from 'lucide-svelte/icons/columns-2';
   import Columns3 from 'lucide-svelte/icons/columns-3';
   import Pencil from 'lucide-svelte/icons/pencil';
+  import Search from 'lucide-svelte/icons/search';
+  import TriangleAlert from 'lucide-svelte/icons/triangle-alert';
+  import CircleCheck from 'lucide-svelte/icons/circle-check';
+  import X from 'lucide-svelte/icons/x';
   import { fetchDashboards, queryMetrics, fetchAgents, fetchPluginSchemas, saveDashboard } from '../api.js';
   import { TIME_PRESETS, timeFromPreset } from '../metricsUtils.js';
+  import { panelIssues, matchesQuery } from '../panelHealth.js';
 
   const COLUMN_OPTIONS = [
     { value: '1', label: '', icon: Columns3, title: 'One column' },
     { value: '2', label: '', icon: Columns2, title: 'Two columns' },
   ];
+
+  // Below this panel count the sticky bar is leaner without a filter row.
+  const FILTER_MIN_PANELS = 7;
 
   let {
     onEdit = () => {},
@@ -29,6 +37,8 @@
   let agentTitleMap = $state({});
   let pluginTitleMap = $state({});
   let headerH = $state(0);
+  let filterText = $state('');
+  let onlyProblems = $state(false);
   let timer = null;
 
   let active = $derived(dashboards.find(d => d.id === activeId) || null);
@@ -36,6 +46,35 @@
   let gridStyle = $derived(
     `grid-template-columns: repeat(${columns}, minmax(0, 1fr));`
   );
+
+  let allPanels = $derived(active?.panels || []);
+  let showFilters = $derived(allPanels.length >= FILTER_MIN_PANELS);
+
+  // Recomputed only when results or dashboard change, not on every keystroke.
+  let issuesByPanel = $derived.by(() => {
+    const out = {};
+    for (const panel of allPanels) {
+      const rows = panelResults[panel.id];
+      if (!rows || rows.length === 0) continue;
+      const found = panelIssues(panel, rows);
+      if (found.length) out[panel.id] = found;
+    }
+    return out;
+  });
+  let problemCount = $derived(Object.keys(issuesByPanel).length);
+
+  let visiblePanels = $derived(
+    allPanels.filter(p =>
+      matchesQuery(p, filterText) &&
+      (!onlyProblems || issuesByPanel[p.id] !== undefined)
+    )
+  );
+  let filterActive = $derived(!!filterText.trim() || onlyProblems);
+
+  function resetFilter() {
+    filterText = '';
+    onlyProblems = false;
+  }
 
   $effect(() => {
     const el = document.getElementById('app-header');
@@ -90,6 +129,9 @@
   async function selectDashboard(id) {
     if (id === activeId) return;
     activeId = id;
+    // A filter carried over from another dashboard usually matches nothing
+    // here and would look like an empty dashboard.
+    resetFilter();
     const db = dashboards.find(d => d.id === id);
     if (db) timePreset = db.timerange || '1h';
     await runQueries();
@@ -190,21 +232,105 @@
           />
         </div>
       </div>
+
+      {#if showFilters}
+        <!-- Panel filter: only rendered on dashboards where it pays off -->
+        <div class="flex items-center gap-2">
+          <div class="relative flex-1 min-w-0">
+            <Search
+              size={12}
+              strokeWidth={2}
+              style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none;"
+            />
+            <input
+              type="text"
+              placeholder="filter panels..."
+              bind:value={filterText}
+              aria-label="filter panels"
+              class="w-full pl-7 pr-7 py-1.5 rounded-lg border text-xs bg-transparent outline-none"
+              style="border-color: var(--border-default); color: var(--text-primary);"
+            />
+            {#if filterText}
+              <button
+                type="button"
+                onclick={() => (filterText = '')}
+                title="clear filter"
+                aria-label="clear filter"
+                class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-4 h-4 rounded cursor-pointer hover:brightness-125 transition-all"
+                style="color: var(--text-secondary);"
+              >
+                <X size={11} strokeWidth={2} />
+              </button>
+            {/if}
+          </div>
+
+          <button
+            type="button"
+            onclick={() => (onlyProblems = !onlyProblems)}
+            title={problemCount ? `${problemCount} panel(s) need attention` : 'no problems detected'}
+            aria-pressed={onlyProblems}
+            class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-150 cursor-pointer whitespace-nowrap flex-shrink-0"
+            style={onlyProblems
+              ? 'background: rgba(239, 68, 68, 0.16); color: #ef4444; font-weight: 600;'
+              : 'background: rgba(var(--color-primary-rgb), 0.06); color: var(--text-secondary);'}
+          >
+            <TriangleAlert size={12} strokeWidth={2} />
+            problems only
+            {#if problemCount}
+              <span
+                class="tabular-nums px-1 rounded-full"
+                style="background: rgba(239, 68, 68, 0.18); color: #ef4444;"
+              >{problemCount}</span>
+            {/if}
+          </button>
+        </div>
+      {/if}
     </div>
 
     {#if active}
+      <!-- Result summary: only while a filter narrows things down -->
+      {#if filterActive}
+        <div class="flex items-center gap-1.5 text-[10px] px-1" style="color: var(--text-secondary);">
+          <span class="tabular-nums">{visiblePanels.length} of {allPanels.length}</span>
+          <span>panels</span>
+          {#if onlyProblems}
+            <span class="opacity-60">· {problemCount} need attention</span>
+          {/if}
+          <button
+            type="button"
+            onclick={resetFilter}
+            class="ml-auto underline cursor-pointer hover:opacity-100 opacity-70 transition-opacity"
+          >reset</button>
+        </div>
+      {/if}
+
       <!-- Panels -->
-      <div class="grid gap-3" style={gridStyle}>
-        {#each active.panels || [] as panel}
-          <DashboardPanel
-            panel={panel}
-            data={panelResults[panel.id] || []}
-            loading={loading}
-            error={panelErrors[panel.id]}
-            compact={columns === 2}
-          />
-        {/each}
-      </div>
+      {#if visiblePanels.length > 0}
+        <div class="grid gap-3" style={gridStyle}>
+          {#each visiblePanels as panel}
+            <DashboardPanel
+              panel={panel}
+              data={panelResults[panel.id] || []}
+              loading={loading}
+              error={panelErrors[panel.id]}
+              compact={columns === 2}
+              issues={issuesByPanel[panel.id] || []}
+            />
+          {/each}
+        </div>
+      {:else if onlyProblems && problemCount === 0 && !filterText.trim()}
+        <EmptyState
+          icon={CircleCheck}
+          message="no problems detected"
+          sub="{allPanels.length} panels checked"
+        />
+      {:else}
+        <EmptyState
+          icon={Search}
+          message="no matching panels"
+          sub={filterText.trim() ? `nothing matches "{filterText.trim()}"` : 'try clearing the filter'}
+        />
+      {/if}
 
       <!-- Edit in config -->
       <div class="flex justify-center pt-1">

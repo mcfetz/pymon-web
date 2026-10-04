@@ -9,8 +9,9 @@
   import Sigma from 'lucide-svelte/icons/sigma';
   import CircleDot from 'lucide-svelte/icons/circle-dot';
   import Info from 'lucide-svelte/icons/info';
+  import TriangleAlert from 'lucide-svelte/icons/triangle-alert';
 
-  let { panel, data = [], loading = false, error = null, compact = false } = $props();
+  let { panel, data = [], loading = false, error = null, compact = false, issues = [] } = $props();
 
   const TYPE_LABEL = { chart: 'Chart', table: 'Table', stats: 'Stats', last: 'Last value' };
   const TYPE_ICON = { chart: ChartArea, table: Table2, stats: Sigma, last: CircleDot };
@@ -59,6 +60,19 @@
       </button>
     {/if}
   </div>
+
+  {#if issues.length}
+    <div
+      class="mb-3 flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 border-l-2 border-red-400"
+      style="background: rgba(239, 68, 68, 0.08);"
+      role="status"
+    >
+      <TriangleAlert size={12} strokeWidth={2} style="color: #ef4444; flex-shrink: 0; margin-top: 2px" />
+      <div class="min-w-0 text-[10px] leading-snug" style="color: #ef4444">
+        {#each issues as issue, i}<span class="block truncate" title={issue}>{issue}</span>{/each}
+      </div>
+    </div>
+  {/if}
 
   {#if loading && data.length === 0}
     <div class="text-xs py-6 text-center" style="color: var(--text-secondary)">loading…</div>
