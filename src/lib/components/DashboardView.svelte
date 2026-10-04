@@ -47,6 +47,41 @@
     expandedId ? allPanels.find(p => p.id === expandedId) || null : null
   );
 
+  let active = $derived(dashboards.find(d => d.id === activeId) || null);
+  let columns = $derived(active?.columns === 1 ? 1 : 2);
+  let gridStyle = $derived(
+    `grid-template-columns: repeat(${columns}, minmax(0, 1fr));`
+  );
+
+  let allPanels = $derived(active?.panels || []);
+  let showFilters = $derived(allPanels.length >= FILTER_MIN_PANELS);
+
+  // Recomputed only when results or dashboard change, not on every keystroke.
+  let issuesByPanel = $derived.by(() => {
+    const out = {};
+    for (const panel of allPanels) {
+      const rows = panelResults[panel.id];
+      if (!rows || rows.length === 0) continue;
+      const found = panelIssues(panel, rows);
+      if (found.length) out[panel.id] = found;
+    }
+    return out;
+  });
+  let problemCount = $derived(Object.keys(issuesByPanel).length);
+
+  let visiblePanels = $derived(
+    allPanels.filter(p =>
+      matchesQuery(p, filterText) &&
+      (!onlyProblems || issuesByPanel[p.id] !== undefined)
+    )
+  );
+  let filterActive = $derived(!!filterText.trim() || onlyProblems);
+
+  function resetFilter() {
+    filterText = '';
+    onlyProblems = false;
+  }
+
   function openFullscreen(panelId) {
     expandedId = panelId;
   }
