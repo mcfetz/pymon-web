@@ -5,11 +5,14 @@
   import Select from './Select.svelte';
   import SegmentedControl from './SegmentedControl.svelte';
   import MetricsChart from '../MetricsChart.svelte';
-  import { fmtTime as fmt, fmtVal, copyText } from '../metricsUtils.js';
+  import MetricsTable from './MetricsTable.svelte';
+  import FullscreenOverlay from './FullscreenOverlay.svelte';
+  import { fmtVal } from '../metricsUtils.js';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import X from 'lucide-svelte/icons/x';
   import ChevronLeft from 'lucide-svelte/icons/chevron-left';
   import ChevronRight from 'lucide-svelte/icons/chevron-right';
+  import Maximize2 from 'lucide-svelte/icons/maximize-2';
 
   let {
     filters,
@@ -44,6 +47,19 @@
   } = $props();
 
   const PRESET_HOURS = { '1h': 1, '6h': 6, '12h': 12, '1d': 24, '1w': 168 };
+
+  // Rendering thousands of rows in full screen locks up the main thread, so
+  // show a slice and say so rather than silently truncating.
+  const TABLE_FS_MAX_ROWS = 500;
+
+  let chartFsOpen = $state(false);
+  let tableFsOpen = $state(false);
+  let tableFsRows = $derived(sortedData.slice(0, TABLE_FS_MAX_ROWS));
+
+  function chartFsTitle() {
+    const m = (filters.metric || '').trim();
+    return m ? `chart · ${m}` : 'chart';
+  }
 
   function formatDatetimeLocal(date) {
     const pad = (n) => String(n).padStart(2, '0');
@@ -199,6 +215,19 @@
 
   {#if chartData.length > 0}
     <GlassCard className="p-4">
+      <div class="flex items-center justify-between mb-3 gap-2">
+        <h3 class="text-sm font-semibold m-0 truncate min-w-0" style="color: var(--text-primary)">chart</h3>
+        <button
+          type="button"
+          onclick={() => (chartFsOpen = true)}
+          title="Open chart full screen"
+          aria-label="open chart full screen"
+          class="flex items-center justify-center w-6 h-6 rounded-lg flex-shrink-0 cursor-pointer hover:brightness-110 active:scale-95 transition-all"
+          style="background: rgba(var(--color-primary-rgb), 0.08); color: var(--color-primary);"
+        >
+          <Maximize2 size={14} strokeWidth={2} />
+        </button>
+      </div>
       <MetricsChart data={chartData} />
     </GlassCard>
   {/if}
@@ -226,49 +255,35 @@
     <EmptyState icon={ChartArea} message="no metrics found" sub="try adjusting your filters" />
   {:else if pagedData.length > 0}
     <GlassCard hover={false}>
-      <div class="overflow-x-auto">
-        <table class="w-full text-xs">
-          <thead>
-            <tr style="border-bottom: 1px solid var(--border-default)">
-              <th class="py-2 px-3 text-left font-semibold cursor-pointer select-none"
-                style="color: var(--text-secondary)"
-                onclick={() => onSort('timestamp')}
-              >time {sortCol === 'timestamp' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
-              <th class="py-2 px-3 text-left font-semibold" style="color: var(--text-secondary)">agent</th>
-              <th class="py-2 px-3 text-left font-semibold" style="color: var(--text-secondary)">plugin</th>
-              <th class="py-2 px-3 text-left font-semibold" style="color: var(--text-secondary)">metric</th>
-              <th class="py-2 px-3 text-right font-semibold cursor-pointer select-none"
-                style="color: var(--text-secondary)"
-                onclick={() => onSort('value')}
-              >value {sortCol === 'value' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
-              <th class="py-2 px-3 text-center font-semibold" style="color: var(--text-secondary)">alarm</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each pagedData as row}
-              <tr class="transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02]" style="border-bottom: 1px solid var(--border-default)">
-                <td class="py-2 px-3 whitespace-nowrap font-mono opacity-70" style="color: var(--text-secondary)">{fmt(row.timestamp)}</td>
-                <td class="py-2 px-3" style="color: var(--text-primary)">{agentTitleMap[row.agentid] || row.agentid}</td>
-                <td class="py-2 px-3" style="color: var(--text-primary)">{pluginTitleMap[row.pluginid] || row.pluginid}</td>
-                <td class="py-2 px-3 font-mono cursor-pointer select-all transition-colors hover:brightness-110" style="color: var(--color-primary)" title="Click to copy" onclick={() => copyText(row.metric)}>{row.metric}</td>
-                <td class="py-2 px-3 text-right font-mono font-medium tabular-nums" style="color: var(--text-primary)">{fmtVal(row.value)}</td>
-                <td class="py-2 px-3 text-center">
-                  {#if row.alarm_id}
-                    <span class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full" style="background: rgba(239,68,68,0.1); color: #ef4444">
-                      alarm
-                      {#if row.acknowledged}
-                        <span style="color: #22c55e">✓</span>
-                      {/if}
-                    </span>
-                  {:else}
-                    <span style="color: var(--text-secondary)">—</span>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+      <div
+        class="flex items-center justify-between px-3 py-2"
+        style="border-bottom: 1px solid var(--border-default);"
+      >
+        <span class="text-[11px] font-semibold tabular-nums" style="color: var(--text-primary)">
+          {sortedData.length} rows
+        </span>
+        <button
+          type="button"
+          onclick={() => (tableFsOpen = true)}
+          title="Open table full screen"
+          aria-label="open table full screen"
+          class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-medium flex-shrink-0 cursor-pointer hover:brightness-110 active:scale-95 transition-all"
+          style="background: rgba(var(--color-primary-rgb), 0.08); color: var(--color-primary);"
+        >
+          <Maximize2 size={12} strokeWidth={2} />
+          full screen
+        </button>
       </div>
+
+      <MetricsTable
+        rows={pagedData}
+        {agentTitleMap}
+        {pluginTitleMap}
+        {sortCol}
+        {sortDir}
+        {onSort}
+      />
+
       {#if totalPages > 1}
         <div class="flex items-center justify-between px-3 py-2 border-t" style="border-color: var(--border-default)">
           <span class="text-[10px]" style="color: var(--text-secondary)">page {page + 1} of {totalPages}</span>
@@ -290,4 +305,29 @@
       {/if}
     </GlassCard>
   {/if}
+
+  <FullscreenOverlay open={chartFsOpen} title={chartFsTitle()} onclose={() => (chartFsOpen = false)}>
+    <MetricsChart data={chartData} height="100%" />
+  </FullscreenOverlay>
+
+  <FullscreenOverlay
+    open={tableFsOpen}
+    title="metrics"
+    scroll
+    onclose={() => (tableFsOpen = false)}
+  >
+    <MetricsTable
+      rows={tableFsRows}
+      {agentTitleMap}
+      {pluginTitleMap}
+      {sortCol}
+      {sortDir}
+      {onSort}
+    />
+    {#if sortedData.length > TABLE_FS_MAX_ROWS}
+      <p class="text-[10px] mt-3 text-center" style="color: var(--text-secondary)">
+        showing first {TABLE_FS_MAX_ROWS} of {sortedData.length} rows
+      </p>
+    {/if}
+  </FullscreenOverlay>
 </div>

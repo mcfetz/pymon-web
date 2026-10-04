@@ -11,6 +11,12 @@
   let chart = null;
   let hidden = new Set();
 
+  // A 200px card cannot carry the stroke weight of a full height chart: five
+  // series at 3px points is ~600 dots on a thumbnail, and the dots drown the
+  // lines. Height is the signal because the full screen view passes "100%",
+  // a string, and therefore stays at full weight automatically.
+  const compact = typeof height === 'number' && height <= 260;
+
   const COLORS = [
     '#4361ee', '#e53e3e', '#38a169', '#dd6b20', '#805ad5',
     '#3182ce', '#d69e2e', '#00b5d8', '#6b46c1',
@@ -47,10 +53,17 @@
         data: points,
         borderColor: COLORS[ci],
         backgroundColor: COLORS[ci] + '33',
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        borderWidth: 2,
-        tension: 0.1,
+        fill: false,
+        borderWidth: compact ? 1 : 1.75,
+        // No static points when compact: the line is the signal, the dots are
+        // only noise. They come back on hover via pointHitRadius.
+        pointRadius: compact ? 0 : 2.5,
+        pointHoverRadius: compact ? 3.5 : 5,
+        pointBorderWidth: 0,
+        pointHitRadius: compact ? 8 : 10,
+        tension: compact ? 0 : 0.1,
+        borderCapStyle: 'round',
+        borderJoinStyle: 'round',
         hidden: hidden.has(label),
       };
     });
@@ -65,7 +78,9 @@
           responsive: true,
           maintainAspectRatio: false,
           locale: navigator.language,
-          interaction: { mode: 'nearest', intersect: true },
+          // With pointRadius 0 an intersect-based hover has nothing to hit, so
+          // the compact variant picks the nearest point by proximity instead.
+interaction: { mode: 'nearest', intersect: !compact },
           plugins: {
             annotation: {
               annotations: Object.fromEntries(
@@ -84,7 +99,10 @@
             legend: {
               position: 'bottom',
               labels: {
-                boxWidth: 14, padding: 12, font: { size: 11 },
+                boxWidth: compact ? 10 : 14,
+                boxHeight: compact ? 8 : 10,
+                padding: compact ? 8 : 12,
+                font: { size: compact ? 10 : 11 },
                 filter: (item) => !item.hidden,
               },
               onClick: (e, legendItem, legend) => {
@@ -120,9 +138,17 @@
               time: {
                 displayFormats: { minute: 'HH:mm', hour: 'HH:mm', day: 'dd.MM' },
               },
-              title: { display: true, text: 'Time' },
+              grid: { display: !compact },
+              ticks: { font: { size: compact ? 9 : 11 }, maxRotation: 0, autoSkipPadding: 12 },
+              // Axis titles cost vertical space a 200px chart cannot spare.
+              title: { display: !compact, text: 'Time' },
             },
-            y: { beginAtZero: false, title: { display: true, text: 'Value' } },
+            y: {
+              beginAtZero: false,
+              grid: { display: !compact },
+              ticks: { font: { size: compact ? 9 : 11 }, maxTicksLimit: compact ? 4 : 8 },
+              title: { display: !compact, text: 'Value' },
+            },
           },
         },
       });
