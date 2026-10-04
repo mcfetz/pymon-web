@@ -1,17 +1,22 @@
 <script>
   import GlassCard from './GlassCard.svelte';
   import EmptyState from './EmptyState.svelte';
+  import Modal from './Modal.svelte';
   import MetricsChart from '../MetricsChart.svelte';
   import { fmtTime as fmt, fmtVal, computeStats } from '../metricsUtils.js';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import Table2 from 'lucide-svelte/icons/table-2';
   import Sigma from 'lucide-svelte/icons/sigma';
   import CircleDot from 'lucide-svelte/icons/circle-dot';
+  import Info from 'lucide-svelte/icons/info';
 
   let { panel, data = [], loading = false, error = null } = $props();
 
   const TYPE_LABEL = { chart: 'Chart', table: 'Table', stats: 'Stats', last: 'Last value' };
   const TYPE_ICON = { chart: ChartArea, table: Table2, stats: Sigma, last: CircleDot };
+
+  let infoOpen = $state(false);
+  let comment = $derived((panel.comment || '').trim());
 
   let lastValues = $derived.by(() => {
     const map = {};
@@ -40,6 +45,19 @@
         {TYPE_LABEL[panel.type] || panel.type}
       </span>
     </div>
+    {#if comment}
+      <button
+        type="button"
+        onclick={() => (infoOpen = true)}
+        title="More information about this metric"
+        aria-label="more information about this metric"
+        aria-haspopup="dialog"
+        class="flex items-center justify-center w-6 h-6 rounded-lg flex-shrink-0 cursor-pointer hover:brightness-110 active:scale-95 transition-all"
+        style="background: rgba(var(--color-primary-rgb), 0.08); color: var(--color-primary);"
+      >
+        <Info size={14} strokeWidth={2} />
+      </button>
+    {/if}
   </div>
 
   {#if loading}
@@ -116,3 +134,12 @@
     </div>
   {/if}
 </GlassCard>
+
+<Modal open={infoOpen} title={panel.title || panel.metric || 'Info'} onclose={() => (infoOpen = false)}>
+  <div class="text-sm leading-relaxed whitespace-pre-wrap" style="color: var(--text-primary)">{comment}</div>
+  {#if panel.metric}
+    <div class="mt-4 pt-3 text-[11px] font-mono" style="border-top: 1px solid var(--border-default); color: var(--text-secondary)">
+      {panel.metric}
+    </div>
+  {/if}
+</Modal>

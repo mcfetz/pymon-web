@@ -386,7 +386,7 @@ import Plus from 'lucide-svelte/icons/plus';
 
   function addPanel() {
     const panels = [...(editedDashboard.panels || [])];
-    panels.push({ id: genId('p'), type: 'chart', title: '', group: '', agentid: [], pluginid: '', metric: '', pluginOptions: [] });
+    panels.push({ id: genId('p'), type: 'chart', title: '', comment: '', group: '', agentid: [], pluginid: '', metric: '', pluginOptions: [] });
     editedDashboard = { ...editedDashboard, panels };
   }
 
@@ -2982,6 +2982,12 @@ if __name__ == "__main__":
                 style="flex:1;min-width:120px;padding:0.3rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.78rem;background:var(--bg-surface);color:var(--text-primary)"
               />
             </div>
+            <textarea
+              bind:value={panel.comment}
+              rows="2"
+              placeholder="Explanation shown behind the info icon in the dashboard (optional)"
+              style="width:100%;margin-top:0.4rem;padding:0.35rem 0.5rem;border:1px solid var(--border-default);border-radius:5px;font-size:0.78rem;font-family:inherit;background:var(--bg-surface);color:var(--text-primary);resize:vertical"
+            ></textarea>
           </div>
         {/each}
       </div>
