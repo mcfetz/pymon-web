@@ -48,6 +48,20 @@
 
   const PRESET_HOURS = { '1h': 1, '6h': 6, '12h': 12, '1d': 24, '1w': 168 };
 
+  // Dropdown entries always render alphabetically by their visible title,
+  // regardless of the order the parent loaded them in.
+  let groupItems = $derived(
+    groups
+      .map(g => ({ id: g, title: groupTitleMap[g] || g }))
+      .sort((a, b) => a.title.localeCompare(b.title))
+  );
+  let agentItems = $derived(
+    [...filteredAgents].sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id))
+  );
+  let pluginItems = $derived(
+    [...plugins].sort((a, b) => (a.title || a.id).localeCompare(b.title || b.id))
+  );
+
   // Rendering thousands of rows in full screen locks up the main thread, so
   // show a slice and say so rather than silently truncating.
   const TABLE_FS_MAX_ROWS = 500;
@@ -102,7 +116,7 @@
       <div class="flex flex-col gap-0.5">
         <span class="text-[9px] uppercase tracking-wide font-semibold" style="color: var(--text-secondary)">group</span>
         <Select
-          items={groups.map(g => ({ id: g, title: groupTitleMap[g] || g }))}
+          items={groupItems}
           selected={filters.group}
           placeholder="all groups"
           onchange={(v) => { filters.group = v; onfilterchange(); ongroupchange(); }}
@@ -112,7 +126,7 @@
       <div class="flex flex-col gap-0.5">
         <span class="text-[9px] uppercase tracking-wide font-semibold" style="color: var(--text-secondary)">agents</span>
         <MultiSelect
-          items={filteredAgents}
+          items={agentItems}
           selected={filters.agentid}
           placeholder="all agents"
           onchange={(s) => { filters.agentid = s; onagentchange(); }}
@@ -122,7 +136,7 @@
       <div class="flex flex-col gap-0.5">
         <span class="text-[9px] uppercase tracking-wide font-semibold" style="color: var(--text-secondary)">plugin</span>
         <Select
-          items={plugins}
+          items={pluginItems}
           selected={filters.pluginid}
           placeholder="all plugins"
           onchange={(v) => { filters.pluginid = v; onpluginchange(); }}
