@@ -67,6 +67,9 @@
       swipeAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
     }
     if (swipeAxis !== 'x') return;
+    // Take ownership of the horizontal gesture: prevents the browser from
+    // panning the page or triggering history navigation (Android/iOS edge swipes).
+    if (e.cancelable) e.preventDefault();
     swipeX = Math.max(-SWIPE_MAX, Math.min(SWIPE_MAX, dx));
   }
 
@@ -117,7 +120,7 @@
 
   <div
     class="glass rounded-[var(--radius-card)] overflow-visible relative"
-    style="border-left: 3px solid {SEVERITY_COLORS[severity] || '#888'}; transform: translateX({swipeX}px); transition: {tracking ? 'none' : 'transform 0.22s cubic-bezier(0.22,1,0.36,1)'}"
+    style="border-left: 3px solid {SEVERITY_COLORS[severity] || '#888'}; touch-action: pan-y; transform: translateX({swipeX}px); transition: {tracking ? 'none' : 'transform 0.22s cubic-bezier(0.22,1,0.36,1)'}"
     ontouchstart={swipeEnabled ? swipeStart : undefined}
     ontouchmove={swipeEnabled ? swipeMove : undefined}
     ontouchend={swipeEnd}
