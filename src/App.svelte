@@ -627,7 +627,7 @@
           onexpand={(key) => { const s = new Set(expandedStacks); if (s.has(key)) s.delete(key); else s.add(key); expandedStacks = s; }}
           {severityFilter}
           {severityCounts}
-          onseveritychange={(s) => severityFilter = s}
+          onseveritychange={(s) => { severityFilter = s; }}
           truncated={alarmsTruncated}
         />
         </div>
@@ -676,7 +676,7 @@
             onexpand={(key) => { const s = new Set(expandedHistoryStacks); if (s.has(key)) s.delete(key); else s.add(key); expandedHistoryStacks = s; }}
             severityFilter={histSeverityFilter}
             severityCounts={{}}
-            onseveritychange={(s) => histSeverityFilter = s}
+            onseveritychange={(s) => { histSeverityFilter = s; }}
             history={true}
             truncated={historyTruncated}
           />
@@ -713,7 +713,7 @@
           {page}
           {pageSize}
           {totalPages}
-          onPageChange={(p) => page = p}
+          onPageChange={(p) => { page = p; }}
           {metricsStats}
           chartData={metricsData}
           timePresets={TIME_PRESETS}

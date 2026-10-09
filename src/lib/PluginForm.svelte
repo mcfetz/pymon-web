@@ -3,6 +3,9 @@
 
   let dirty = $state({});
 
+  /**
+   * @param {string} key
+   */
   function val(key) {
     if (key in dirty) return dirty[key];
     if (key in config) return config[key];
@@ -10,6 +13,10 @@
     return f?.default ?? '';
   }
 
+  /**
+   * @param {string} key
+   * @param {unknown} v
+   */
   function setVal(key, v) {
     dirty[key] = v;
     onchange?.({ ...config, ...dirty });
