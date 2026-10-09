@@ -1,6 +1,8 @@
 <script>
   import ChevronDown from 'lucide-svelte/icons/chevron-down';
   import ChevronUp from 'lucide-svelte/icons/chevron-up';
+  import Check from 'lucide-svelte/icons/check';
+  import Clock from 'lucide-svelte/icons/clock';
   import { fade, slide } from 'svelte/transition';
   import { fmtSmartTime as fmt } from '../metricsUtils.js';
   import { SEVERITY_ICONS, SEVERITY_COLORS, severityIcon } from '../severity.js';
@@ -35,15 +37,94 @@
   let plugin_label = $derived(pluginLabelMap[pluginid] || pluginid);
 
   let latest = $derived(alarms[0]);
+
+  // ── Swipe gesture: left = acknowledge, right = snooze ──
+  const SWIPE_THRESHOLD = 72;
+  const SWIPE_MAX = 112;
+  const swipeEnabled = $derived(!history);
+
+  let swipeX = $state(0);
+  let tracking = $state(false);
+  let swipeAxis = null;
+  let startX = 0;
+  let startY = 0;
+  let swallowClick = false;
+
+  function swipeStart(e) {
+    if (!swipeEnabled || e.touches.length !== 1) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    swipeAxis = null;
+    tracking = true;
+  }
+
+  function swipeMove(e) {
+    if (!tracking || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (swipeAxis === null) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      swipeAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    }
+    if (swipeAxis !== 'x') return;
+    swipeX = Math.max(-SWIPE_MAX, Math.min(SWIPE_MAX, dx));
+  }
+
+  function swipeEnd() {
+    if (!tracking) return;
+    tracking = false;
+    const dx = swipeX;
+    const axis = swipeAxis;
+    swipeX = 0;
+    swipeAxis = null;
+    if (!swipeEnabled || axis !== 'x' || Math.abs(dx) < SWIPE_THRESHOLD) return;
+    // Suppress the click the browser synthesizes after a swipe.
+    swallowClick = true;
+    setTimeout(() => { swallowClick = false; }, 350);
+    if (dx < 0) {
+      if (latest?.id != null) onAck(latest.id);
+    } else {
+      onSnooze(group);
+    }
+  }
+
+  function swipeClickCapture(e) {
+    if (swallowClick) { e.preventDefault(); e.stopPropagation(); swallowClick = false; }
+  }
 </script>
 
 <svelte:window onclick={closeSnoozeMenuOnWindow} onkeydown={closeSnoozeMenuOnKeydown} />
 
-<div
-  class="glass rounded-[var(--radius-card)] transition-all duration-200 overflow-visible"
-  style="border-left: 3px solid {SEVERITY_COLORS[severity] || '#888'}"
->
-  <div class="p-4">
+<div class="relative">
+  {#if swipeEnabled}
+    <div class="absolute inset-0 rounded-[var(--radius-card)] overflow-hidden flex pointer-events-none" aria-hidden="true">
+      <div
+        class="flex-1 flex items-center gap-1.5 pl-4"
+        style="background: rgba(234,179,8,0.12); opacity: {swipeX > 0 ? Math.min(1, swipeX / SWIPE_THRESHOLD) : 0}; transition: opacity 0.12s"
+      >
+        <Clock size={16} style="color: #ca8a04" />
+        <span class="text-xs font-semibold" style="color: #ca8a04">Snooze</span>
+      </div>
+      <div
+        class="flex-1 flex items-center justify-end gap-1.5 pr-4"
+        style="background: rgba(34,197,94,0.12); opacity: {swipeX < 0 ? Math.min(1, -swipeX / SWIPE_THRESHOLD) : 0}; transition: opacity 0.12s"
+      >
+        <span class="text-xs font-semibold" style="color: #16a34a">Ack</span>
+        <Check size={16} style="color: #16a34a" />
+      </div>
+    </div>
+  {/if}
+
+  <div
+    class="glass rounded-[var(--radius-card)] overflow-visible relative"
+    style="border-left: 3px solid {SEVERITY_COLORS[severity] || '#888'}; transform: translateX({swipeX}px); transition: {tracking ? 'none' : 'transform 0.22s cubic-bezier(0.22,1,0.36,1)'}"
+    ontouchstart={swipeEnabled ? swipeStart : undefined}
+    ontouchmove={swipeEnabled ? swipeMove : undefined}
+    ontouchend={swipeEnd}
+    ontouchcancel={swipeEnd}
+    onclickcapture={swipeClickCapture}
+  >
+    <div class="p-4">
     <div class="flex items-center justify-between mb-2">
       <div class="flex items-center gap-2 flex-1 min-w-0">
         <svelte:component this={SEVERITY_ICONS[severity] || severityIcon(severity)} size={14} strokeWidth={2} style="color: {SEVERITY_COLORS[severity]}" />
@@ -57,10 +138,10 @@
       {/if}
     </div>
 
-    <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] mb-3" style="color: var(--text-secondary)">
-      <span>Agent: {agent_label}</span>
-      <span>Plugin: {plugin_label}</span>
-      <span>Metric: {metric}</span>
+    <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] mb-3 min-w-0" style="color: var(--text-secondary)">
+      <span class="min-w-0 break-all">Agent: {agent_label}</span>
+      <span class="min-w-0 break-all">Plugin: {plugin_label}</span>
+      <span class="min-w-0 break-all">Metric: {metric}</span>
     </div>
 
     <div class="flex flex-wrap items-center gap-1.5">
@@ -169,4 +250,5 @@
       {/each}
     </div>
   {/if}
+  </div>
 </div>
