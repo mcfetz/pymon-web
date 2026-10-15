@@ -1,6 +1,8 @@
 <script>
   import ShieldCheck from 'lucide-svelte/icons/shield-check';
   import BellOff from 'lucide-svelte/icons/bell-off';
+  import Search from 'lucide-svelte/icons/search';
+  import X from 'lucide-svelte/icons/x';
   import FilterPills from './FilterPills.svelte';
   import AlarmCard from './AlarmCard.svelte';
   import DaySeparator from './DaySeparator.svelte';
@@ -32,6 +34,7 @@
     onseveritychange = () => {},
     history = false,
     truncated = false,
+    filterable = false,
   } = $props();
 
   let sevOptions = $derived(history ? ['critical', 'warning', 'info'] : ['critical', 'warning', 'info', 'snoozed']);
@@ -42,13 +45,43 @@
     snoozed: { icon: BellOff, color: '#eab308' },
   };
 
+  // ── Live text filter over the open list ──
+  // Matches the human-readable rule/agent/plugin names (falling back to their
+  // ids) plus the metric, so "cpu docker12" narrows to that agent's cpu alarms.
+  // Every whitespace-separated term must match somewhere (AND).
+  let query = $state('');
+  let terms = $derived(query.trim().toLowerCase().split(/\s+/).filter(Boolean));
+  let filterActive = $derived(terms.length > 0);
+
+  function alarmHaystack(g) {
+    return [
+      ruleTitleMap[g?.rule_id] || '', g?.rule_id || '',
+      agentTitleMap[g?.agentid] || '', g?.agentid || '',
+      pluginLabelMap[g?.pluginid] || '', g?.pluginid || '',
+      g?.metric || '',
+    ].join(' ').toLowerCase();
+  }
+
+  function matchesQuery(g) {
+    if (terms.length === 0) return true;
+    const haystack = alarmHaystack(g);
+    return terms.every((term) => haystack.includes(term));
+  }
+
+  let matchedMerged = $derived.by(() => (merged ? merged.filter(matchesQuery) : null));
+  let matchedStacks = $derived.by(() => (merged ? [] : stacks.filter(matchesQuery)));
+  let matchedSingles = $derived.by(() => (merged ? [] : singles.filter(matchesQuery)));
+
+  let totalGroups = $derived(merged ? merged.length : stacks.length + singles.length);
+  let visibleGroups = $derived(merged ? matchedMerged.length : matchedStacks.length + matchedSingles.length);
+
   // Interleave day separators into the sorted group list (history view only).
   // A group is filed under the day of its newest alarm — the timestamp the card
   // shows — and a day yields exactly one separator even with severity gaps.
   let mergedItems = $derived.by(() => {
     const items = [];
     let lastDay = null;
-    for (const g of merged || []) {
+    for (const g of matchedMerged || []) {
       if (history) {
         const ts = g.alarms?.[0]?.created_at;
         const key = dayKey(ts);
@@ -71,6 +104,46 @@
     icons={sevIcons}
     onchange={onseveritychange}
   />
+  {#if filterable}
+    <div class="relative">
+      <Search
+        size={12}
+        strokeWidth={2}
+        style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-secondary);pointer-events:none;"
+      />
+      <input
+        type="text"
+        placeholder="filter rules, agents, plugins, metrics…"
+        bind:value={query}
+        aria-label="filter alarms"
+        class="w-full pl-7 pr-7 py-1.5 rounded-lg border text-xs bg-transparent outline-none"
+        style="border-color: var(--border-default); color: var(--text-primary);"
+      />
+      {#if query}
+        <button
+          type="button"
+          onclick={() => (query = '')}
+          title="clear filter"
+          aria-label="clear filter"
+          class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-4 h-4 rounded cursor-pointer hover:brightness-125 transition-all"
+          style="color: var(--text-secondary);"
+        >
+          <X size={11} strokeWidth={2} />
+        </button>
+      {/if}
+    </div>
+    {#if filterActive}
+      <div class="flex items-center gap-1.5 text-[10px] px-1" style="color: var(--text-secondary);">
+        <span class="tabular-nums">{visibleGroups} of {totalGroups}</span>
+        <span>alarm groups</span>
+        <button
+          type="button"
+          onclick={() => (query = '')}
+          class="ml-auto underline cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
+        >reset</button>
+      </div>
+    {/if}
+  {/if}
   {#if truncated}
     <div class="text-xs px-3 py-1.5 rounded-lg" style="background:rgba(var(--color-primary-rgb),0.08);color:var(--color-primary)">Showing 500 alarms — there may be more.</div>
   {/if}
@@ -121,11 +194,15 @@
       </div>
       {/if}
     {/each}
-    {#if merged.length === 0}
-      <EmptyState icon={ShieldCheck} message="no alarms" sub="all clear" />
+    {#if matchedMerged.length === 0}
+      <EmptyState
+        icon={ShieldCheck}
+        message={filterActive ? 'no matches' : 'no alarms'}
+        sub={filterActive ? 'adjust the filter' : 'all clear'}
+      />
     {/if}
   {:else}
-  {#each stacks as g (g.key)}
+  {#each matchedStacks as g (g.key)}
     <div transition:fly|local={{ y: 12, duration: 200 }}>
       <AlarmCard
         group={g}
@@ -147,7 +224,7 @@
     </div>
   {/each}
 
-  {#each singles as alarm (alarm.id)}
+  {#each matchedSingles as alarm (alarm.id)}
     <div transition:fly|local={{ y: 12, duration: 200 }}>
       <AlarmCard
         group={{ alarms: [alarm], rule_id: alarm.rule_id, agentid: alarm.agentid, pluginid: alarm.pluginid, metric: alarm.metric, key: `${alarm.rule_id}|${alarm.agentid}|${alarm.pluginid}|${alarm.metric}`, severity: alarm.severity }}
@@ -167,8 +244,12 @@
     </div>
   {/each}
 
-  {#if stacks.length === 0 && singles.length === 0}
-    <EmptyState icon={ShieldCheck} message="no alarms" sub="all clear" />
+  {#if matchedStacks.length === 0 && matchedSingles.length === 0}
+    <EmptyState
+      icon={ShieldCheck}
+      message={filterActive ? 'no matches' : 'no alarms'}
+      sub={filterActive ? 'adjust the filter' : 'all clear'}
+    />
   {/if}
   {/if}
 </div>

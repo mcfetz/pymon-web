@@ -629,6 +629,7 @@
           {severityCounts}
           onseveritychange={(s) => { severityFilter = s; }}
           truncated={alarmsTruncated}
+          filterable
         />
         </div>
       {:else if tab === 'history'}
