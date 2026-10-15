@@ -680,6 +680,7 @@
             onseveritychange={(s) => { histSeverityFilter = s; }}
             history={true}
             truncated={historyTruncated}
+            filterable
           />
         {:else}
           <div class="text-center py-16 text-sm opacity-50" style="color: var(--text-secondary)">no history</div>
