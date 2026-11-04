@@ -238,6 +238,12 @@
 
   let filteredHistoryGroups = $derived(groupAlarms(filteredHistoryAlarms));
 
+  function applyAlarmNote(id, note, noteUpdatedAt) {
+    const update = (a) => a.id === id ? { ...a, note, note_updated_at: noteUpdatedAt } : a;
+    openAlarms = openAlarms.map(update);
+    historyAlarms = historyAlarms.map(update);
+  }
+
   async function handleToggleSnooze(alarm, duration = null) {
     try {
       const payload = { rule_id: alarm.rule_id, agentid: alarm.agentid, pluginid: alarm.pluginid, metric: alarm.metric };
@@ -794,5 +800,6 @@
     alarmId={alarmDetailId}
     onClose={closeAlarmDetail}
     onAcked={(id) => { openAlarms = openAlarms.filter(a => a.id !== id); loadSnoozed(); }}
+    onNoteUpdated={applyAlarmNote}
   />
 {/if}

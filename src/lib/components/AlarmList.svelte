@@ -59,6 +59,8 @@
       agentTitleMap[g?.agentid] || '', g?.agentid || '',
       pluginLabelMap[g?.pluginid] || '', g?.pluginid || '',
       g?.metric || '',
+      g?.note || '',
+      ...(g?.alarms || []).map(a => a.note || ''),
     ].join(' ').toLowerCase();
   }
 

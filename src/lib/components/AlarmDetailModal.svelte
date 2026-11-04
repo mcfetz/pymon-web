@@ -6,17 +6,23 @@
   import Copy from 'lucide-svelte/icons/copy';
   import Check from 'lucide-svelte/icons/check';
   import ExternalLink from 'lucide-svelte/icons/external-link';
-  import { fetchAlarm, acknowledgeAlarm } from '../api.js';
+  import StickyNote from 'lucide-svelte/icons/sticky-note';
+  import { fetchAlarm, acknowledgeAlarm, saveAlarmNote } from '../api.js';
   import { fmtSmartTime, fmtRelTime, fmtSpanTime, copyText } from '../metricsUtils.js';
   import { SEVERITY_COLORS, SEVERITY_ICONS, severityIcon } from '../severity.js';
 
-  let { alarmId = null, onClose = () => {}, onAcked = () => {} } = $props();
+  let { alarmId = null, onClose = () => {}, onAcked = () => {}, onNoteUpdated = () => {} } = $props();
 
   let alarm   = $state(null);
   let loading = $state(false);
   let error   = $state(null);
   let acking  = $state(false);
   let copied  = $state(false);
+  let noteText = $state('');
+  let noteSaving = $state(false);
+  let noteSaved = $state(false);
+  let noteError = $state(null);
+  let loadSeq = 0;
 
   const COND_LABEL = { gt: '>', ge: '≥', lt: '<', le: '≤', eq: '=', ne: '≠' };
 
@@ -25,20 +31,57 @@
   });
 
   async function load(id) {
+    const seq = ++loadSeq;
     loading = true; error = null; alarm = null;
-    try { alarm = await fetchAlarm(id); }
-    catch (e) { error = e.message; }
-    finally { loading = false; }
+    noteText = ''; noteSaved = false; noteError = null;
+    try {
+      const result = await fetchAlarm(id);
+      if (seq !== loadSeq) return;
+      alarm = result;
+      noteText = result.note || '';
+    }
+    catch (e) { if (seq === loadSeq) error = e.message; }
+    finally { if (seq === loadSeq) loading = false; }
+  }
+
+  async function handleSaveNote() {
+    if (!alarm || alarm.acknowledged || noteSaving) return;
+    const currentId = alarm.id;
+    noteSaving = true; noteError = null;
+    try {
+      const result = await saveAlarmNote(currentId, noteText);
+      onNoteUpdated(currentId, result.note, result.note_updated_at);
+      if (alarm?.id !== currentId) return;
+      alarm = { ...alarm, note: result.note, note_updated_at: result.note_updated_at };
+      noteText = result.note || '';
+      noteSaved = true;
+      setTimeout(() => { noteSaved = false; }, 2000);
+    } catch (e) {
+      if (alarm?.id === currentId) noteError = e.message;
+    }
+    finally { noteSaving = false; }
   }
 
   async function handleAck() {
     if (!alarm || alarm.acknowledged || acking) return;
+    const currentId = alarm.id;
     acking = true;
     try {
-      await acknowledgeAlarm(alarm.id);
+      // Do not lose a freshly typed note when acknowledging right away.
+      if (noteText !== (alarm.note || '')) {
+        const result = await saveAlarmNote(currentId, noteText);
+        onNoteUpdated(currentId, result.note, result.note_updated_at);
+        if (alarm?.id !== currentId) return;
+        alarm = { ...alarm, note: result.note, note_updated_at: result.note_updated_at };
+        noteText = result.note || '';
+      }
+      await acknowledgeAlarm(currentId);
+      if (alarm?.id !== currentId) return;
       alarm = { ...alarm, acknowledged: true };
-      onAcked(alarm.id);
-    } catch (e) { error = e.message; }
+      onAcked(currentId);
+    } catch (e) {
+      if (alarm?.id === currentId) error = e.message;
+    }
     finally { acking = false; }
   }
 
@@ -239,6 +282,51 @@
               <div class="px-3 py-2 font-mono" style="color:var(--text-primary);word-break:break-all">{val}</div>
             </div>
           {/each}
+        </div>
+
+        <!-- Operator note: why the alarm was snoozed / what is being done -->
+        <div class="rounded-xl p-3 mb-3" style="background:rgba(var(--color-primary-rgb),0.04);border:1px solid var(--border-default)">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <StickyNote size={12} strokeWidth={2} style="color:var(--color-primary);flex-shrink:0" />
+            <span class="text-[11px] font-medium" style="color:var(--text-secondary)">Note</span>
+            {#if alarm.note_updated_at}
+              <span class="text-[10px] ml-auto" style="color:var(--text-secondary)">saved {fmtSmartTime(alarm.note_updated_at)}</span>
+            {/if}
+          </div>
+          {#if alarm.acknowledged}
+            <div class="text-xs whitespace-pre-wrap" style="color:{alarm.note ? 'var(--text-primary)' : 'var(--text-secondary)'}">
+              {alarm.note || 'No note'}
+            </div>
+          {:else}
+            <textarea
+              bind:value={noteText}
+              maxlength="4000"
+              rows="3"
+              aria-label="Alarm note"
+              oninput={() => { noteError = null; noteSaved = false; }}
+              placeholder="Why is this alarm snoozed / what is being done?"
+              class="w-full px-2.5 py-2 rounded-lg border text-xs bg-transparent outline-none resize-y"
+              style="border-color:var(--border-default);color:var(--text-primary);min-height:4.5rem"
+              onkeydown={(e) => {
+                if (e.key === 'Escape') e.stopPropagation();
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  handleSaveNote();
+                }
+              }}
+            ></textarea>
+            <div class="flex items-center gap-2 mt-1.5">
+              {#if noteError}<span class="text-[10px]" style="color:#ef4444">{noteError}</span>{/if}
+              {#if noteSaved}<span class="text-[10px]" style="color:#22c55e">saved</span>{/if}
+              <span class="text-[10px] ml-auto" style="color:var(--text-secondary)">{noteText.length}/4000</span>
+              <button
+                onclick={handleSaveNote}
+                disabled={noteSaving || noteText === (alarm.note || '')}
+                class="px-3 py-1 rounded-lg text-[11px] font-medium transition-all hover:brightness-110 active:scale-95 disabled:opacity-40"
+                style="background:rgba(var(--color-primary-rgb),0.1);color:var(--color-primary)"
+              >{noteSaving ? 'Saving...' : 'Save note'}</button>
+            </div>
+          {/if}
         </div>
 
         <!-- Metric sparkline -->

@@ -3,6 +3,7 @@
   import ChevronUp from 'lucide-svelte/icons/chevron-up';
   import Check from 'lucide-svelte/icons/check';
   import Clock from 'lucide-svelte/icons/clock';
+  import StickyNote from 'lucide-svelte/icons/sticky-note';
   import { fade, slide } from 'svelte/transition';
   import { fmtSmartTime as fmt } from '../metricsUtils.js';
   import { SEVERITY_ICONS, SEVERITY_COLORS, severityIcon } from '../severity.js';
@@ -37,6 +38,7 @@
   let plugin_label = $derived(pluginLabelMap[pluginid] || pluginid);
 
   let latest = $derived(alarms[0]);
+  let latestNote = $derived(alarms.find(a => a.note)?.note || '');
 
   // ── Swipe gesture: left = acknowledge, right = snooze ──
   const SWIPE_THRESHOLD = 72;
@@ -146,6 +148,17 @@
       <span class="min-w-0 break-all">Plugin: {plugin_label}</span>
       <span class="min-w-0 break-all">Metric: {metric}</span>
     </div>
+
+    {#if latestNote}
+      <div
+        class="flex items-start gap-1.5 mb-3 px-2 py-1.5 rounded-lg text-[11px] min-w-0"
+        style="background:rgba(20,184,166,0.06);color:var(--text-secondary)"
+        title={latestNote}
+      >
+        <StickyNote size={11} strokeWidth={2} style="color:#14b8a6;flex-shrink:0;margin-top:1px" />
+        <span class="truncate" style="color:var(--text-primary)">{latestNote}</span>
+      </div>
+    {/if}
 
     <div class="flex flex-wrap items-center gap-1.5">
       <button onclick={() => onRule(rule_id)} class="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all duration-150 hover:brightness-110 active:scale-95" style="background: rgba(var(--color-primary-rgb), 0.1); color: var(--color-primary">Rule</button>

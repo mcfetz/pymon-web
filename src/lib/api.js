@@ -75,6 +75,7 @@ export async function fetchAlarms(acknowledged = null) {
   return { alarms, truncated };
 }
 export function acknowledgeAlarm(id) { return api(`/alarms/${id}/ack`); }
+export function saveAlarmNote(id, note) { return api(`/alarms/${id}/note`, { method: 'PUT', body: { note } }); }
 export function fetchAlarm(id) { return api(`/alarms/${id}`); }
 export function fetchOpenAlarms() { return api('/alarms/open'); }
 export function fetchSnoozed() { return api('/alarms/snoozed'); }
