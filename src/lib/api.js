@@ -4,7 +4,23 @@ function getToken() {
 
 export function setToken(t) {
   if (t) localStorage.setItem('pymon_token', t);
-  else localStorage.removeItem('pymon_token');
+  else {
+    localStorage.removeItem('pymon_token');
+    localStorage.removeItem('pymon_user');
+  }
+}
+
+export function setUser(user) {
+  if (user) localStorage.setItem('pymon_user', JSON.stringify(user));
+  else localStorage.removeItem('pymon_user');
+}
+
+export function getUser() {
+  try {
+    return JSON.parse(localStorage.getItem('pymon_user') || 'null');
+  } catch {
+    return null;
+  }
 }
 
 export function isLoggedIn() {
@@ -220,8 +236,28 @@ export function savePluginMeta(name, data) {
   return api(`/admin/plugins/${name}/meta`, { method: 'PUT', body: data });
 }
 
+export function fetchAccount() { return api('/account'); }
 export function updateAccount(data) {
   return api('/account', { method: 'PUT', body: data });
+}
+
+// ── Users (admin) ──
+export function fetchUsers() { return api('/admin/users'); }
+export function createUser(data) { return api('/admin/users', { method: 'POST', body: data }); }
+export function updateUser(username, data) {
+  return api(`/admin/users/${encodeURIComponent(username)}`, { method: 'PUT', body: data });
+}
+export function deleteUser(username) {
+  return api(`/admin/users/${encodeURIComponent(username)}`, { method: 'DELETE' });
+}
+
+// ── Audit trail ──
+export function fetchAudit(params = {}) {
+  const qs = Object.entries(params)
+    .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  return api(`/admin/audit${qs ? '?' + qs : ''}`);
 }
 
 // ── Blackouts ──

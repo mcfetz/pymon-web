@@ -147,6 +147,9 @@
       <span class="min-w-0 break-all">Agent: {agent_label}</span>
       <span class="min-w-0 break-all">Plugin: {plugin_label}</span>
       <span class="min-w-0 break-all">Metric: {metric}</span>
+      {#if latest?.acknowledged_by}
+        <span class="min-w-0 break-all">Acked by: {latest.acknowledged_by}</span>
+      {/if}
     </div>
 
     {#if latestNote}

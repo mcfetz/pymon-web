@@ -23,6 +23,7 @@ import Plus from 'lucide-svelte/icons/plus';
   import Combobox from './components/Combobox.svelte';
   import MultiSelect from './components/MultiSelect.svelte';
   import AppDialog from './components/AppDialog.svelte';
+  import ActivityView from './components/ActivityView.svelte';
   import { fmtTime } from './metricsUtils.js';
   import { fmtCount, fmtBytes, genId, alphaCompare, namedValue, compareNamed, compareEntries } from './configUtils.js';
   import {
@@ -44,7 +45,7 @@ import Plus from 'lucide-svelte/icons/plus';
     fetchCleanupJob, saveCleanupJob,
   } from './api.js';
 
-  let { pendingRule = null, onLogout = () => {}, onClearPendingRule = () => {}, pendingDashboard = null, onClearPendingDashboard = () => {} } = $props();
+  let { pendingRule = null, onLogout = () => {}, onClearPendingRule = () => {}, pendingDashboard = null, onClearPendingDashboard = () => {}, isAdmin = true } = $props();
 
   let anyDialogOpen = $derived(
     showRuleDialog || showExecDialog || showNotifyDialog || showPluginDialog ||
@@ -55,6 +56,12 @@ import Plus from 'lucide-svelte/icons/plus';
   $effect(() => {
     document.body.style.overflow = anyDialogOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
+  });
+
+  $effect(() => {
+    if (!isAdmin && ['cronTasks', 'executors', 'plugins', 'maintenance'].includes(view)) {
+      view = 'agents';
+    }
   });
 
   $effect(() => {
@@ -1247,7 +1254,7 @@ import Plus from 'lucide-svelte/icons/plus';
         onclick={() => { const el = document.getElementById('cfg-tabs'); if(el) el.scrollBy({left:-120,behavior:'smooth'}); }}
       >&#8249;</button>
       <div id="cfg-tabs" class="tab-nav-scroll" style="border-color: var(--border-default)">
-        {#each ['Agents','Rules','Notifications','Groups','Variables','Dashboards','Cron Tasks','Blackouts','Executors','Plugins','Maintenance'] as label}
+        {#each [...['Agents','Rules','Notifications','Groups','Variables','Dashboards','Blackouts'], ...(isAdmin ? ['Cron Tasks','Executors','Plugins','Maintenance'] : []), 'Activity'] as label}
           {@const id = label === 'Notifications' ? 'notify' : label === 'Cron Tasks' ? 'cronTasks' : label.toLowerCase()}
           <button
             onclick={() => selectView(id)}
@@ -1770,6 +1777,9 @@ if __name__ == "__main__":
       {/if}
     </div>
 {/if}
+{/if}
+{#if view === 'activity'}
+  <ActivityView />
 {/if}
 {#if view === 'maintenance'}
   <div class="rules-view">
@@ -2742,9 +2752,11 @@ if __name__ == "__main__":
               <span style="font-size:0.75rem;color:var(--text-secondary);">last seen: {fmtTime(agent.last_seen)}</span>
             {/if}
           </div>
-          <button class="btn-install" style="width:auto;padding:0.35rem 0.8rem;font-size:0.78rem;" onclick={() => navigator.clipboard.writeText(`curl -s '${window.location.origin}/api/agent/install.sh?agentid=${agentId}&apikey=${agent.apikey}' | sh`)}>
-            📋 Copy install command
-          </button>
+          {#if isAdmin && agent.apikey}
+            <button class="btn-install" style="width:auto;padding:0.35rem 0.8rem;font-size:0.78rem;" onclick={() => navigator.clipboard.writeText(`curl -s '${window.location.origin}/api/agent/install.sh?agentid=${agentId}&apikey=${agent.apikey}' | sh`)}>
+              📋 Copy install command
+            </button>
+          {/if}
         </div>
       {/if}
 

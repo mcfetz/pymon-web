@@ -273,7 +273,7 @@
             ['Value',   alarm.value != null ? String(alarm.value) : '—'],
             ['Fired',   `${fmtSmartTime(alarm.created_at)}  ·  ${fmtRelTime(alarm.created_at)}`],
             ...(alarm.acknowledged ? [
-              ['Acked',   `${fmtSmartTime(alarm.acknowledged_at)}${alarm.ack_method ? '  ·  ' + alarm.ack_method : ''}`],
+              ['Acked',   `${fmtSmartTime(alarm.acknowledged_at)}${alarm.acknowledged_by ? '  ·  ' + alarm.acknowledged_by : ''}${alarm.acknowledged_source ? ' (' + alarm.acknowledged_source + ')' : ''}${alarm.ack_method ? '  ·  ' + alarm.ack_method : ''}`],
             ] : []),
             ['Snooze',  snoozeSummary(alarm.snooze)],
           ] as [label, val], i}

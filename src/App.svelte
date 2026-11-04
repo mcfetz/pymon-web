@@ -9,7 +9,7 @@
     fetchAgentPluginMetrics, queryMetrics,
     fetchSnoozed, toggleSnooze,
     fetchRules, fetchAdminPlugins, fetchAdminGroups,
-    login, setToken, isLoggedIn,
+    login, setToken, isLoggedIn, fetchAccount, getUser, setUser,
   } from './lib/api.js';
   import { initTheme } from './lib/theme.svelte.js';
   import { TIME_PRESETS, timeFromPreset, computeStats, dayKey } from './lib/metricsUtils.js';
@@ -73,6 +73,7 @@
   // ── Tab state ──
   let tab = $state('alarms');
   let loggedIn = $state(isLoggedIn());
+  let currentUser = $state(getUser());
   let loginUser = $state('');
   let loginPass = $state('');
   let loginError = $state('');
@@ -84,6 +85,8 @@
     try {
       const res = await login(user, pass);
       setToken(res.token);
+      currentUser = { username: res.username, role: res.role, display_name: res.display_name };
+      setUser(currentUser);
       loggedIn = true;
       loginUser = ''; loginPass = '';
     } catch (e) { loginError = e.message; }
@@ -92,6 +95,8 @@
 
   function handleLogout() {
     setToken(null);
+    setUser(null);
+    currentUser = null;
     loggedIn = false;
   }
 
@@ -530,6 +535,14 @@
       if (newPw) body.new_password = newPw;
       const res = await updateAccount(body);
       if (res.token) setToken(res.token);
+      if (res.username) {
+        currentUser = {
+          username: res.username,
+          role: res.role,
+          display_name: res.display_name,
+        };
+        setUser(currentUser);
+      }
     } catch (e) {
       error = e.message;
     }
@@ -542,6 +555,11 @@
 
   onMount(() => {
     checkVersion();
+    if (loggedIn) {
+      fetchAccount()
+        .then((user) => { currentUser = user; setUser(user); })
+        .catch(() => {});
+    }
     const versionTimer = setInterval(checkVersion, 30000);
     function onVisibilityChange() {
       if (document.visibilityState === 'visible') checkVersion();
@@ -590,7 +608,7 @@
     };
   });
 
-  window.addEventListener('pymon:logout', () => { loggedIn = false; });
+  window.addEventListener('pymon:logout', () => { loggedIn = false; currentUser = null; });
 </script>
 
 <main class="min-h-screen pb-24" style="background: var(--bg-app)">
@@ -741,11 +759,16 @@
           onClearPendingRule={() => pendingRule = null}
           {pendingDashboard}
           onClearPendingDashboard={() => pendingDashboard = null}
+          isAdmin={currentUser?.role === 'admin'}
         />
         </div>
       {:else if tab === 'account'}
         <div class="animate-slide-up">
-        <AccountPage onlogout={handleLogout} onsave={handleAccountSave} />
+        <AccountPage
+          onlogout={handleLogout}
+          onsave={handleAccountSave}
+          {currentUser}
+        />
         </div>
       {/if}
 
