@@ -6,7 +6,7 @@
 
   Chart.register(...registerables, annotationPlugin);
 
-  let { data = [], height = 350 } = $props();
+  let { data = [], height = 350, onPointClick = () => {} } = $props();
   let canvas = $state(null);
   let chart = null;
   let hidden = new Set();
@@ -46,6 +46,50 @@
     if (!canvas || data.length === 0) return;
 
     const series = buildSeries(data);
+    const annotations = {};
+    [...new Set(data.filter(r => r.alarm_id != null && typeof r.value === 'number').map(r => r.timestamp))]
+      .forEach((ts, i) => {
+        annotations[`alarm_${i}`] = {
+          type: 'line',
+          xMin: parseTimestamp(ts),
+          xMax: parseTimestamp(ts),
+          borderColor: '#e53e3e',
+          borderWidth: 1.5,
+          borderDash: [6, 4],
+          label: { display: true, content: '⚠', position: 'start', yAdjust: -8, font: { size: 11 } },
+        };
+      });
+    data
+      .filter(r => r.note_id != null && typeof r.value === 'number')
+      .forEach((row) => {
+        const timestamp = parseTimestamp(row.timestamp);
+        annotations[`note_line_${row.note_id}`] = {
+          type: 'line',
+          xMin: timestamp,
+          xMax: timestamp,
+          borderColor: 'rgba(245,158,11,0.5)',
+          borderWidth: 1,
+          borderDash: [3, 3],
+        };
+        annotations[`note_point_${row.note_id}`] = {
+          type: 'point',
+          xValue: timestamp,
+          yValue: row.value,
+          radius: compact ? 3.5 : 4.5,
+          backgroundColor: '#f59e0b',
+          borderColor: '#fff',
+          borderWidth: 1.5,
+          label: {
+            display: true,
+            content: '📝',
+            position: 'top',
+            yAdjust: compact ? -7 : -11,
+            color: '#b45309',
+            font: { size: compact ? 9 : 11 },
+          },
+        };
+      });
+
     const datasets = Object.entries(series).map(([label, points], i) => {
       const ci = i % COLORS.length;
       return {
@@ -80,21 +124,33 @@
           locale: navigator.language,
           // With pointRadius 0 an intersect-based hover has nothing to hit, so
           // the compact variant picks the nearest point by proximity instead.
-interaction: { mode: 'nearest', intersect: !compact },
+          interaction: { mode: 'nearest', intersect: !compact },
+          onClick: (event, _elements, chartInstance) => {
+            const area = chartInstance.chartArea;
+            if (
+              area &&
+              (event.x < area.left || event.x > area.right ||
+               event.y < area.top || event.y > area.bottom)
+            ) return;
+            const points = chartInstance.getElementsAtEventForMode(
+              event, 'nearest', { intersect: !compact }, true
+            );
+            if (!points.length) return;
+            const point = points[0];
+            const element = point.element;
+            if (!element) return;
+            const distance = Math.hypot(event.x - element.x, event.y - element.y);
+            if (distance > (compact ? 24 : 18)) return;
+            const dataset = chartInstance.data.datasets[point.datasetIndex];
+            const raw = dataset?.data?.[point.index]?.meta;
+            if (raw) onPointClick(raw);
+          },
+          onHover: (event, elements) => {
+            if (canvas) canvas.style.cursor = elements.length ? 'pointer' : 'default';
+          },
           plugins: {
             annotation: {
-              annotations: Object.fromEntries(
-                [...new Set(data.filter(r => r.alarm_id != null && typeof r.value === 'number').map(r => r.timestamp))]
-                  .map((ts, i) => [`alarm_${i}`, {
-                    type: 'line',
-                    xMin: parseTimestamp(ts),
-                    xMax: parseTimestamp(ts),
-                    borderColor: '#e53e3e',
-                    borderWidth: 1.5,
-                    borderDash: [6, 4],
-                    label: { display: true, content: '⚠', position: 'start', yAdjust: -8, font: { size: 11 } },
-                  }])
-              ),
+              annotations,
             },
             legend: {
               position: 'bottom',
@@ -122,12 +178,18 @@ interaction: { mode: 'nearest', intersect: !compact },
                 label(ctx) {
                   const raw = ctx.raw.meta;
                   if (!raw) return ctx.parsed.y.toString();
-                  return [
+                  const lines = [
                     `Value: ${raw.value}`,
                     `Agent: ${raw.agent_title || raw.agentid}`,
                     `Plugin: ${raw.plugin_title || raw.pluginid}`,
                     `Metric: ${raw.metric}`,
                   ];
+                  if (raw.note) {
+                    const text = raw.note.length > 120 ? `${raw.note.slice(0, 120)}…` : raw.note;
+                    lines.push(`Note: ${text}`);
+                    if (raw.note_by) lines.push(`Note by: ${raw.note_by}`);
+                  }
+                  return lines;
                 },
               },
             },

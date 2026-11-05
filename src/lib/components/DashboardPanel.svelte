@@ -10,6 +10,7 @@
   import CircleDot from 'lucide-svelte/icons/circle-dot';
   import Info from 'lucide-svelte/icons/info';
   import TriangleAlert from 'lucide-svelte/icons/triangle-alert';
+  import StickyNote from 'lucide-svelte/icons/sticky-note';
   import Maximize2 from 'lucide-svelte/icons/maximize-2';
 
   let { panel, data = [], loading = false, error = null, compact = false, issues = [], onexpand = () => {} } = $props();
@@ -123,6 +124,7 @@
             <th class="py-1.5 px-2 text-left font-semibold" style="color: var(--text-secondary)">agent</th>
             <th class="py-1.5 px-2 text-left font-semibold" style="color: var(--text-secondary)">plugin</th>
             <th class="py-1.5 px-2 text-left font-semibold" style="color: var(--text-secondary)">metric</th>
+            <th class="py-1.5 px-2 text-left font-semibold" style="color: var(--text-secondary)">note</th>
             <th class="py-1.5 px-2 text-right font-semibold" style="color: var(--text-secondary)">value</th>
           </tr>
         </thead>
@@ -133,6 +135,16 @@
               <td class="py-1.5 px-2" style="color: var(--text-primary)">{row.agent_title || row.agentid}</td>
               <td class="py-1.5 px-2" style="color: var(--text-primary)">{row.plugin_title || row.pluginid}</td>
               <td class="py-1.5 px-2 font-mono" style="color: var(--text-primary)">{row.metric}</td>
+              <td class="py-1.5 px-2 max-w-[160px]">
+                {#if row.note}
+                  <span class="flex items-center gap-1 text-[10px]" style="color:#b45309" title={row.note}>
+                    <StickyNote size={10} strokeWidth={2} style="flex-shrink:0" />
+                    <span class="truncate">{row.note}</span>
+                  </span>
+                {:else}
+                  <span class="text-[10px]" style="color:var(--text-secondary)">—</span>
+                {/if}
+              </td>
               <td class="py-1.5 px-2 text-right font-mono font-medium tabular-nums" style="color: var(--text-primary)">{fmtVal(row.value)}</td>
             </tr>
           {/each}

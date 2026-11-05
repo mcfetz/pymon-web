@@ -6,9 +6,11 @@
   import SegmentedControl from './SegmentedControl.svelte';
   import MetricsChart from '../MetricsChart.svelte';
   import MetricsTable from './MetricsTable.svelte';
+  import MetricNoteDialog from './MetricNoteDialog.svelte';
   import FullscreenOverlay from './FullscreenOverlay.svelte';
-  import { fmtVal } from '../metricsUtils.js';
+  import { fmtVal, fmtTime } from '../metricsUtils.js';
   import ChartArea from 'lucide-svelte/icons/chart-area';
+  import StickyNote from 'lucide-svelte/icons/sticky-note';
   import X from 'lucide-svelte/icons/x';
   import ChevronLeft from 'lucide-svelte/icons/chevron-left';
   import ChevronRight from 'lucide-svelte/icons/chevron-right';
@@ -44,7 +46,31 @@
     metricsStats = [],
     chartData = [],
     timePresets = [],
+    onNoteUpdated = () => {},
   } = $props();
+
+  let noteRow = $state(null);
+
+  function openNote(row) {
+    // A note dialog must not be hidden behind a native full-screen overlay.
+    if (typeof document !== 'undefined' && document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+    chartFsOpen = false;
+    tableFsOpen = false;
+    noteRow = row;
+  }
+
+  function handleNoteSaved(result) {
+    onNoteUpdated(result);
+    noteRow = null;
+  }
+
+  let chartNotes = $derived(
+    chartData
+      .filter(row => row.note)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  );
 
   const PRESET_HOURS = { '1h': 1, '6h': 6, '12h': 12, '1d': 24, '1w': 168 };
 
@@ -230,7 +256,10 @@
   {#if chartData.length > 0}
     <GlassCard className="p-4">
       <div class="flex items-center justify-between mb-3 gap-2">
-        <h3 class="text-sm font-semibold m-0 truncate min-w-0" style="color: var(--text-primary)">chart</h3>
+        <div class="flex items-baseline gap-2 min-w-0">
+          <h3 class="text-sm font-semibold m-0 truncate min-w-0" style="color: var(--text-primary)">chart</h3>
+          <span class="text-[9px] hidden sm:inline flex-shrink-0" style="color:var(--text-secondary)">click a point to add a note</span>
+        </div>
         <button
           type="button"
           onclick={() => (chartFsOpen = true)}
@@ -242,7 +271,32 @@
           <Maximize2 size={14} strokeWidth={2} />
         </button>
       </div>
-      <MetricsChart data={chartData} />
+      <MetricsChart data={chartData} onPointClick={openNote} />
+
+      {#if chartNotes.length > 0}
+        <div class="mt-3 pt-3 space-y-1.5" style="border-top:1px solid var(--border-default)">
+          <div class="flex items-center gap-1.5 text-[11px] font-semibold" style="color:var(--text-secondary)">
+            <StickyNote size={12} style="color:#b45309" />
+            notes in this range
+          </div>
+          {#each chartNotes as row (row.note_id)}
+            <button
+              type="button"
+              onclick={() => openNote(row)}
+              class="w-full text-left rounded-lg px-2 py-1.5 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+              style="border:1px solid rgba(245,158,11,0.18);background:rgba(245,158,11,0.04)"
+            >
+              <div class="flex items-center gap-1.5 text-[10px] font-mono" style="color:var(--text-secondary)">
+                <span>{fmtTime(row.timestamp)}</span>
+                <span>·</span>
+                <span class="truncate">{row.metric} = {fmtVal(row.value)}</span>
+                {#if row.note_by}<span class="ml-auto flex-shrink-0">by {row.note_by}</span>{/if}
+              </div>
+              <div class="text-[11px] mt-0.5 truncate" style="color:var(--text-primary)">{row.note}</div>
+            </button>
+          {/each}
+        </div>
+      {/if}
     </GlassCard>
   {/if}
 
@@ -296,6 +350,7 @@
         {sortCol}
         {sortDir}
         {onSort}
+        onNote={openNote}
       />
 
       {#if totalPages > 1}
@@ -321,7 +376,7 @@
   {/if}
 
   <FullscreenOverlay open={chartFsOpen} title={chartFsTitle()} onclose={() => (chartFsOpen = false)}>
-    <MetricsChart data={chartData} height="100%" />
+    <MetricsChart data={chartData} height="100%" onPointClick={openNote} />
   </FullscreenOverlay>
 
   <FullscreenOverlay
@@ -337,6 +392,7 @@
       {sortCol}
       {sortDir}
       {onSort}
+      onNote={openNote}
     />
     {#if sortedData.length > TABLE_FS_MAX_ROWS}
       <p class="text-[10px] mt-3 text-center" style="color: var(--text-secondary)">
@@ -344,4 +400,12 @@
       </p>
     {/if}
   </FullscreenOverlay>
+
+  {#if noteRow}
+    <MetricNoteDialog
+      row={noteRow}
+      onclose={() => (noteRow = null)}
+      onsaved={handleNoteSaved}
+    />
+  {/if}
 </div>

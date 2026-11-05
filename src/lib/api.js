@@ -113,6 +113,9 @@ export function queryMetrics(params = {}) {
     .join('&');
   return api(`/metrics/query${qs ? '?' + qs : ''}`);
 }
+export function saveMetricNote(id, note) {
+  return api(`/metrics/${id}/note`, { method: 'PUT', body: { note } });
+}
 export function fetchMetricNames(plugin) {
   return api(`/metrics/names/${encodeURIComponent(plugin)}`);
 }

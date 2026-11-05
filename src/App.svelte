@@ -480,6 +480,17 @@
       catch { metricNames = []; }
     } else { metricNames = []; }
   }
+  function handleMetricNoteUpdated(result) {
+    const id = result.metric_id;
+    metricsData = metricsData.map(row => row.id === id ? {
+      ...row,
+      note_id: result.note_id,
+      note: result.note,
+      note_by: result.note_by,
+      note_updated_at: result.note_updated_at,
+    } : row);
+  }
+
   async function doQuery() {
     metricsLoading = true; metricsError = null; hasSearched = true; page = 0;
     try {
@@ -743,6 +754,7 @@
           {metricsStats}
           chartData={metricsData}
           timePresets={TIME_PRESETS}
+          onNoteUpdated={handleMetricNoteUpdated}
         />
         </div>
       {:else if tab === 'boards'}

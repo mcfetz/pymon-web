@@ -19,7 +19,7 @@
     limit: 200,
   });
 
-  const TARGET_TYPES = ['', 'alarm', 'snooze', 'rule', 'agent', 'group', 'plugin', 'notification', 'executor', 'variable', 'blackout', 'dashboard', 'cron_task', 'user', 'database', 'metrics', 'cleanup_job'];
+  const TARGET_TYPES = ['', 'alarm', 'snooze', 'metric', 'rule', 'agent', 'group', 'plugin', 'notification', 'executor', 'variable', 'blackout', 'dashboard', 'cron_task', 'user', 'database', 'metrics', 'cleanup_job'];
 
   const ACTOR_META = {
     user: { icon: User, color: 'var(--color-primary)', bg: 'rgba(var(--color-primary-rgb),0.1)' },
