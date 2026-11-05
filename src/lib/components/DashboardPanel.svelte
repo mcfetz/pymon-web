@@ -13,7 +13,16 @@
   import StickyNote from 'lucide-svelte/icons/sticky-note';
   import Maximize2 from 'lucide-svelte/icons/maximize-2';
 
-  let { panel, data = [], loading = false, error = null, compact = false, issues = [], onexpand = () => {} } = $props();
+  let {
+    panel,
+    data = [],
+    loading = false,
+    error = null,
+    compact = false,
+    issues = [],
+    onexpand = () => {},
+    onNoteRequest = null,
+  } = $props();
 
   const TYPE_LABEL = { chart: 'Chart', table: 'Table', stats: 'Stats', last: 'Last value' };
   const TYPE_ICON = { chart: ChartArea, table: Table2, stats: Sigma, last: CircleDot };
@@ -114,7 +123,7 @@
       {/if}
     </div>
   {:else if panel.type === 'chart'}
-    <MetricsChart data={data} height={compact ? 200 : 350} />
+    <MetricsChart data={data} height={compact ? 200 : 350} {onNoteRequest} />
   {:else if panel.type === 'table'}
     <div class="overflow-x-auto">
       <table class="w-full text-xs">

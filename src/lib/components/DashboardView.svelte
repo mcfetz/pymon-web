@@ -3,6 +3,7 @@
   import DashboardPanel from './DashboardPanel.svelte';
   import FullscreenOverlay from './FullscreenOverlay.svelte';
   import MetricsChart from '../MetricsChart.svelte';
+  import MetricNoteDialog from './MetricNoteDialog.svelte';
   import SegmentedControl from './SegmentedControl.svelte';
   import EmptyState from './EmptyState.svelte';
   import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
@@ -41,7 +42,33 @@
   let filterText = $state('');
   let onlyProblems = $state(false);
   let expandedId = $state(null);
+  let noteRow = $state(null);
   let timer = null;
+
+  function openNote(row) {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+    expandedId = null;
+    noteRow = row;
+  }
+
+  function handleNoteSaved(result) {
+    const id = result.metric_id;
+    panelResults = Object.fromEntries(
+      Object.entries(panelResults).map(([panelId, rows]) => [
+        panelId,
+        rows.map(row => row.id === id ? {
+          ...row,
+          note_id: result.note_id,
+          note: result.note,
+          note_by: result.note_by,
+          note_updated_at: result.note_updated_at,
+        } : row),
+      ])
+    );
+    noteRow = null;
+  }
 
   let expandedPanel = $derived(
     expandedId ? allPanels.find(p => p.id === expandedId) || null : null
@@ -318,6 +345,7 @@
               compact={columns === 2}
               issues={issuesByPanel[panel.id] || []}
               onexpand={openFullscreen}
+              onNoteRequest={openNote}
             />
           {/each}
         </div>
@@ -358,7 +386,15 @@
     onclose={closeFullscreen}
   >
     {#if expandedPanel}
-      <MetricsChart data={panelResults[expandedPanel.id] || []} height="100%" />
+      <MetricsChart data={panelResults[expandedPanel.id] || []} height="100%" onNoteRequest={openNote} />
     {/if}
   </FullscreenOverlay>
+
+  {#if noteRow}
+    <MetricNoteDialog
+      row={noteRow}
+      onclose={() => (noteRow = null)}
+      onsaved={handleNoteSaved}
+    />
+  {/if}
 </div>

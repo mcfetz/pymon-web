@@ -3,13 +3,53 @@
   import { Chart, registerables } from 'chart.js';
   import 'chartjs-adapter-date-fns';
   import annotationPlugin from 'chartjs-plugin-annotation';
+  import { fmtVal, fmtTime } from './metricsUtils.js';
 
   Chart.register(...registerables, annotationPlugin);
 
-  let { data = [], height = 350, onPointClick = () => {} } = $props();
+  let { data = [], height = 350, onNoteRequest = null } = $props();
   let canvas = $state(null);
+  let wrap = $state(null);
   let chart = null;
   let hidden = new Set();
+  let tooltipVisible = $state(false);
+  let tooltipRow = $state(null);
+  let tooltipX = $state(0);
+  let tooltipY = $state(0);
+  let tooltipBelow = $state(false);
+  let tooltipPinned = $state(false);
+
+  function hideTooltip() {
+    tooltipVisible = false;
+    tooltipPinned = false;
+    tooltipRow = null;
+  }
+
+  function showTooltip(row, x, y, pinned = false) {
+    if (!row) return;
+    const width = Math.min(240, wrap?.clientWidth || 240);
+    const left = Math.max(width / 2 + 4, Math.min((wrap?.clientWidth || width) - width / 2 - 4, x));
+    tooltipRow = row;
+    tooltipX = left;
+    tooltipY = y;
+    tooltipBelow = y < (wrap?.clientHeight || 350) / 2;
+    tooltipPinned = pinned;
+    tooltipVisible = true;
+  }
+
+  function externalTooltipHandler({ tooltip }) {
+    if (tooltipPinned) return;
+    if (tooltip.opacity === 0) {
+      hideTooltip();
+      return;
+    }
+    const raw = tooltip.dataPoints?.[0]?.raw?.meta;
+    if (!raw) {
+      hideTooltip();
+      return;
+    }
+    showTooltip(raw, tooltip.caretX, tooltip.caretY, false);
+  }
 
   // A 200px card cannot carry the stroke weight of a full height chart: five
   // series at 3px points is ~600 dots on a thumbnail, and the dots drown the
@@ -131,19 +171,31 @@
               area &&
               (event.x < area.left || event.x > area.right ||
                event.y < area.top || event.y > area.bottom)
-            ) return;
+            ) {
+              hideTooltip();
+              return;
+            }
             const points = chartInstance.getElementsAtEventForMode(
               event, 'nearest', { intersect: !compact }, true
             );
-            if (!points.length) return;
+            if (!points.length) {
+              hideTooltip();
+              return;
+            }
             const point = points[0];
             const element = point.element;
-            if (!element) return;
+            if (!element) {
+              hideTooltip();
+              return;
+            }
             const distance = Math.hypot(event.x - element.x, event.y - element.y);
-            if (distance > (compact ? 24 : 18)) return;
+            if (distance > (compact ? 24 : 18)) {
+              hideTooltip();
+              return;
+            }
             const dataset = chartInstance.data.datasets[point.datasetIndex];
             const raw = dataset?.data?.[point.index]?.meta;
-            if (raw) onPointClick(raw);
+            if (raw) showTooltip(raw, element.x, element.y, true);
           },
           onHover: (event, elements) => {
             if (canvas) canvas.style.cursor = elements.length ? 'pointer' : 'default';
@@ -170,28 +222,7 @@
               },
             },
             tooltip: {
-              callbacks: {
-                title(items) {
-                  if (!items.length) return '';
-                  return items[0].raw.x.toLocaleString();
-                },
-                label(ctx) {
-                  const raw = ctx.raw.meta;
-                  if (!raw) return ctx.parsed.y.toString();
-                  const lines = [
-                    `Value: ${raw.value}`,
-                    `Agent: ${raw.agent_title || raw.agentid}`,
-                    `Plugin: ${raw.plugin_title || raw.pluginid}`,
-                    `Metric: ${raw.metric}`,
-                  ];
-                  if (raw.note) {
-                    const text = raw.note.length > 120 ? `${raw.note.slice(0, 120)}…` : raw.note;
-                    lines.push(`Note: ${text}`);
-                    if (raw.note_by) lines.push(`Note by: ${raw.note_by}`);
-                  }
-                  return lines;
-                },
-              },
+              external: externalTooltipHandler,
             },
           },
           scales: {
@@ -221,10 +252,16 @@
 
   function destroyChart() {
     if (chart) { chart.destroy(); chart = null; }
+    hideTooltip();
   }
 
   onMount(() => {
     if (canvas && data.length > 0) render();
+    const onWindowClick = (event) => {
+      if (tooltipPinned && wrap && !wrap.contains(event.target)) hideTooltip();
+    };
+    window.addEventListener('click', onWindowClick);
+    return () => window.removeEventListener('click', onWindowClick);
   });
 
   $effect(() => {
@@ -235,15 +272,99 @@
   onDestroy(destroyChart);
 </script>
 
-<div class="chart-wrap" style="height: {typeof height === 'number' ? `${height}px` : height};">
+<div bind:this={wrap} class="chart-wrap" style="height: {typeof height === 'number' ? `${height}px` : height};">
   {#if data.length === 0}
     <div class="chart-empty">No numeric metrics for chart</div>
   {:else}
     <canvas bind:this={canvas}></canvas>
+  {/if}
+
+  {#if tooltipVisible && tooltipRow}
+    <div
+      class="chart-tooltip"
+      class:below={tooltipBelow}
+      class:pinned={tooltipPinned}
+      style="left:{tooltipX}px;top:{tooltipY}px"
+      role="dialog"
+      aria-label="metric value"
+    >
+      <div class="tt-head">
+        <span class="tt-value">{fmtVal(tooltipRow.value)}</span>
+        <button
+          type="button"
+          class="tt-close"
+          aria-label="close value tooltip"
+          onclick={hideTooltip}
+        >×</button>
+      </div>
+      <div class="tt-meta">
+        <div class="truncate">{tooltipRow.agent_title || tooltipRow.agentid} › {tooltipRow.plugin_title || tooltipRow.pluginid}</div>
+        <div class="truncate">{tooltipRow.metric}</div>
+        <div>{fmtTime(tooltipRow.timestamp)}</div>
+        {#if tooltipRow.note}
+          <div class="tt-note">📝 {tooltipRow.note}</div>
+        {/if}
+      </div>
+      {#if onNoteRequest}
+        <button
+          type="button"
+          class="tt-note-btn"
+          onclick={() => { const row = tooltipRow; hideTooltip(); onNoteRequest(row); }}
+        >{tooltipRow.note ? 'Edit note' : 'Add note'}</button>
+      {/if}
+    </div>
   {/if}
 </div>
 
 <style>
   .chart-wrap { position: relative; }
   .chart-empty { text-align: center; padding: 3rem; font-style: italic; }
+
+  .chart-tooltip {
+    position: absolute;
+    z-index: 5;
+    width: min(240px, calc(100% - 8px));
+    transform: translate(-50%, calc(-100% - 10px));
+    background: rgba(15, 23, 42, 0.94);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 10px;
+    padding: 8px 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+    pointer-events: auto;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+  .chart-tooltip:not(.pinned) { pointer-events: none; }
+  .chart-tooltip.below { transform: translate(-50%, 10px); }
+  .chart-tooltip.pinned { border-color: rgba(245, 158, 11, 0.65); }
+  .tt-head { display: flex; align-items: flex-start; gap: 8px; }
+  .tt-value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; font-weight: 700; color: #fbbf24; }
+  .tt-close {
+    margin-left: auto;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+  }
+  .tt-close:hover { color: #f8fafc; }
+  .tt-meta { margin-top: 3px; color: #cbd5e1; display: flex; flex-direction: column; gap: 1px; }
+  .tt-note { margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(148, 163, 184, 0.25); color: #fde68a; white-space: pre-wrap; max-height: 4.5em; overflow: hidden; }
+  .tt-note-btn {
+    margin-top: 7px;
+    width: 100%;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    border-radius: 7px;
+    background: rgba(245, 158, 11, 0.14);
+    color: #fbbf24;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 8px;
+    cursor: pointer;
+  }
+  .tt-note-btn:hover { background: rgba(245, 158, 11, 0.24); }
 </style>

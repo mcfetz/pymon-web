@@ -258,7 +258,7 @@
       <div class="flex items-center justify-between mb-3 gap-2">
         <div class="flex items-baseline gap-2 min-w-0">
           <h3 class="text-sm font-semibold m-0 truncate min-w-0" style="color: var(--text-primary)">chart</h3>
-          <span class="text-[9px] hidden sm:inline flex-shrink-0" style="color:var(--text-secondary)">click a point to add a note</span>
+          <span class="text-[9px] hidden sm:inline flex-shrink-0" style="color:var(--text-secondary)">tap a point for values / note</span>
         </div>
         <button
           type="button"
@@ -271,7 +271,7 @@
           <Maximize2 size={14} strokeWidth={2} />
         </button>
       </div>
-      <MetricsChart data={chartData} onPointClick={openNote} />
+      <MetricsChart data={chartData} onNoteRequest={openNote} />
 
       {#if chartNotes.length > 0}
         <div class="mt-3 pt-3 space-y-1.5" style="border-top:1px solid var(--border-default)">
@@ -376,7 +376,7 @@
   {/if}
 
   <FullscreenOverlay open={chartFsOpen} title={chartFsTitle()} onclose={() => (chartFsOpen = false)}>
-    <MetricsChart data={chartData} height="100%" onPointClick={openNote} />
+    <MetricsChart data={chartData} height="100%" onNoteRequest={openNote} />
   </FullscreenOverlay>
 
   <FullscreenOverlay
