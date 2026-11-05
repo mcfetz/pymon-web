@@ -222,6 +222,9 @@
               },
             },
             tooltip: {
+              // The canvas tooltip must not draw at all: we render the
+              // interactive HTML tooltip ourselves.
+              enabled: false,
               external: externalTooltipHandler,
             },
           },
