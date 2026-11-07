@@ -12,7 +12,10 @@
     login, setToken, isLoggedIn, fetchAccount, getUser, setUser,
   } from './lib/api.js';
   import { initTheme } from './lib/theme.svelte.js';
-  import { TIME_PRESETS, timeFromPreset, computeStats, dayKey } from './lib/metricsUtils.js';
+  import {
+    TIME_PRESETS, timeFromPreset, computeStats, dayKey,
+    loadMetricSearchHistory, rememberMetricSearch, clearMetricSearchHistory,
+  } from './lib/metricsUtils.js';
   import Header from './lib/components/Header.svelte';
   import BottomNav from './lib/components/BottomNav.svelte';
   import LoginPage from './lib/components/LoginPage.svelte';
@@ -34,6 +37,10 @@
   const AGENT_STATUS_PLUGIN = { id: 'agent', title: 'Agent status' };
   const CRON_PLUGIN = { id: 'cron', title: 'Cron tasks' };
   const appVersion = typeof __APP_COMMIT__ !== 'undefined' ? __APP_COMMIT__ : 'dev';
+
+  function storedMetricRegexMode() {
+    try { return localStorage.getItem('pymon_metric_regex') === '1'; } catch { return false; }
+  }
 
   // ── Version & Update state ──
   let updateAvailable = $state(false);
@@ -361,7 +368,11 @@
   let metricsData = $state([]);
   let metricsLoading = $state(false);
   let metricsError = $state(null);
-  let filters = $state({ group: '', agentid: [], pluginid: '', metric: '', timePreset: '1h', until: '' });
+  let filters = $state({
+    group: '', agentid: [], pluginid: '', metric: '',
+    timePreset: '1h', until: '', metricRegex: storedMetricRegexMode(),
+  });
+  let metricSearchHistory = $state(loadMetricSearchHistory());
   let hasSearched = $state(false);
   let sortCol = $state('timestamp');
   let sortDir = $state('desc');
@@ -421,6 +432,7 @@
   async function jumpToHistory(agentid, pluginid, metric) {
     filters.timePreset = '1h';
     filters.until = '';
+    filters.metricRegex = false;
     filters.agentid = [agentid];
     try { await onAgentChange(); } catch { /* keep going */ }
     filters.pluginid = pluginid;
@@ -499,6 +511,7 @@
       if (filters.agentid.length > 0) params.agentid = filters.agentid.join(',');
       if (filters.pluginid) params.pluginid = filters.pluginid;
       if (filters.metric) params.metric = filters.metric;
+      if (filters.metricRegex) params.metric_regex = 1;
       params.from = timeFromPreset(filters.timePreset, filters.until);
       const untilDate = filters.until ? new Date(filters.until) : null;
       if (untilDate && !isNaN(untilDate.getTime())) {
@@ -507,8 +520,14 @@
       params.limit = 5000;
       const raw = await queryMetrics(params);
       metricsData = raw.map(row => ({ ...row, agent_title: agentTitleMap[row.agentid] || row.agentid, plugin_title: pluginTitleMap[row.pluginid] || row.pluginid }));
+      metricSearchHistory = rememberMetricSearch(filters.metric);
     } catch (e) { metricsError = e.message; }
     finally { metricsLoading = false; }
+  }
+
+  function clearSearchHistory() {
+    clearMetricSearchHistory();
+    metricSearchHistory = [];
   }
 
   function toggleSort(col) {
@@ -754,6 +773,8 @@
           {metricsStats}
           chartData={metricsData}
           timePresets={TIME_PRESETS}
+          searchHistory={metricSearchHistory}
+          onClearSearchHistory={clearSearchHistory}
           onNoteUpdated={handleMetricNoteUpdated}
         />
         </div>

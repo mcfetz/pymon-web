@@ -5,6 +5,58 @@ export const TIME_PRESETS = [
 
 export const PRESET_HOURS = { '1h': 1, '6h': 6, '12h': 12, '1d': 24, '1w': 168 };
 
+export const METRIC_SEARCH_HISTORY_LIMIT = 20;
+const METRIC_SEARCH_HISTORY_KEY = 'pymon_metric_search_history';
+
+/** Load the last metric-name searches (newest first). */
+export function loadMetricSearchHistory() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(METRIC_SEARCH_HISTORY_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(term => typeof term === 'string' && term.trim())
+      .slice(0, METRIC_SEARCH_HISTORY_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+/** Remember a metric-name search and return the updated list. */
+export function rememberMetricSearch(term) {
+  const clean = (term || '').trim();
+  if (!clean) return loadMetricSearchHistory();
+  const next = [
+    clean,
+    ...loadMetricSearchHistory().filter(prev => prev !== clean),
+  ].slice(0, METRIC_SEARCH_HISTORY_LIMIT);
+  try {
+    localStorage.setItem(METRIC_SEARCH_HISTORY_KEY, JSON.stringify(next));
+  } catch {
+    // localStorage can be unavailable in private mode; the in-memory list
+    // still comes back to the caller.
+  }
+  return next;
+}
+
+export function clearMetricSearchHistory() {
+  try {
+    localStorage.removeItem(METRIC_SEARCH_HISTORY_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/** Format a Date for an <input type="datetime-local"> value. */
+export function formatDatetimeLocal(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const y = date.getFullYear();
+  const m = pad(date.getMonth() + 1);
+  const d = pad(date.getDate());
+  const h = pad(date.getHours());
+  const min = pad(date.getMinutes());
+  return `${y}-${m}-${d}T${h}:${min}`;
+}
+
 export function timeFromPreset(preset, untilStr) {
   const hours = PRESET_HOURS[preset] || 1;
   const untilDate = untilStr ? new Date(untilStr) : null;

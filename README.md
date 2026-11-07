@@ -37,7 +37,7 @@ API proxy is configured in `vite.config.js` — all `/api` requests are forwarde
 ## Features
 
 - **Alarms** — severity filter (warning / critical / info), stacking, acknowledge, snooze, blackouts
-- **Metrics** — time-series query with group / agent / plugin / metric filters and charting
+- **Metrics** — time-series query with group / agent / plugin / metric filters, optional regex matching, recent-search history and charting
 - **Config** — full CRUD for agents, groups, rules, executors, notifications, blackouts, plugins
 - **Plugins** — in-browser code editor with syntax check (ruff) and live save
 - **Account** — change username and password

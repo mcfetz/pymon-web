@@ -13,9 +13,11 @@
   import Search from 'lucide-svelte/icons/search';
   import TriangleAlert from 'lucide-svelte/icons/triangle-alert';
   import CircleCheck from 'lucide-svelte/icons/circle-check';
+  import ChevronLeft from 'lucide-svelte/icons/chevron-left';
+  import ChevronRight from 'lucide-svelte/icons/chevron-right';
   import X from 'lucide-svelte/icons/x';
   import { fetchDashboards, queryMetrics, fetchAgents, fetchPluginSchemas, saveDashboard } from '../api.js';
-  import { TIME_PRESETS, timeFromPreset } from '../metricsUtils.js';
+  import { TIME_PRESETS, PRESET_HOURS, timeFromPreset, formatDatetimeLocal } from '../metricsUtils.js';
   import { panelIssues, matchesQuery } from '../panelHealth.js';
 
   const COLUMN_OPTIONS = [
@@ -33,6 +35,8 @@
   let dashboards = $state([]);
   let activeId = $state('');
   let timePreset = $state('1h');
+  // Empty means "live / now"; a value anchors the query window in the past.
+  let until = $state('');
   let loading = $state(false);
   let error = $state(null);
   let panelResults = $state({});
@@ -172,6 +176,32 @@
     await runQueries();
   }
 
+  function currentUntilTime() {
+    if (until) {
+      const d = new Date(until);
+      if (!isNaN(d.getTime())) return d.getTime();
+    }
+    return Date.now();
+  }
+
+  function stepBackward() {
+    const hours = PRESET_HOURS[timePreset] || 1;
+    until = formatDatetimeLocal(new Date(currentUntilTime() - hours * 3600000));
+    runQueries();
+  }
+
+  function stepForward() {
+    const hours = PRESET_HOURS[timePreset] || 1;
+    const next = currentUntilTime() + hours * 3600000;
+    until = next >= Date.now() ? '' : formatDatetimeLocal(new Date(next));
+    runQueries();
+  }
+
+  function resetToNow() {
+    until = '';
+    runQueries();
+  }
+
   async function changeColumns(n) {
     const db = active;
     if (!db || db.columns === n) return;
@@ -197,7 +227,11 @@
       if (panel.agentid?.length) params.agentid = panel.agentid.join(',');
       if (panel.pluginid) params.pluginid = panel.pluginid;
       if (panel.metric) params.metric = panel.metric;
-      params.from = timeFromPreset(timePreset);
+      params.from = timeFromPreset(timePreset, until);
+      if (until) {
+        const untilDate = new Date(until);
+        if (!isNaN(untilDate.getTime())) params.to = untilDate.toISOString();
+      }
       params.limit = 5000;
       try {
         const raw = await queryMetrics(params);
@@ -220,7 +254,8 @@
   onMount(() => {
     reload();
     timer = setInterval(() => {
-      if (dashboards.length) runQueries();
+      // A historical window is static; only refresh while following live data.
+      if (dashboards.length && !until) runQueries();
     }, 30000);
   });
   onDestroy(() => { if (timer) clearInterval(timer); });
@@ -251,15 +286,68 @@
         {/each}
       </div>
 
-      <div class="flex justify-center">
-        <SegmentedControl options={TIME_PRESETS} value={timePreset} onchange={changePreset} />
-        <div class="ml-2">
-          <SegmentedControl
-            options={COLUMN_OPTIONS}
-            value={String(columns)}
-            onchange={(v) => changeColumns(Number(v))}
-          />
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <!-- History navigation: step a whole time window back/forward. -->
+        <div
+          class="inline-flex items-center p-0.5 rounded-lg border h-[34px] box-border"
+          style="border-color: var(--border-default); background: var(--bg-surface, rgba(0, 0, 0, 0.03));"
+        >
+          <button
+            type="button"
+            onclick={stepBackward}
+            title="Step backward by {timePreset}"
+            aria-label="step backward by {timePreset}"
+            class="h-full px-2 rounded-[6px] transition-all duration-150 hover:brightness-110 active:scale-95 cursor-pointer flex items-center justify-center hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+            style="color: var(--text-secondary);"
+          >
+            <ChevronLeft size={14} strokeWidth={2.5} />
+          </button>
+          <div class="w-[1px] h-3.5 my-auto" style="background: var(--border-default);"></div>
+          <button
+            type="button"
+            onclick={stepForward}
+            title="Step forward by {timePreset}"
+            aria-label="step forward by {timePreset}"
+            class="h-full px-2 rounded-[6px] transition-all duration-150 hover:brightness-110 active:scale-95 cursor-pointer flex items-center justify-center hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+            style="color: var(--text-secondary);"
+          >
+            <ChevronRight size={14} strokeWidth={2.5} />
+          </button>
         </div>
+
+        <div class="flex items-center gap-1">
+          <span class="text-[9px] uppercase tracking-wide font-semibold whitespace-nowrap" style="color: var(--text-secondary)">
+            until {until ? '' : '(now)'}
+          </span>
+          <input
+            type="datetime-local"
+            bind:value={until}
+            onchange={runQueries}
+            title="End of the displayed time window"
+            aria-label="end of the displayed time window"
+            class="px-2 py-1.5 rounded-lg border text-[11px] bg-transparent outline-none cursor-pointer"
+            style="border-color: var(--border-default); color: var(--text-primary); color-scheme: dark light;"
+          />
+          {#if until}
+            <button
+              type="button"
+              onclick={resetToNow}
+              title="Reset to live / now"
+              aria-label="reset to live / now"
+              class="flex items-center gap-0.5 text-[9px] font-semibold whitespace-nowrap transition-opacity hover:opacity-100 opacity-70 cursor-pointer"
+              style="color: var(--color-primary)"
+            >
+              <X size={10} /> now
+            </button>
+          {/if}
+        </div>
+
+        <SegmentedControl options={TIME_PRESETS} value={timePreset} onchange={changePreset} />
+        <SegmentedControl
+          options={COLUMN_OPTIONS}
+          value={String(columns)}
+          onchange={(v) => changeColumns(Number(v))}
+        />
       </div>
 
       {#if showFilters}

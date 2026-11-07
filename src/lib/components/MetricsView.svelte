@@ -8,9 +8,10 @@
   import MetricsTable from './MetricsTable.svelte';
   import MetricNoteDialog from './MetricNoteDialog.svelte';
   import FullscreenOverlay from './FullscreenOverlay.svelte';
-  import { fmtVal, fmtTime } from '../metricsUtils.js';
+  import { fmtVal, fmtTime, formatDatetimeLocal } from '../metricsUtils.js';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import StickyNote from 'lucide-svelte/icons/sticky-note';
+  import Clock from 'lucide-svelte/icons/clock';
   import X from 'lucide-svelte/icons/x';
   import ChevronLeft from 'lucide-svelte/icons/chevron-left';
   import ChevronRight from 'lucide-svelte/icons/chevron-right';
@@ -46,10 +47,27 @@
     metricsStats = [],
     chartData = [],
     timePresets = [],
+    searchHistory = [],
+    onClearSearchHistory = () => {},
     onNoteUpdated = () => {},
   } = $props();
 
   let noteRow = $state(null);
+  let historyOpen = $state(false);
+
+  function chooseSearchHistory(term) {
+    filters.metric = term;
+    historyOpen = false;
+  }
+
+  function toggleRegexMode() {
+    filters.metricRegex = !filters.metricRegex;
+    try {
+      localStorage.setItem('pymon_metric_regex', filters.metricRegex ? '1' : '0');
+    } catch {
+      // localStorage can be unavailable in private mode.
+    }
+  }
 
   function openNote(row) {
     // A note dialog must not be hidden behind a native full-screen overlay.
@@ -99,16 +117,6 @@
   function chartFsTitle() {
     const m = (filters.metric || '').trim();
     return m ? `chart · ${m}` : 'chart';
-  }
-
-  function formatDatetimeLocal(date) {
-    const pad = (n) => String(n).padStart(2, '0');
-    const y = date.getFullYear();
-    const m = pad(date.getMonth() + 1);
-    const d = pad(date.getDate());
-    const h = pad(date.getHours());
-    const min = pad(date.getMinutes());
-    return `${y}-${m}-${d}T${h}:${min}`;
   }
 
   function stepBackward() {
@@ -169,15 +177,80 @@
         />
       </div>
 
-      <div class="flex flex-col gap-0.5 flex-1 min-w-[120px]">
-        <span class="text-[9px] uppercase tracking-wide font-semibold invisible">_</span>
-        <input
-          type="text"
-          placeholder="metric name..."
-          bind:value={filters.metric}
-          class="px-3 py-2 rounded-lg border text-xs bg-transparent outline-none"
-          style="border-color: var(--border-default); color: var(--text-primary)"
-        />
+      <div class="flex flex-col gap-0.5 flex-1 min-w-[190px]">
+        <span class="text-[9px] uppercase tracking-wide font-semibold" style="color: var(--text-secondary)">
+          metric{#if filters.metricRegex} <span style="color: var(--color-primary)">regex</span>{/if}
+        </span>
+        <div class="flex items-center gap-1">
+          <div class="relative flex-1 min-w-0">
+            <input
+              type="text"
+              placeholder={filters.metricRegex ? 'metric regex...' : 'metric name...'}
+              bind:value={filters.metric}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') doQuery();
+                else if (e.key === 'Escape') historyOpen = false;
+              }}
+              class="w-full px-3 py-2 rounded-lg border text-xs bg-transparent outline-none"
+              class:pr-8={searchHistory.length > 0}
+              style="border-color: var(--border-default); color: var(--text-primary)"
+            />
+            {#if searchHistory.length > 0}
+              <button
+                type="button"
+                onclick={() => (historyOpen = !historyOpen)}
+                title="recent metric searches"
+                aria-label="recent metric searches"
+                aria-expanded={historyOpen}
+                class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 rounded cursor-pointer transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.06]"
+                style="color: var(--text-secondary)"
+              >
+                <Clock size={12} strokeWidth={2} />
+              </button>
+            {/if}
+            {#if historyOpen}
+              <button
+                type="button"
+                class="fixed inset-0 z-[90] cursor-default"
+                aria-label="close search history"
+                onclick={() => (historyOpen = false)}
+              ></button>
+              <div
+                class="absolute right-0 top-full mt-1 z-[100] w-[min(20rem,calc(100vw-2rem))] max-h-64 overflow-y-auto rounded-lg p-1 border"
+                style="background: var(--bg-surface); border-color: var(--border-default); box-shadow: 0 8px 32px rgba(0,0,0,0.18)"
+              >
+                <div class="flex items-center justify-between px-2 py-1 text-[9px] uppercase tracking-wide" style="color: var(--text-secondary)">
+                  <span>recent searches</span>
+                  <button
+                    type="button"
+                    onclick={() => { onClearSearchHistory(); historyOpen = false; }}
+                    class="cursor-pointer hover:opacity-100 opacity-70 transition-opacity"
+                  >clear</button>
+                </div>
+                {#each searchHistory as term}
+                  <button
+                    type="button"
+                    onclick={() => chooseSearchHistory(term)}
+                    class="block w-full px-2 py-1.5 rounded text-[11px] text-left truncate hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                    style="color: var(--text-primary)"
+                    title={term}
+                  >{term}</button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+          <button
+            type="button"
+            onclick={toggleRegexMode}
+            title={filters.metricRegex ? 'regular expression mode is on' : 'treat metric filter as a regular expression'}
+            aria-label="toggle regular expression mode"
+            aria-pressed={filters.metricRegex}
+            class="h-[34px] px-2 rounded-lg border font-mono text-[11px] font-bold transition-all duration-150 cursor-pointer flex-shrink-0"
+            style={filters.metricRegex
+              ? 'border-color: var(--color-primary); background: rgba(var(--color-primary-rgb), 0.14); color: var(--color-primary);'
+              : 'border-color: var(--border-default); color: var(--text-secondary);'}
+          >.*</button>
+        </div>
       </div>
 
       <div class="flex flex-col gap-0.5 min-w-[150px]">
