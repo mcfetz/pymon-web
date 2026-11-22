@@ -282,6 +282,17 @@ export function deleteVariable(id) {
   return api(`/admin/variables/${id}`, { method: 'DELETE' });
 }
 
+// ── Topology ──
+// The merged graph: every plugin reports its nodes/edges, the server joins them
+// over generic identifiers (MAC, IP, FQDN, address:port).
+export function fetchTopology(params = {}) {
+  const qs = Object.entries(params)
+    .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  return api(`/topology${qs ? '?' + qs : ''}`);
+}
+
 // ── Dashboards ──
 export function fetchDashboards() { return api('/admin/dashboards'); }
 export function saveDashboard(id, data) {

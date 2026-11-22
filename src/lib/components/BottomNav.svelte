@@ -4,6 +4,7 @@
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import Cog from 'lucide-svelte/icons/cog';
   import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
+  import Network from 'lucide-svelte/icons/network';
 
   let { tab = 'alarms', onNavigate, alarmCount = 0 } = $props();
 
@@ -12,6 +13,7 @@
     { id: 'history', icon: Clock, label: 'History' },
     { id: 'boards', icon: LayoutDashboard, label: 'Boards' },
     { id: 'metrics', icon: ChartArea, label: 'Metrics' },
+    { id: 'topology', icon: Network, label: 'Topology' },
     { id: 'config', icon: Cog, label: 'Config' },
   ];
 </script>

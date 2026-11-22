@@ -24,12 +24,14 @@
   import MetricsView from './lib/components/MetricsView.svelte';
   import DashboardView from './lib/components/DashboardView.svelte';
   import AccountPage from './lib/components/AccountPage.svelte';
+  import TopologyView from './lib/components/TopologyView.svelte';
   import PageHeader from './lib/components/PageHeader.svelte';
   import Bell from 'lucide-svelte/icons/bell';
   import Clock from 'lucide-svelte/icons/clock';
   import ChartArea from 'lucide-svelte/icons/chart-area';
   import Cog from 'lucide-svelte/icons/cog';
   import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
+  import Network from 'lucide-svelte/icons/network';
   import RefreshCw from 'lucide-svelte/icons/refresh-cw';
   import { updateAccount } from './lib/api.js';
 
@@ -777,6 +779,11 @@
           onClearSearchHistory={clearSearchHistory}
           onNoteUpdated={handleMetricNoteUpdated}
         />
+        </div>
+      {:else if tab === 'topology'}
+        <div class="animate-slide-up">
+        <PageHeader icon={Network} title="Topology" />
+        <TopologyView />
         </div>
       {:else if tab === 'boards'}
         <div class="animate-slide-up">
