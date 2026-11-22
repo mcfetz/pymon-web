@@ -41,6 +41,11 @@
     service: { color: '#fbbf24', r: 9 },
     container: { color: '#f472b6', r: 8 },
     'public-name': { color: '#22d3ee', r: 10 },
+    'reverse-proxy': { color: '#38bdf8', r: 12 },
+    'unifi-device': { color: '#818cf8', r: 11 },
+    // Clients are the crowd in the graph: small and deliberately quiet.
+    client: { color: '#94a3b8', r: 7 },
+    'dsl-modem': { color: '#fb7185', r: 11 },
     wan: { color: '#fb7185', r: 12 },
   };
   const FALLBACK = { color: '#94a3b8', r: 8 };
@@ -56,7 +61,16 @@
   function groupOf(kind) {
     if (kind === 'pve-node' || kind === 'pve-guest') return 'proxmox';
     if (kind === 'docker-host' || kind === 'service' || kind === 'container') return 'docker';
-    if (kind === 'public-name' || kind === 'wan') return 'net';
+    if (
+      kind === 'public-name' ||
+      kind === 'wan' ||
+      kind === 'reverse-proxy' ||
+      kind === 'unifi-device' ||
+      kind === 'client' ||
+      kind === 'dsl-modem'
+    ) {
+      return 'net';
+    }
     return 'other';
   }
 
@@ -94,6 +108,26 @@
 
   function labelOf(n) {
     return n.label || n.id;
+  }
+
+  // The selection focus: the picked node plus everything directly attached to
+  // it. One hop only - two hops would light up half the graph in a hub.
+  function focusSet() {
+    if (!selectedId) return null;
+    const set = new Set([selectedId]);
+    for (const e of edges) {
+      if (e.src === selectedId) set.add(e.dst);
+      else if (e.dst === selectedId) set.add(e.src);
+    }
+    return set;
+  }
+
+  // d3 rewrites source/target from ids to node objects once the link force has
+  // run, so both shapes have to be readable here.
+  function endsOf(edge) {
+    const s = edge.source;
+    const t = edge.target;
+    return [s && s.id ? s.id : s, t && t.id ? t.id : t];
   }
 
   // ── d3 wiring ────────────────────────────────────────────────────────────
@@ -235,9 +269,11 @@
       .attr('r', (d) => styleFor(d.kind).r)
       .attr('fill', (d) => styleFor(d.kind).color)
       .attr('fill-opacity', (d) => (d.stale ? 0.35 : 0.95))
-      .attr('stroke', (d) => (d.id === selectedId ? '#f8fafc' : 'rgba(15,23,42,0.65)'))
-      .attr('stroke-width', (d) => (d.id === selectedId ? 2.5 : 1.2))
-      .attr('class', (d) => `node-circle${d.id === selectedId ? ' selected' : ''}${d.stale ? ' stale' : ''}`);
+      // Selection styling lives in its own effect - if it ran here, every click
+      // would rebuild the simulation and the layout would jump.
+      .attr('stroke', 'rgba(15,23,42,0.65)')
+      .attr('stroke-width', 1.2)
+      .attr('class', (d) => `node-circle${d.stale ? ' stale' : ''}`);
 
     nodeSel
       .select('text')
@@ -370,12 +406,44 @@
   });
 
   $effect(() => {
-    // Selection/hover styling without rebuilding the simulation.
+    // Depend on the data too: a poll rewrites the attributes, so the selection
+    // has to be painted again after it. This effect is created after the render
+    // effect, so it always sees the fresh selections.
+    void nodes;
+    void edges;
     if (!nodeSel) return;
+    const focus = focusSet();
+    const near = (d) => !focus || focus.has(d.id);
+    const litEdge = (d) => {
+      if (!focus) return true;
+      const [s, t] = endsOf(d);
+      return focus.has(s) && focus.has(t);
+    };
+
     nodeSel
+      .attr('opacity', (d) => (near(d) ? 1 : 0.12))
       .select('circle')
-      .attr('stroke', (d) => (d.id === selectedId ? '#f8fafc' : 'rgba(15,23,42,0.65)'))
-      .attr('stroke-width', (d) => (d.id === selectedId ? 2.5 : 1.2));
+      .attr('stroke', (d) => {
+        if (d.id === selectedId) return '#f8fafc';
+        if (focus && focus.has(d.id)) return 'rgba(226,232,240,0.6)';
+        return 'rgba(15,23,42,0.65)';
+      })
+      .attr('stroke-width', (d) => (d.id === selectedId ? 2.5 : focus && focus.has(d.id) ? 1.8 : 1.2))
+      .attr(
+        'class',
+        (d) =>
+          `node-circle${d.id === selectedId ? ' selected' : ''}${d.stale ? ' stale' : ''}${focus && focus.has(d.id) ? ' in-focus' : ''}`,
+      );
+
+    linkSel
+      .attr('stroke-opacity', (d) => (litEdge(d) ? (focus ? 0.95 : 0.75) : 0.05))
+      .attr('stroke-width', (d) => (litEdge(d) && focus ? 2.2 : 1.4));
+
+    // A group box stays lit only while it holds part of the selection.
+    viewport
+      .select('g.boxes')
+      .selectAll('g.group-box')
+      .attr('opacity', (d) => (!focus || d.list.some((n) => focus.has(n.id)) ? 1 : 0.2));
   });
 
   // ── controls ──
@@ -437,7 +505,7 @@
     <span class="zoom-label">{zoomLabel}</span>
   </div>
 
-  <p class="hint">Ziehen = verschieben · Rad oder zwei Finger = zoomen · Knoten ziehen = festhalten · Klick = Details</p>
+  <p class="hint">Ziehen = verschieben · Rad oder zwei Finger = zoomen · Knoten ziehen = festhalten · Klick = Details + Nachbarn</p>
 </div>
 
 <style>
@@ -489,6 +557,13 @@
 
   :global(.graph-host .node-circle) {
     transition: fill-opacity 120ms ease;
+  }
+
+  /* Fading is an opacity change, so it can be animated instead of snapping. */
+  :global(.graph-host .node),
+  :global(.graph-host .edge),
+  :global(.graph-host .group-box) {
+    transition: opacity 140ms ease, stroke-opacity 140ms ease;
   }
 
   :global(.graph-host .node-circle:hover) {
