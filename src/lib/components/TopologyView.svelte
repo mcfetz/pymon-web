@@ -23,6 +23,7 @@
   let kindFilter = $state(new Set());
   let search = $state('');
   let autoRefresh = $state(false);
+  let grouped = $state(true);
   let graphEl = $state(null);
 
   const KIND_LABEL = {
@@ -145,6 +146,10 @@
         {/if}
       </label>
       <label class="toggle">
+        <input type="checkbox" bind:checked={grouped} />
+        <span>Gruppen</span>
+      </label>
+      <label class="toggle">
         <input type="checkbox" bind:checked={autoRefresh} />
         <span>live</span>
       </label>
@@ -194,6 +199,7 @@
         nodes={visibleNodes}
         edges={visibleEdges}
         selectedId={selectedId}
+        {grouped}
         onselect={(id) => (selectedId = id)}
         height={640}
       />

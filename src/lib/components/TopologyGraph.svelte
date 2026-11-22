@@ -22,6 +22,7 @@
     edges = [],
     selectedId = null,
     height = 620,
+    grouped = true,
     onselect = () => {},
   } = $props();
 
@@ -43,6 +44,37 @@
     wan: { color: '#fb7185', r: 12 },
   };
   const FALLBACK = { color: '#94a3b8', r: 8 };
+
+  // ── Grouping ─────────────────────────────────────────────────────────────
+  // d3-force has no container/compound node (Cytoscape has them natively). The
+  // pattern instead: a custom force pulls each group towards its own centre,
+  // and the box around a group is drawn by us from the node positions each
+  // tick. So the group is a view concept, not a data structure.
+  const GROUP_LABEL = { proxmox: 'Proxmox', docker: 'Docker', net: 'Netz', other: 'Sonstige' };
+  const GROUP_COLOR = { proxmox: '#a78bfa', docker: '#34d399', net: '#22d3ee', other: '#94a3b8' };
+
+  function groupOf(kind) {
+    if (kind === 'pve-node' || kind === 'pve-guest') return 'proxmox';
+    if (kind === 'docker-host' || kind === 'service' || kind === 'container') return 'docker';
+    if (kind === 'public-name' || kind === 'wan') return 'net';
+    return 'other';
+  }
+
+  function forceCluster(centers, strength = 0.14) {
+    let simNodes = [];
+    function force(alpha) {
+      for (const n of simNodes) {
+        const c = centers.get(n.group);
+        if (!c) continue;
+        n.vx += (c.x - n.x) * strength * alpha;
+        n.vy += (c.y - n.y) * strength * alpha;
+      }
+    }
+    force.initialize = (n) => {
+      simNodes = n;
+    };
+    return force;
+  }
 
   function styleFor(kind) {
     return KIND_STYLE[kind] || FALLBACK;
@@ -89,6 +121,7 @@
         id: nodeId(n),
         label: labelOf(n),
         kind: n.kind,
+        group: groupOf(n.kind),
         stale: !!n.stale,
         attrs: n.attrs || {},
         ids: n.ids || [],
@@ -119,6 +152,8 @@
     if (!svgSel) {
       svgSel = select(host).select('svg');
       viewport = svgSel.select('g.viewport');
+      // Boxes first, so the edges and nodes are drawn on top of them.
+      viewport.append('g').attr('class', 'boxes');
       // Zoom lives on the SVG, so wheel/pinch work anywhere on the canvas.
       zoomBehavior = zoom()
         .scaleExtent([0.12, 6])
@@ -151,11 +186,28 @@
       }
     }
 
+    // Group centres on a circle. A busier world gets a wider berth, otherwise
+    // it squeezes the others out.
+    const groups = new Map();
+    for (const n of simNodes) {
+      const key = n.group || 'other';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(n);
+    }
+    const centers = new Map();
+    const groupKeys = [...groups.keys()].sort();
+    groupKeys.forEach((key, i) => {
+      const angle = (i / Math.max(groupKeys.length, 1)) * Math.PI * 2 - Math.PI / 2;
+      const radius = 170 + Math.min(groups.get(key).length, 20) * 6;
+      centers.set(key, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+    });
+
     if (simulation) simulation.stop();
     simulation = forceSimulation(simNodes)
       .force('link', forceLink(simEdges).id((d) => d.id).distance((d) => (d.kind === 'runs' ? 55 : 90)).strength(0.5))
       .force('charge', forceManyBody().strength(-320))
       .force('center', forceCenter(0, 0))
+      .force('cluster', grouped ? forceCluster(centers) : null)
       .force('collide', forceCollide().radius((d) => styleFor(d.kind).r + 14));
 
     // ── edges ──
@@ -226,6 +278,58 @@
           }),
       );
 
+    // ── group boxes ──
+    // A padded bounding box per group, recomputed every tick. A convex hull
+    // would look rounder, but a box is what the group is: a labelled frame.
+    const boxSel = viewport
+      .select('g.boxes')
+      .selectAll('g.group-box')
+      .data(grouped ? [...groups.entries()].map(([key, list]) => ({ key, list })) : [], (d) => d.key);
+    boxSel.exit().remove();
+    const boxEnter = boxSel.enter().append('g').attr('class', 'group-box');
+    boxEnter.append('rect');
+    boxEnter.append('text').attr('class', 'group-label');
+    const boxes = boxEnter.merge(boxSel);
+    boxes
+      .select('rect')
+      .attr('rx', 18)
+      .attr('ry', 18)
+      .attr('fill', (d) => GROUP_COLOR[d.key] || '#94a3b8')
+      .attr('fill-opacity', 0.07)
+      .attr('stroke', (d) => GROUP_COLOR[d.key] || '#94a3b8')
+      .attr('stroke-opacity', 0.5)
+      .attr('stroke-width', 1.2)
+      .attr('stroke-dasharray', '6 5');
+    boxes
+      .select('text')
+      .attr('fill', (d) => GROUP_COLOR[d.key] || '#94a3b8')
+      .text((d) => GROUP_LABEL[d.key] || d.key);
+
+    function layoutBoxes() {
+      boxes.each(function (d) {
+        let x0 = Infinity;
+        let y0 = Infinity;
+        let x1 = -Infinity;
+        let y1 = -Infinity;
+        for (const n of d.list) {
+          if (!Number.isFinite(n.x)) continue;
+          const r = styleFor(n.kind).r + 12;
+          x0 = Math.min(x0, n.x - r);
+          y0 = Math.min(y0, n.y - r);
+          x1 = Math.max(x1, n.x + r);
+          y1 = Math.max(y1, n.y + r);
+        }
+        if (!Number.isFinite(x0)) return;
+        const g = select(this);
+        g.select('rect')
+          .attr('x', x0 - 16)
+          .attr('y', y0 - 34)
+          .attr('width', Math.max(x1 - x0 + 32, 90))
+          .attr('height', Math.max(y1 - y0 + 50, 60));
+        g.select('text').attr('x', x0 - 6).attr('y', y0 - 20);
+      });
+    }
+
     simulation.on('tick', () => {
       linkSel
         .attr('x1', (d) => d.source.x)
@@ -233,20 +337,29 @@
         .attr('x2', (d) => d.target.x)
         .attr('y2', (d) => d.target.y);
       nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
+      layoutBoxes();
     });
 
-    // Remember positions for the next refresh.
+    // Remember positions for the next refresh, and frame the graph once the
+    // layout has actually settled. The cluster force keeps moving the groups
+    // long after the first ticks, so a fixed delay is too early — the graph
+    // then sits outside the fitted view.
     simulation.on('end', () => {
       for (const n of simNodes) known.set(n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy });
+      if (!didFit && simNodes.length) {
+        didFit = true;
+        fitToView();
+      }
     });
 
-    // Frame the graph once, after it has settled. Without this the layout can
-    // start off-canvas and the user has to hunt for it — with a fresh layout
-    // there is no "natural" centre and forceCenter only fixes the centroid.
-    if (!didFit && simNodes.length) {
-      didFit = true;
-      window.setTimeout(() => fitToView(), 900);
-    }
+    // Fallback: if the simulation never reports 'end' (it can be kept alive by
+    // interaction), frame it anyway.
+    window.setTimeout(() => {
+      if (!didFit && simNodes.length) {
+        didFit = true;
+        fitToView();
+      }
+    }, 2500);
   }
 
   // Re-render whenever the data or the selection changes.
@@ -297,10 +410,13 @@
     const k = Math.min(6, Math.max(0.12, Math.min(w / (maxX - minX || 1), h / (maxY - minY || 1))));
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
+    // Frame the nodes. The viewBox is already centred on 0,0, so the middle of
+    // the viewport IS the origin in user coordinates — translating by w/2 would
+    // push the graph half a screen off.
     svgSel
       .transition()
       .duration(260)
-      .call(zoomBehavior.transform, zoomIdentity.translate(w / 2 - cx * k, h / 2 - cy * k).scale(k));
+      .call(zoomBehavior.transform, zoomIdentity.translate(-cx * k, -cy * k).scale(k));
   }
 
   export function fit() {
@@ -362,6 +478,13 @@
     paint-order: stroke;
     stroke: rgba(15, 23, 42, 0.85);
     stroke-width: 3px;
+  }
+
+  :global(.graph-host .group-label) {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    pointer-events: none;
   }
 
   :global(.graph-host .node-circle) {
