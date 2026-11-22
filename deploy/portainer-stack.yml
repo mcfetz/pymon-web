@@ -1,0 +1,40 @@
+# Portainer-Stack fuer pymon-web.
+#
+# Das Image baut die Gitea-Pipeline (deploy/deploy.py zieht es in den Stack). Der Dienst laeuft
+# im bereits vorhandenen Overlay-Netzwerk `pymon`, damit der Nginx-Proxy im Container den
+# pymon-server unter `http://pymon-server:5000` erreicht — deshalb extern deklariert.
+#
+# Veroeffentlicht wird ueber Zoraxy auf 5003 (ingress, also auf jedem Knoten erreichbar).
+version: "3.9"
+
+services:
+  pymon-web:
+    image: git.familie-heise.de/daniel/pymon-web:latest
+    environment:
+      PYMON_API_URL: ${PYMON_API_URL}
+    ports:
+      - target: 80
+        published: 5003
+        protocol: tcp
+        mode: ingress
+    networks:
+      pymon:
+        aliases:
+          - pymon-web
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 20s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.app.pymon == 1
+      restart_policy:
+        condition: any
+
+networks:
+  pymon:
+    external: true
