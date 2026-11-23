@@ -419,25 +419,30 @@
     display: grid;
     gap: 0.75rem;
     grid-template-columns: 1fr;
-  }
-
-  .layout.with-panel {
-    grid-template-columns: minmax(0, 1fr) 22rem;
-  }
-
-  @media (max-width: 1100px) {
-    .layout.with-panel {
-      grid-template-columns: 1fr;
-    }
+    /* Anchor for the floating detail panel. */
+    position: relative;
   }
 
   .pad {
     padding: 1rem;
   }
 
-  .detail {
-    max-height: 640px;
+  /* The detail panel glides over the graph instead of shrinking it: the graph is
+     the point of the page, so it keeps its full width. A click beside it lands on
+     the canvas and clears the selection.
+
+     :global, weil das Panel eine GlassCard ist - fremdes Markup, das den
+     Scoping-Hash dieser Komponente nicht traegt. Ohne :global ist die Regel
+     wirkungslos (so kam das Panel vorher nie an seine max-height). */
+  :global(.detail) {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 5;
+    width: min(21rem, calc(100% - 1.5rem));
+    max-height: calc(100% - 1.5rem);
     overflow-y: auto;
+    box-shadow: 0 12px 32px rgba(2, 6, 23, 0.55);
   }
 
   .detail-head {
