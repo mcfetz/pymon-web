@@ -22,6 +22,9 @@
   let selectedId = $state(null);
   let kindFilter = $state(null);
   let search = $state('');
+  // Zugeklappt bleibt nur die Lasche stehen: auf schmalen Displays sollen die
+  // Daten die Flaeche haben, nicht die Bedienung.
+  let filtersOpen = $state(false);
   let autoRefresh = $state(false);
   let grouped = $state(true);
   let graphEl = $state(null);
@@ -143,7 +146,17 @@
 </script>
 
 {#snippet graphControls()}
-  <div class="graph-overlay">
+  <div class="graph-overlay" class:open={filtersOpen}>
+    <button
+      type="button"
+      class="lasche"
+      onclick={() => (filtersOpen = !filtersOpen)}
+      aria-expanded={filtersOpen}
+      title={filtersOpen ? 'Suche und Filter einklappen' : 'Suche und Filter einblenden'}
+    >
+      Filter {filtersOpen ? '▴' : '▾'}
+    </button>
+    {#if filtersOpen}
     <label class="search">
       <Search size={14} />
       <input type="search" placeholder="Knoten suchen · a b" bind:value={search} />
@@ -178,6 +191,7 @@
           <button type="button" class="pill clear" onclick={() => (kindFilter = null)}>Filter aus</button>
         {/if}
       </div>
+    {/if}
     {/if}
   </div>
 {/snippet}
@@ -326,24 +340,53 @@
     align-items: center;
   }
 
-  /* Die Diagramm-Bedienung liegt IM Graphen statt im Seitenfluss: nur so ist sie
-     auch im Vollbild da, das den Host auf position:fixed umstellt. */
+  /* Eingeklappt steht nur die Lasche: der Graph soll die Flaeche haben, die Daten
+     sind wichtiger als die Bedienung. */
   .graph-overlay {
     position: absolute;
     top: 0.55rem;
     left: 0.55rem;
-    right: 3.2rem;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.35rem 0.5rem;
-    max-height: 45%;
-    overflow-y: auto;
-    padding: 0.35rem 0.45rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+    max-width: calc(100% - 4rem);
+    padding: 0.3rem;
     border-radius: 0.6rem;
-    background: rgba(11, 17, 32, 0.72);
+    background: rgba(11, 17, 32, 0.8);
     border: 1px solid rgba(148, 163, 184, 0.18);
     z-index: 2;
+  }
+
+  /* Offen bleibt das Panel kompakt und scrollt in sich, statt den Graphen zu
+     verdraengen - vorher wuchs es mit jeder Pille mit. */
+  .graph-overlay.open {
+    width: min(21rem, calc(100% - 4rem));
+    max-height: 38%;
+    overflow-y: auto;
+  }
+
+  .lasche {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 0.45rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(30, 41, 59, 0.9);
+    color: rgb(226, 232, 240);
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+
+  .graph-overlay.open .search,
+  .graph-overlay.open .filters {
+    width: 100%;
+  }
+
+  .graph-overlay.open .toggle {
+    align-self: flex-start;
   }
 
   .search {
