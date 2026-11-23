@@ -57,23 +57,67 @@
   // pattern instead: a custom force pulls each group towards its own centre,
   // and the box around a group is drawn by us from the node positions each
   // tick. So the group is a view concept, not a data structure.
-  const GROUP_LABEL = { proxmox: 'Proxmox', docker: 'Docker', net: 'Netz', other: 'Sonstige' };
-  const GROUP_COLOR = { proxmox: '#a78bfa', docker: '#34d399', net: '#22d3ee', other: '#94a3b8' };
+  // Netze aus UniFi (rest/networkconf, 23.11.2026). Ein Class-C-Subnetz ist ein
+  // VLAN; die Zuordnung steht hier, bis das Plugin sie am Knoten mitliefert.
+  const NETZE = {
+    '192.168.1': { label: 'mgmt', vlan: 7 },
+    '192.168.177': { label: 'Default', vlan: null },
+    '192.168.179': { label: 'iot', vlan: 3 },
+    '192.168.180': { label: 'guest', vlan: 4 },
+    '192.168.181': { label: 'srv', vlan: 5 },
+    '192.168.182': { label: 'WireGuard', vlan: null },
+    '192.168.183': { label: 'dmz', vlan: 6 },
+  };
+  const NET_KINDS = new Set([
+    'public-name',
+    'wan',
+    'reverse-proxy',
+    'unifi-device',
+    'client',
+    'dsl-modem',
+  ]);
+  const GROUP_LABEL = { proxmox: 'Proxmox', docker: 'Docker', other: 'Sonstige' };
+  const GROUP_COLOR = { proxmox: '#a78bfa', docker: '#34d399', other: '#94a3b8' };
 
-  function groupOf(kind) {
+  // Das Class-C eines Knotens, aus seinem ip:-Identifier.
+  function netOf(node) {
+    for (const id of node.ids || []) {
+      if (typeof id !== 'string' || !id.startsWith('ip:')) continue;
+      const p = id.slice(3).split('.');
+      if (p.length === 4) return `${p[0]}.${p[1]}.${p[2]}`;
+    }
+    return null;
+  }
+
+  function groupOf(node) {
+    const kind = node.kind;
     if (kind === 'pve-node' || kind === 'pve-guest') return 'proxmox';
     if (kind === 'docker-host' || kind === 'service' || kind === 'container') return 'docker';
-    if (
-      kind === 'public-name' ||
-      kind === 'wan' ||
-      kind === 'reverse-proxy' ||
-      kind === 'unifi-device' ||
-      kind === 'client' ||
-      kind === 'dsl-modem'
-    ) {
-      return 'net';
+    if (NET_KINDS.has(kind)) {
+      const netz = netOf(node);
+      return netz ? `net:${netz}` : 'net:unbekannt';
     }
     return 'other';
+  }
+
+  function groupLabel(key) {
+    if (key.startsWith('net:')) {
+      const c = key.slice(4);
+      if (c === 'unbekannt') return 'Netz (ohne Adresse)';
+      const info = NETZE[c];
+      if (!info) return `${c}.x`;
+      return info.vlan === null ? info.label : `${info.label} (VLAN ${info.vlan})`;
+    }
+    return GROUP_LABEL[key] || key;
+  }
+
+  // Netzfarben aus dem Schluessel abgeleitet: stabil, auch wenn sich die
+  // Gruppenmenge durch Filter aendert (ein Index wuerde dabei springen).
+  function groupColor(key) {
+    if (GROUP_COLOR[key]) return GROUP_COLOR[key];
+    let hash = 0;
+    for (const ch of key) hash = (hash * 31 + ch.charCodeAt(0)) % 360;
+    return `hsl(${hash} 70% 66%)`;
   }
 
   function forceCluster(centers, strength = 0.14) {
@@ -157,7 +201,7 @@
         id: nodeId(n),
         label: labelOf(n),
         kind: n.kind,
-        group: groupOf(n.kind),
+        group: groupOf(n),
         stale: !!n.stale,
         attrs: n.attrs || {},
         ids: n.ids || [],
@@ -332,16 +376,16 @@
       .select('rect')
       .attr('rx', 18)
       .attr('ry', 18)
-      .attr('fill', (d) => GROUP_COLOR[d.key] || '#94a3b8')
+      .attr('fill', (d) => groupColor(d.key))
       .attr('fill-opacity', 0.07)
-      .attr('stroke', (d) => GROUP_COLOR[d.key] || '#94a3b8')
+      .attr('stroke', (d) => groupColor(d.key))
       .attr('stroke-opacity', 0.5)
       .attr('stroke-width', 1.2)
       .attr('stroke-dasharray', '6 5');
     boxes
       .select('text')
-      .attr('fill', (d) => GROUP_COLOR[d.key] || '#94a3b8')
-      .text((d) => GROUP_LABEL[d.key] || d.key);
+      .attr('fill', (d) => groupColor(d.key))
+      .text((d) => groupLabel(d.key));
 
     function layoutBoxes() {
       boxes.each(function (d) {
