@@ -445,6 +445,18 @@
     box-shadow: 0 12px 32px rgba(2, 6, 23, 0.55);
   }
 
+  /* Ist der Graph auf den Viewport gepinnt, gehoert das Panel zu dieser Flaeche -
+     sonst behaelt es seine alte Geometrie und verschwindet hinter dem Graphen.
+     Beide Teile brauchen :global: die GlassCard traegt den Scoping-Hash nicht,
+     und .layout wird hier ebenfalls ungescoped adressiert. */
+  :global(.layout:has(.graph-host.fullscreen)) :global(.detail) {
+    position: fixed;
+    z-index: 60;
+    top: 0.75rem;
+    right: 0.75rem;
+    max-height: calc(100dvh - 1.5rem);
+  }
+
   .detail-head {
     display: flex;
     justify-content: space-between;

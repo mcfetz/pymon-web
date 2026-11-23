@@ -502,31 +502,36 @@
     svgSel.attr('viewBox', `${-w / 2} ${-h / 2} ${w} ${h}`);
   }
 
+  // Fullscreen is done in CSS instead of with the Fullscreen API: iOS Safari does
+  // not expose requestFullscreen for elements (only for video), so the button
+  // would simply do nothing on a phone. Pinning the canvas to the viewport works
+  // everywhere and behaves the same on every platform.
   async function toggleFullscreen() {
     if (!host) return;
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await host.requestFullscreen();
-    } catch {
-      // Fullscreen can be refused (no gesture, permissions). Nothing to recover.
-    }
+    isFullscreen = !isFullscreen;
+    // Let the class land first, then measure the new size.
+    window.setTimeout(() => {
+      refreshViewBox();
+      fitToView();
+    }, 80);
   }
 
   $effect(() => {
-    const onFullscreenChange = () => {
-      isFullscreen = !!document.fullscreenElement;
-      // One frame for the browser to apply the new size, then reframe.
-      window.setTimeout(() => {
-        refreshViewBox();
-        fitToView();
-      }, 80);
+    const onKey = (event) => {
+      if (event.key === 'Escape' && isFullscreen) {
+        isFullscreen = false;
+        window.setTimeout(() => {
+          refreshViewBox();
+          fitToView();
+        }, 80);
+      }
     };
-    document.addEventListener('fullscreenchange', onFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   });
 </script>
 
-<div class="graph-host" bind:this={host} style="height:{height}px">
+<div class="graph-host" class:fullscreen={isFullscreen} bind:this={host} style="height:{height}px">
   <svg>
     <g class="viewport"></g>
   </svg>
@@ -575,10 +580,16 @@
     cursor: grabbing;
   }
 
-  /* Fullscreen: fill the screen, drop the rounded frame. !important is needed
-     because the host carries its height as an inline style. */
-  .graph-host:fullscreen {
+  /* Fullscreen without the Fullscreen API: the canvas is pinned to the viewport.
+     CSS instead of the API because iOS Safari does not offer requestFullscreen
+     for elements - there the button would be dead. !important is needed because
+     the host carries its height as an inline style. */
+  .graph-host.fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
     height: 100vh !important;
+    height: 100dvh !important;
     width: 100vw;
     border-radius: 0;
     border: none;
