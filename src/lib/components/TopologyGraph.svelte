@@ -29,6 +29,7 @@
   let host = $state(null);
   let zoomLabel = $state('100%');
   let hoverId = $state(null);
+  let isFullscreen = $state(false);
   // Plain variable on purpose: it only guards a one-time action and must not
   // make the render effect depend on itself.
   let didFit = false;
@@ -490,6 +491,39 @@
   export function fit() {
     fitToView();
   }
+
+  // The canvas is sized from the element, so switching to fullscreen has to
+  // recompute the viewBox and reframe - otherwise the graph sits in one corner
+  // of the much larger area.
+  function refreshViewBox() {
+    if (!svgSel || !host) return;
+    const w = host.clientWidth || 800;
+    const h = host.clientHeight || height;
+    svgSel.attr('viewBox', `${-w / 2} ${-h / 2} ${w} ${h}`);
+  }
+
+  async function toggleFullscreen() {
+    if (!host) return;
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await host.requestFullscreen();
+    } catch {
+      // Fullscreen can be refused (no gesture, permissions). Nothing to recover.
+    }
+  }
+
+  $effect(() => {
+    const onFullscreenChange = () => {
+      isFullscreen = !!document.fullscreenElement;
+      // One frame for the browser to apply the new size, then reframe.
+      window.setTimeout(() => {
+        refreshViewBox();
+        fitToView();
+      }, 80);
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  });
 </script>
 
 <div class="graph-host" bind:this={host} style="height:{height}px">
@@ -502,6 +536,12 @@
     <button type="button" onclick={() => zoomBy(1 / 1.35)} aria-label="Zoom out" title="Zoom out">−</button>
     <button type="button" onclick={fitToView} aria-label="Fit" title="Alles einpassen">⤢</button>
     <button type="button" onclick={resetView} aria-label="Reset" title="Ansicht zurücksetzen">⟲</button>
+    <button
+      type="button"
+      onclick={toggleFullscreen}
+      aria-label={isFullscreen ? 'Vollbild verlassen' : 'Vollbild'}
+      title={isFullscreen ? 'Vollbild verlassen (Esc)' : 'Vollbild'}
+    >{isFullscreen ? '⤡' : '⛶'}</button>
     <span class="zoom-label">{zoomLabel}</span>
   </div>
 
@@ -533,6 +573,16 @@
 
   svg:active {
     cursor: grabbing;
+  }
+
+  /* Fullscreen: fill the screen, drop the rounded frame. !important is needed
+     because the host carries its height as an inline style. */
+  .graph-host:fullscreen {
+    height: 100vh !important;
+    width: 100vw;
+    border-radius: 0;
+    border: none;
+    background: #0b1120;
   }
 
   :global(.graph-host .node) {
