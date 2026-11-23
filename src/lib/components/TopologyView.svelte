@@ -84,12 +84,15 @@
   let staleCount = $derived(graph.nodes.filter((n) => n.stale).length);
 
   let visibleNodes = $derived.by(() => {
-    const q = search.trim().toLowerCase();
+    // Leerzeichen trennen Suchbegriffe, und ein Knoten passt, wenn er EINEN davon
+    // enthaelt: mehrere Begriffe erweitern die Treffermenge, statt sie zu verengen.
+    // Wer zwei Hosts vergleichen will, tippt beide.
+    const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return graph.nodes.filter((n) => {
       if (kindFilter !== null && !kindFilter.has(n.kind)) return false;
-      if (!q) return true;
+      if (!terms.length) return true;
       const hay = [n.label, n.id, ...(n.ids || []), n.kind].join(' ').toLowerCase();
-      return hay.includes(q);
+      return terms.some((t) => hay.includes(t));
     });
   });
 
@@ -143,7 +146,7 @@
   <div class="graph-overlay">
     <label class="search">
       <Search size={14} />
-      <input type="search" placeholder="Knoten suchen" bind:value={search} />
+      <input type="search" placeholder="Knoten suchen · a b" bind:value={search} />
       {#if search}
         <button type="button" class="icon-btn" onclick={() => (search = '')} aria-label="Suche leeren">
           <X size={13} />
