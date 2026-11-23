@@ -20,7 +20,7 @@
   let error = $state('');
   let updatedAt = $state(null);
   let selectedId = $state(null);
-  let kindFilter = $state(new Set());
+  let kindFilter = $state(null);
   let search = $state('');
   let autoRefresh = $state(false);
   let grouped = $state(true);
@@ -34,6 +34,10 @@
     container: 'Container',
     'public-name': 'öffentlicher Name',
     wan: 'WAN',
+    'reverse-proxy': 'Reverse-Proxy',
+    'unifi-device': 'UniFi-Gerät',
+    client: 'Client',
+    'dsl-modem': 'DSL-Modem',
   };
 
   const EDGE_LABEL = {
@@ -82,7 +86,7 @@
   let visibleNodes = $derived.by(() => {
     const q = search.trim().toLowerCase();
     return graph.nodes.filter((n) => {
-      if (kindFilter.size && !kindFilter.has(n.kind)) return false;
+      if (kindFilter !== null && !kindFilter.has(n.kind)) return false;
       if (!q) return true;
       const hay = [n.label, n.id, ...(n.ids || []), n.kind].join(' ').toLowerCase();
       return hay.includes(q);
@@ -106,11 +110,24 @@
     return n ? n.label : id;
   }
 
+  // null heisst: kein Filter, alles sichtbar. Damit stehen die Pillen beim ersten
+  // Aufruf alle auf aktiv - das entspricht dem, was der Graph zeigt. Der erste
+  // Klick schaltet deshalb genau einen Typ aus, nicht alle anderen an.
+  function shown(kind) {
+    return kindFilter === null || kindFilter.has(kind);
+  }
+
   function toggleKind(kind) {
+    const present = kinds.map(([k]) => k);
+    if (kindFilter === null) {
+      kindFilter = new Set(present.filter((k) => k !== kind));
+      return;
+    }
     const next = new Set(kindFilter);
     if (next.has(kind)) next.delete(kind);
     else next.add(kind);
-    kindFilter = next;
+    // Wieder alles an? Dann ist es kein Filter mehr.
+    kindFilter = next.size === present.length ? null : next;
   }
 
   function attrsText(attrs) {
@@ -166,15 +183,15 @@
         <button
           type="button"
           class="pill"
-          class:active={kindFilter.has(kind)}
+          class:active={shown(kind)}
           onclick={() => toggleKind(kind)}
         >
           <span class="dot" data-kind={kind}></span>
-          {KIND_LABEL[kind] || kind} <span class="count">{count}</span>
+          {KIND_LABEL[kind] || kind || 'ohne Art'} <span class="count">{count}</span>
         </button>
       {/each}
-      {#if kindFilter.size}
-        <button type="button" class="pill clear" onclick={() => (kindFilter = new Set())}>Filter aus</button>
+      {#if kindFilter}
+        <button type="button" class="pill clear" onclick={() => (kindFilter = null)}>Filter aus</button>
       {/if}
     </div>
   {/if}
@@ -414,6 +431,11 @@
   .dot[data-kind='container'] { background: #f472b6; }
   .dot[data-kind='public-name'] { background: #22d3ee; }
   .dot[data-kind='wan'] { background: #fb7185; }
+  .dot[data-kind='reverse-proxy'] { background: #38bdf8; }
+  .dot[data-kind='unifi-device'] { background: #818cf8; }
+  .dot[data-kind='client'] { background: #94a3b8; }
+  .dot[data-kind='dsl-modem'] { background: #fb7185; }
+  .dot[data-kind='pve-guest'] { background: #60a5fa; }
 
   .layout {
     display: grid;
