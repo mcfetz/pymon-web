@@ -24,6 +24,7 @@
     height = 620,
     grouped = true,
     onselect = () => {},
+    filters = null,
   } = $props();
 
   let host = $state(null);
@@ -535,6 +536,13 @@
   <svg>
     <g class="viewport"></g>
   </svg>
+
+  <!-- Die Bedienung der Ansicht (Suche, Filter, Gruppen) kommt als Snippet von
+       aussen und lebt hier drin. Absolut im Host positioniert, damit sie im
+       Vollbild mitkommt - das stellt den Host selbst auf position:fixed um. -->
+  {#if filters}
+    {@render filters()}
+  {/if}
 
   <div class="graph-controls">
     <button type="button" onclick={() => zoomBy(1.35)} aria-label="Zoom in" title="Zoom in">+</button>

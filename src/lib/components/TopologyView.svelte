@@ -139,6 +139,46 @@
   }
 </script>
 
+{#snippet graphControls()}
+  <div class="graph-overlay">
+    <label class="search">
+      <Search size={14} />
+      <input type="search" placeholder="Knoten suchen" bind:value={search} />
+      {#if search}
+        <button type="button" class="icon-btn" onclick={() => (search = '')} aria-label="Suche leeren">
+          <X size={13} />
+        </button>
+      {/if}
+    </label>
+    <label class="toggle">
+      <input type="checkbox" bind:checked={grouped} />
+      <span>Gruppen</span>
+    </label>
+    <label class="toggle">
+      <input type="checkbox" bind:checked={autoRefresh} />
+      <span>live</span>
+    </label>
+    {#if kinds.length > 0}
+      <div class="filters">
+        {#each kinds as [kind, count] (kind)}
+          <button
+            type="button"
+            class="pill"
+            class:active={shown(kind)}
+            onclick={() => toggleKind(kind)}
+          >
+            <span class="dot" data-kind={kind}></span>
+            {KIND_LABEL[kind] || kind || 'ohne Art'} <span class="count">{count}</span>
+          </button>
+        {/each}
+        {#if kindFilter}
+          <button type="button" class="pill clear" onclick={() => (kindFilter = null)}>Filter aus</button>
+        {/if}
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
 <div class="topology-page">
   <div class="toolbar">
     <div class="stats">
@@ -153,48 +193,12 @@
     </div>
 
     <div class="actions">
-      <label class="search">
-        <Search size={14} />
-        <input type="search" placeholder="Knoten suchen" bind:value={search} />
-        {#if search}
-          <button type="button" class="icon-btn" onclick={() => (search = '')} aria-label="Suche leeren">
-            <X size={13} />
-          </button>
-        {/if}
-      </label>
-      <label class="toggle">
-        <input type="checkbox" bind:checked={grouped} />
-        <span>Gruppen</span>
-      </label>
-      <label class="toggle">
-        <input type="checkbox" bind:checked={autoRefresh} />
-        <span>live</span>
-      </label>
       <button type="button" class="refresh" onclick={load} disabled={loading}>
         <RefreshCw size={14} class={loading ? 'spin' : ''} />
         <span>Aktualisieren</span>
       </button>
     </div>
   </div>
-
-  {#if kinds.length > 0}
-    <div class="filters">
-      {#each kinds as [kind, count] (kind)}
-        <button
-          type="button"
-          class="pill"
-          class:active={shown(kind)}
-          onclick={() => toggleKind(kind)}
-        >
-          <span class="dot" data-kind={kind}></span>
-          {KIND_LABEL[kind] || kind || 'ohne Art'} <span class="count">{count}</span>
-        </button>
-      {/each}
-      {#if kindFilter}
-        <button type="button" class="pill clear" onclick={() => (kindFilter = null)}>Filter aus</button>
-      {/if}
-    </div>
-  {/if}
 
   {#if error}
     <GlassCard>
@@ -218,6 +222,7 @@
         selectedId={selectedId}
         {grouped}
         onselect={(id) => (selectedId = id)}
+        filters={graphControls}
         height={640}
       />
 
@@ -316,6 +321,26 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
+  }
+
+  /* Die Diagramm-Bedienung liegt IM Graphen statt im Seitenfluss: nur so ist sie
+     auch im Vollbild da, das den Host auf position:fixed umstellt. */
+  .graph-overlay {
+    position: absolute;
+    top: 0.55rem;
+    left: 0.55rem;
+    right: 3.2rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    max-height: 45%;
+    overflow-y: auto;
+    padding: 0.35rem 0.45rem;
+    border-radius: 0.6rem;
+    background: rgba(11, 17, 32, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    z-index: 2;
   }
 
   .search {
